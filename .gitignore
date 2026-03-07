@@ -1,0 +1,68 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage
+coverage/
+.nyc_output/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+*.pem
+
+# Uploads (keep structure, ignore content)
+uploads/shifts/*
+uploads/social/*
+!uploads/shifts/.gitkeep
+!uploads/social/.gitkeep
+
+# Prisma
+prisma/migrations/*_migration_lock.toml
+
+# SSL certificates
+nginx/ssl/
+.env
+.env.production
+.env.local
+backend/src/files/client_secret_*.json
+.env
+.env.*
+*.json

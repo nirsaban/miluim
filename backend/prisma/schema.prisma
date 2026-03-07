@@ -1,0 +1,410 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  SOLDIER
+  COMMANDER
+  OFFICER
+  MEDIC
+  LOGISTICS
+  ADMIN
+  SFOGIST
+}
+
+enum FormType {
+  SHORT_LEAVE
+  EQUIPMENT_SHORTAGE
+  HOME_LEAVE
+  IMPROVEMENT_SUGGESTION
+  RESTAURANT_RECOMMENDATION
+}
+
+enum FormStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum MessageType {
+  GENERAL
+  FOOD
+  URGENT
+  ANNOUNCEMENT
+  OPERATIONAL
+}
+
+enum MessagePriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ShiftType {
+  GUARD
+  PATROL
+  KITCHEN
+  CLEANING
+  SPECIAL
+}
+
+enum SoldierStatusType {
+  ACTIVE
+  LEAVE
+  SICK
+  TRAINING
+  OTHER
+}
+
+enum LeaveType {
+  SHORT
+  HOME
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  ACTIVE
+  RETURNED
+  OVERDUE
+}
+
+enum RecommendationCategory {
+  RESTAURANT
+  ACTIVITY
+  SERVICE
+  OTHER
+}
+
+model User {
+  id             String    @id @default(uuid())
+  fullName       String
+  email          String    @unique
+  phone          String
+  passwordHash   String
+  role           UserRole  @default(SOLDIER)
+  armyNumber     String    @unique
+  idNumber       String    @unique
+  dailyJob       String?
+  city           String?
+  fieldOfStudy   String?
+  birthDay       DateTime?
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  formSubmissions     FormSubmission[]
+  socialPosts         SocialPost[]
+  recommendations     Recommendation[]
+  notifications       Notification[]
+  soldierStatus       SoldierStatus?
+  shiftsCreated       ShiftPost[]
+  operationalLinks    OperationalLink[]
+  leaveRequests       LeaveRequest[]
+  approvedLeaves      LeaveRequest[]    @relation("ApprovedLeaves")
+  skills              SoldierSkill[]
+  shiftAssignments    ShiftAssignment[]
+  publishedSchedules  ShiftSchedule[]   @relation("PublishedSchedules")
+
+  @@map("users")
+}
+
+model OTP {
+  id        String   @id @default(uuid())
+  email     String
+  code      String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([email, code])
+  @@map("otps")
+}
+
+model Message {
+  id        String          @id @default(uuid())
+  title     String
+  content   String
+  type      MessageType     @default(GENERAL)
+  priority  MessagePriority @default(MEDIUM)
+  isActive  Boolean         @default(true)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@map("messages")
+}
+
+model ShiftPost {
+  id          String    @id @default(uuid())
+  date        DateTime
+  shiftType   ShiftType
+  message     String?
+  imageUrl    String?
+  createdById String
+  createdBy   User      @relation(fields: [createdById], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("shift_posts")
+}
+
+model FormSubmission {
+  id           String     @id @default(uuid())
+  userId       String
+  user         User       @relation(fields: [userId], references: [id])
+  type         FormType
+  content      Json
+  status       FormStatus @default(PENDING)
+  adminComment String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@map("form_submissions")
+}
+
+model SocialPost {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  imageUrl  String
+  caption   String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@map("social_posts")
+}
+
+model Recommendation {
+  id        String                 @id @default(uuid())
+  userId    String
+  user      User                   @relation(fields: [userId], references: [id])
+  content   String
+  category  RecommendationCategory @default(OTHER)
+  isActive  Boolean                @default(true)
+  createdAt DateTime               @default(now())
+
+  @@map("recommendations")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  title     String
+  content   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@map("notifications")
+}
+
+model SoldierStatus {
+  id        String            @id @default(uuid())
+  soldierId String            @unique
+  soldier   User              @relation(fields: [soldierId], references: [id])
+  status    SoldierStatusType @default(ACTIVE)
+  note      String?
+  updatedAt DateTime          @updatedAt
+
+  @@map("soldier_statuses")
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  displayName String
+  createdAt   DateTime @default(now())
+
+  @@map("roles")
+}
+
+model OperationalLink {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  url         String
+  isActive    Boolean  @default(true)
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("operational_links")
+}
+
+model LeaveCategory {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  displayName String
+  icon        String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  leaveRequests LeaveRequest[]
+
+  @@map("leave_categories")
+}
+
+model LeaveRequest {
+  id              String         @id @default(uuid())
+  soldierId       String
+  soldier         User           @relation(fields: [soldierId], references: [id])
+  type            LeaveType
+  categoryId      String?
+  category        LeaveCategory? @relation(fields: [categoryId], references: [id])
+  reason          String?
+  exitTime        DateTime
+  expectedReturn  DateTime
+  actualReturn    DateTime?
+  status          LeaveStatus    @default(PENDING)
+  approvedById    String?
+  approvedBy      User?          @relation("ApprovedLeaves", fields: [approvedById], references: [id])
+  adminNote       String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@map("leave_requests")
+}
+
+model Skill {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  displayName String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  soldiers         SoldierSkill[]
+  taskRequirements TaskRequirement[]
+
+  @@map("skills")
+}
+
+model SoldierSkill {
+  id        String   @id @default(uuid())
+  soldierId String
+  soldier   User     @relation(fields: [soldierId], references: [id], onDelete: Cascade)
+  skillId   String
+  skill     Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([soldierId, skillId])
+  @@map("soldier_skills")
+}
+
+model Zone {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tasks          Task[]
+  shiftSchedules ShiftSchedule[]
+
+  @@map("zones")
+}
+
+model Task {
+  id          String   @id @default(uuid())
+  zoneId      String
+  zone        Zone     @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  requirements     TaskRequirement[]
+  shiftAssignments ShiftAssignment[]
+
+  @@map("tasks")
+}
+
+model TaskRequirement {
+  id       String @id @default(uuid())
+  taskId   String
+  task     Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  skillId  String
+  skill    Skill  @relation(fields: [skillId], references: [id])
+  quantity Int    @default(1)
+
+  @@unique([taskId, skillId])
+  @@map("task_requirements")
+}
+
+// Phase 2: Shift Management
+
+enum ShiftAssignmentStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+enum ShiftScheduleStatus {
+  DRAFT
+  PUBLISHED
+}
+
+model ShiftTemplate {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  displayName String
+  startTime   String   // HH:MM format
+  endTime     String   // HH:MM format
+  color       String?  // For UI display
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  assignments ShiftAssignment[]
+
+  @@map("shift_templates")
+}
+
+model ShiftSchedule {
+  id            String              @id @default(uuid())
+  date          DateTime            @db.Date
+  zoneId        String?
+  zone          Zone?               @relation(fields: [zoneId], references: [id])
+  status        ShiftScheduleStatus @default(DRAFT)
+  publishedAt   DateTime?
+  publishedById String?
+  publishedBy   User?               @relation("PublishedSchedules", fields: [publishedById], references: [id])
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  assignments ShiftAssignment[]
+
+  @@unique([date, zoneId])
+  @@map("shift_schedules")
+}
+
+model ShiftAssignment {
+  id              String                @id @default(uuid())
+  scheduleId      String?
+  schedule        ShiftSchedule?        @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  date            DateTime              @db.Date
+  shiftTemplateId String
+  shiftTemplate   ShiftTemplate         @relation(fields: [shiftTemplateId], references: [id])
+  taskId          String
+  task            Task                  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  soldierId       String
+  soldier         User                  @relation(fields: [soldierId], references: [id], onDelete: Cascade)
+  status          ShiftAssignmentStatus @default(PENDING)
+  notes           String?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  @@unique([date, shiftTemplateId, taskId, soldierId])
+  @@map("shift_assignments")
+}

@@ -1,0 +1,88 @@
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+import { format, parseISO } from 'date-fns';
+import { he } from 'date-fns/locale';
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+
+export function formatDate(date: string | Date, formatStr: string = 'dd/MM/yyyy') {
+  const parsedDate = typeof date === 'string' ? parseISO(date) : date;
+  return format(parsedDate, formatStr, { locale: he });
+}
+
+export function formatDateTime(date: string | Date) {
+  return formatDate(date, 'dd/MM/yyyy HH:mm');
+}
+
+export function formatRelativeTime(date: string | Date) {
+  const parsedDate = typeof date === 'string' ? parseISO(date) : date;
+  const now = new Date();
+  const diffMs = now.getTime() - parsedDate.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffMins < 1) return 'עכשיו';
+  if (diffMins < 60) return `לפני ${diffMins} דקות`;
+  if (diffHours < 24) return `לפני ${diffHours} שעות`;
+  if (diffDays < 7) return `לפני ${diffDays} ימים`;
+  return formatDate(parsedDate);
+}
+
+export function truncateText(text: string, maxLength: number) {
+  if (text.length <= maxLength) return text;
+  return text.slice(0, maxLength) + '...';
+}
+
+export function getInitials(name: string) {
+  return name
+    .split(' ')
+    .map((part) => part[0])
+    .join('')
+    .slice(0, 2);
+}
+
+export function getPriorityColor(priority: string) {
+  switch (priority) {
+    case 'CRITICAL':
+      return 'bg-red-600 text-white';
+    case 'HIGH':
+      return 'bg-orange-500 text-white';
+    case 'MEDIUM':
+      return 'bg-yellow-500 text-white';
+    case 'LOW':
+      return 'bg-gray-400 text-white';
+    default:
+      return 'bg-gray-400 text-white';
+  }
+}
+
+export function getStatusColor(status: string) {
+  switch (status) {
+    case 'APPROVED':
+      return 'bg-green-600 text-white';
+    case 'REJECTED':
+      return 'bg-red-600 text-white';
+    case 'PENDING':
+      return 'bg-yellow-500 text-white';
+    default:
+      return 'bg-gray-400 text-white';
+  }
+}
+
+export function getSoldierStatusColor(status: string) {
+  switch (status) {
+    case 'ACTIVE':
+      return 'bg-green-600 text-white';
+    case 'LEAVE':
+      return 'bg-blue-500 text-white';
+    case 'SICK':
+      return 'bg-red-500 text-white';
+    case 'TRAINING':
+      return 'bg-purple-500 text-white';
+    default:
+      return 'bg-gray-400 text-white';
+  }
+}
