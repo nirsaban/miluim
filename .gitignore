@@ -11,11 +11,8 @@ out/
 
 # Environment files
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-*.env
+.env.*
+!.env.example
 
 # Logs
 logs/
@@ -59,10 +56,8 @@ prisma/migrations/*_migration_lock.toml
 
 # SSL certificates
 nginx/ssl/
-.env
-.env.production
-.env.local
+
+# Secret files
 backend/src/files/client_secret_*.json
-.env
-.env.*
-*.json
+credentials.json
+token.json
