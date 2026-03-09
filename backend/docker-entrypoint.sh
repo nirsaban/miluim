@@ -9,10 +9,11 @@ MAX_RETRIES=30
 RETRY_COUNT=0
 
 while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-  if npx prisma db execute --stdin <<< "SELECT 1" > /dev/null 2>&1; then
+  if echo "SELECT 1;" | npx prisma db execute --stdin > /dev/null 2>&1; then
     echo "✅ Database is ready!"
     break
   fi
+
   RETRY_COUNT=$((RETRY_COUNT + 1))
   echo "⏳ Database not ready, retrying in 2 seconds... ($RETRY_COUNT/$MAX_RETRIES)"
   sleep 2
@@ -26,19 +27,12 @@ fi
 # Run migrations
 echo "🔄 Running database migrations..."
 npx prisma migrate deploy
+echo "✅ Migrations completed successfully"
 
-if [ $? -eq 0 ]; then
-  echo "✅ Migrations completed successfully"
-else
-  echo "❌ Migration failed"
-  exit 1
-fi
-
-# Optional: Run seed if SEED_DATABASE is set
+# Optional seed
 if [ "$SEED_DATABASE" = "true" ]; then
   echo "🌱 Seeding database..."
-  npx prisma db seed
-  if [ $? -eq 0 ]; then
+  if npx prisma db seed; then
     echo "✅ Database seeded successfully"
   else
     echo "⚠️ Seed failed (this may be okay if data already exists)"
@@ -47,4 +41,4 @@ fi
 
 # Start the application
 echo "🚀 Starting application..."
-exec node dist/main
+exec node dist/main.js
