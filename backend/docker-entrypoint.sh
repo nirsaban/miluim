@@ -26,4 +26,4 @@ if [ "$SEED_DATABASE" = "true" ]; then
 fi
 
 echo "🚀 Starting application..."
-exec node dist/src/main.js
+exec npm run start:prod
