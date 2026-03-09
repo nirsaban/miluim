@@ -14,7 +14,7 @@ RUN apk add --no-cache python3 make g++
 COPY package*.json ./
 COPY prisma ./prisma/
 
-# Install dependencies (use npm ci if lock file exists, fallback to npm install)
+# Install dependencies
 RUN if [ -f package-lock.json ]; then \
       npm ci; \
     else \
@@ -38,7 +38,7 @@ FROM node:20-alpine AS production
 WORKDIR /app
 
 # Install runtime dependencies
-RUN apk add --no-cache wget
+RUN apk add --no-cache wget postgresql-client
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
@@ -54,7 +54,7 @@ RUN if [ -f package-lock.json ]; then \
       npm install --only=production --ignore-scripts; \
     fi
 
-# Copy Prisma files (needed for migrations at runtime)
+# Copy Prisma files
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
@@ -66,7 +66,7 @@ COPY --from=builder /app/dist ./dist
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
-# Create uploads directory with proper permissions
+# Create uploads directory
 RUN mkdir -p uploads/shifts uploads/social && \
     chown -R nestjs:nodejs uploads
 
@@ -76,13 +76,10 @@ USER nestjs
 # Expose port
 EXPOSE 3001
 
-# Environment variables
 ENV NODE_ENV=production
 ENV APP_PORT=3001
 
-# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:3001/api/health || exit 1
 
-# Start the application with entrypoint
 ENTRYPOINT ["/docker-entrypoint.sh"]
