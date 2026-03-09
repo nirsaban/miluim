@@ -12,14 +12,14 @@ import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
 import { MultiSelect } from '@/components/ui/MultiSelect';
 import api from '@/lib/api';
-import { SoldierWithSkills, Skill, ROLE_LABELS, UserRole } from '@/types';
+import { SoldierWithSkills, Skill, MilitaryRole, MILITARY_ROLE_LABELS } from '@/types';
 
 export default function AdminSoldiersPage() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>([]);
-  const [selectedRole, setSelectedRole] = useState<UserRole | ''>('');
+  const [selectedMilitaryRole, setSelectedMilitaryRole] = useState<MilitaryRole | ''>('');
 
   const { data: soldiers, isLoading } = useQuery<SoldierWithSkills[]>({
     queryKey: ['soldiers-with-skills'],
@@ -53,17 +53,17 @@ export default function AdminSoldiersPage() {
     },
   });
 
-  const updateRoleMutation = useMutation({
-    mutationFn: async ({ id, role }: { id: string; role: UserRole }) => {
-      const response = await api.patch(`/users/${id}/role`, { role });
+  const updateMilitaryRoleMutation = useMutation({
+    mutationFn: async ({ id, militaryRole }: { id: string; militaryRole: MilitaryRole }) => {
+      const response = await api.patch(`/users/${id}/military-role`, { militaryRole });
       return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['soldiers-with-skills'] });
-      toast.success('תפקיד עודכן בהצלחה');
+      toast.success('תפקיד צבאי עודכן בהצלחה');
     },
     onError: () => {
-      toast.error('שגיאה בעדכון תפקיד');
+      toast.error('שגיאה בעדכון תפקיד צבאי');
     },
   });
 
@@ -78,7 +78,7 @@ export default function AdminSoldiersPage() {
   const startEditing = (soldier: SoldierWithSkills) => {
     setEditingId(soldier.id);
     setSelectedSkillIds(soldier.skills?.map((s) => s.skillId) || []);
-    setSelectedRole(soldier.role);
+    setSelectedMilitaryRole(soldier.militaryRole || 'FIGHTER');
   };
 
   const handleSave = (soldierId: string) => {
@@ -88,14 +88,15 @@ export default function AdminSoldiersPage() {
     });
   };
 
-  const handleRoleChange = (soldierId: string, role: UserRole) => {
-    updateRoleMutation.mutate({ id: soldierId, role });
+  const handleMilitaryRoleChange = (soldierId: string, militaryRole: MilitaryRole) => {
+    updateMilitaryRoleMutation.mutate({ id: soldierId, militaryRole });
   };
 
   const skillOptions = skills?.map((s) => ({ value: s.id, label: s.displayName })) || [];
 
   return (
     <AdminLayout>
+      {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-military-700">ניהול חיילים</h1>
         <p className="text-gray-600 mt-1">הקצה כישורים ותפקידים לחיילים</p>
@@ -103,9 +104,12 @@ export default function AdminSoldiersPage() {
 
       <Card>
         <CardHeader className="flex items-center justify-between">
-          <span>חיילים</span>
+          <div className="flex items-center gap-2">
+            <span>חיילים</span>
+            <span className="text-sm text-gray-600">({filteredSoldiers?.length || 0})</span>
+          </div>
           <div className="relative w-64">
-            <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
             <Input
               placeholder="חיפוש לפי שם, מ.א או טלפון..."
               value={searchTerm}
@@ -122,25 +126,25 @@ export default function AdminSoldiersPage() {
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-50">
+                <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-500">שם</th>
-                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-500">מספר אישי</th>
-                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-500">טלפון</th>
-                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-500">תפקיד ראשי</th>
-                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-500">כישורים</th>
-                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-500">פעולות</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">שם</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">מספר אישי</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">טלפון</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">תפקיד ראשי</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">כישורים</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">פעולות</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {filteredSoldiers?.map((soldier) => (
-                    <tr key={soldier.id} className="hover:bg-gray-50">
+                    <tr key={soldier.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <div className="w-8 h-8 bg-military-100 rounded-full flex items-center justify-center">
-                            <User className="w-4 h-4 text-military-600" />
+                            <User className="w-4 h-4 text-military-700" />
                           </div>
-                          <span className="font-medium">{soldier.fullName}</span>
+                          <span className="font-medium text-gray-900">{soldier.fullName}</span>
                         </div>
                       </td>
                       <td className="px-4 py-3 text-gray-600">{soldier.armyNumber}</td>
@@ -148,21 +152,21 @@ export default function AdminSoldiersPage() {
                       <td className="px-4 py-3">
                         {editingId === soldier.id ? (
                           <Select
-                            value={selectedRole}
+                            value={selectedMilitaryRole}
                             onChange={(e) => {
-                              const newRole = e.target.value as UserRole;
-                              setSelectedRole(newRole);
-                              handleRoleChange(soldier.id, newRole);
+                              const newRole = e.target.value as MilitaryRole;
+                              setSelectedMilitaryRole(newRole);
+                              handleMilitaryRoleChange(soldier.id, newRole);
                             }}
-                            options={Object.entries(ROLE_LABELS).map(([value, label]) => ({
+                            options={Object.entries(MILITARY_ROLE_LABELS).map(([value, label]) => ({
                               value,
                               label,
                             }))}
                             className="w-32"
                           />
                         ) : (
-                          <span className="px-2 py-1 text-xs bg-military-100 text-military-700 rounded">
-                            {ROLE_LABELS[soldier.role]}
+                          <span className="px-2 py-1 text-xs bg-military-100 text-military-700 rounded-lg font-medium">
+                            {soldier.militaryRole ? MILITARY_ROLE_LABELS[soldier.militaryRole] : 'לא הוגדר'}
                           </span>
                         )}
                       </td>
@@ -181,13 +185,13 @@ export default function AdminSoldiersPage() {
                               soldier.skills.map((s) => (
                                 <span
                                   key={s.id}
-                                  className="px-2 py-0.5 text-xs bg-blue-100 text-blue-800 rounded"
+                                  className="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-lg"
                                 >
                                   {s.skill?.displayName}
                                 </span>
                               ))
                             ) : (
-                              <span className="text-gray-400 text-sm">ללא כישורים</span>
+                              <span className="text-gray-500 text-sm">ללא כישורים</span>
                             )}
                           </div>
                         )}
@@ -208,7 +212,7 @@ export default function AdminSoldiersPage() {
                               onClick={() => {
                                 setEditingId(null);
                                 setSelectedSkillIds([]);
-                                setSelectedRole('');
+                                setSelectedMilitaryRole('');
                               }}
                             >
                               <X className="w-4 h-4" />
@@ -217,7 +221,7 @@ export default function AdminSoldiersPage() {
                         ) : (
                           <button
                             onClick={() => startEditing(soldier)}
-                            className="p-2 text-gray-500 hover:text-military-600 hover:bg-gray-100 rounded"
+                            className="p-2 text-gray-600 hover:text-military-700 hover:bg-gray-100 rounded-lg transition-colors"
                           >
                             <Edit2 className="w-4 h-4" />
                           </button>

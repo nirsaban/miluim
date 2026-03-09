@@ -14,6 +14,7 @@ import { ValidationService } from './validation.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ShiftAssignmentStatus } from '@prisma/client';
 
 @Controller('shift-assignments')
@@ -24,6 +25,11 @@ export class ShiftAssignmentsController {
     private readonly validationService: ValidationService,
   ) {}
 
+  @Get('my-shifts')
+  findMyShifts(@CurrentUser() user: any) {
+    return this.shiftAssignmentsService.findMyShifts(user.id);
+  }
+
   @Get()
   findByDateRange(
     @Query('startDate') startDate: string,
@@ -33,13 +39,13 @@ export class ShiftAssignmentsController {
     return this.shiftAssignmentsService.findByDateRange(
       new Date(startDate),
       new Date(endDate),
-      zoneId,
+      zoneId && zoneId !== 'undefined' ? zoneId : undefined,
     );
   }
 
   @Get('date/:date')
   findByDate(@Param('date') date: string, @Query('zoneId') zoneId?: string) {
-    return this.shiftAssignmentsService.findByDate(new Date(date), zoneId);
+    return this.shiftAssignmentsService.findByDate(new Date(date), zoneId && zoneId !== 'undefined' ? zoneId : undefined);
   }
 
   @Get('available-soldiers')
@@ -68,9 +74,10 @@ export class ShiftAssignmentsController {
     );
   }
 
+  // OFFICER can manage shifts (OPERATIONS_NCO) - ADMIN also allowed via hierarchy
   @Post()
   @UseGuards(RolesGuard)
-  @Roles('ADMIN', 'COMMANDER')
+  @Roles('OFFICER')
   create(
     @Body()
     data: {
@@ -89,7 +96,7 @@ export class ShiftAssignmentsController {
 
   @Post('bulk')
   @UseGuards(RolesGuard)
-  @Roles('ADMIN', 'COMMANDER')
+  @Roles('OFFICER')
   bulkCreate(
     @Body()
     data: {
@@ -112,7 +119,7 @@ export class ShiftAssignmentsController {
 
   @Patch(':id')
   @UseGuards(RolesGuard)
-  @Roles('ADMIN', 'COMMANDER')
+  @Roles('OFFICER')
   update(
     @Param('id') id: string,
     @Body() data: { status?: ShiftAssignmentStatus; notes?: string },
@@ -122,7 +129,7 @@ export class ShiftAssignmentsController {
 
   @Patch(':id/move')
   @UseGuards(RolesGuard)
-  @Roles('ADMIN', 'COMMANDER')
+  @Roles('OFFICER')
   moveAssignment(
     @Param('id') id: string,
     @Body()
@@ -142,7 +149,7 @@ export class ShiftAssignmentsController {
 
   @Delete(':id')
   @UseGuards(RolesGuard)
-  @Roles('ADMIN', 'COMMANDER')
+  @Roles('OFFICER')
   delete(@Param('id') id: string) {
     return this.shiftAssignmentsService.delete(id);
   }
@@ -167,6 +174,6 @@ export class ShiftAssignmentsController {
     @Query('date') date: string,
     @Query('zoneId') zoneId?: string,
   ) {
-    return this.validationService.validateDaySchedule(new Date(date), zoneId);
+    return this.validationService.validateDaySchedule(new Date(date), zoneId && zoneId !== 'undefined' ? zoneId : undefined);
   }
 }

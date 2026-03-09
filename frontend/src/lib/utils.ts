@@ -86,3 +86,30 @@ export function getSoldierStatusColor(status: string) {
       return 'bg-gray-400 text-white';
   }
 }
+
+/**
+ * Format phone number to WhatsApp link
+ * Converts Israeli phone numbers to international format
+ * Example: 0501234567 -> https://wa.me/972501234567
+ */
+export function formatWhatsAppLink(phone: string): string {
+  if (!phone) return '#';
+
+  // Remove spaces, dashes, and other non-numeric characters
+  let cleaned = phone.replace(/[^\d+]/g, '');
+
+  // If starts with 0, replace with 972
+  if (cleaned.startsWith('0')) {
+    cleaned = '972' + cleaned.slice(1);
+  }
+
+  // If doesn't start with +972 or 972, add 972
+  if (!cleaned.startsWith('972') && !cleaned.startsWith('+972')) {
+    cleaned = '972' + cleaned;
+  }
+
+  // Remove + if present
+  cleaned = cleaned.replace(/^\+/, '');
+
+  return `https://wa.me/${cleaned}`;
+}

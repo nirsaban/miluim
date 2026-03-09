@@ -22,6 +22,7 @@ import { TasksModule } from './modules/tasks/tasks.module';
 import { ShiftTemplatesModule } from './modules/shift-templates/shift-templates.module';
 import { ShiftAssignmentsModule } from './modules/shift-assignments/shift-assignments.module';
 import { ShiftSchedulesModule } from './modules/shift-schedules/shift-schedules.module';
+import { CsvImportModule } from './modules/csv-import/csv-import.module';
 import { EmailModule } from './email/email.module';
 import { UploadModule } from './upload/upload.module';
 
@@ -60,6 +61,7 @@ import { UploadModule } from './upload/upload.module';
     ShiftTemplatesModule,
     ShiftAssignmentsModule,
     ShiftSchedulesModule,
+    CsvImportModule,
   ],
 })
 export class AppModule {}

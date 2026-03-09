@@ -1,11 +1,12 @@
-import { Controller, Get, Param, UseGuards, Patch, Put, Body } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Param, UseGuards, Patch, Put, Body } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Public } from '../../common/decorators/public.decorator';
-import { UserRole } from '@prisma/client';
+import { UserRole, MilitaryRole } from '@prisma/client';
+import { CreatePreapprovedUserDto } from './dto';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard)
@@ -33,6 +34,11 @@ export class UsersController {
     return this.usersService.findOne(user.id);
   }
 
+  @Get('me/home')
+  getHomeData(@CurrentUser() user: any) {
+    return this.usersService.getHomeData(user.id);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.usersService.findOne(id);
@@ -46,23 +52,24 @@ export class UsersController {
     return this.usersService.updateProfile(user.id, data);
   }
 
+  // OFFICER can view/manage soldiers and skills (OPERATIONS_NCO)
   @Get('admin/soldiers')
   @UseGuards(RolesGuard)
-  @Roles('ADMIN')
+  @Roles('OFFICER')
   findAllSoldiersWithSkills() {
     return this.usersService.findAllSoldiersWithSkills();
   }
 
   @Get(':id/skills')
   @UseGuards(RolesGuard)
-  @Roles('ADMIN')
+  @Roles('OFFICER')
   getUserSkills(@Param('id') id: string) {
     return this.usersService.getUserSkills(id);
   }
 
   @Put(':id/skills')
   @UseGuards(RolesGuard)
-  @Roles('ADMIN')
+  @Roles('OFFICER')
   updateUserSkills(
     @Param('id') id: string,
     @Body() data: { skillIds: string[] },
@@ -78,5 +85,45 @@ export class UsersController {
     @Body() data: { role: UserRole },
   ) {
     return this.usersService.updateUserRole(id, data.role);
+  }
+
+  @Patch(':id/military-role')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
+  updateMilitaryRole(
+    @Param('id') id: string,
+    @Body() data: { militaryRole: MilitaryRole },
+  ) {
+    return this.usersService.updateMilitaryRole(id, data.militaryRole);
+  }
+
+  // Pre-approved users management
+
+  @Get('admin/preapproved')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
+  findAllPreapprovedUsers() {
+    return this.usersService.findAllPreapprovedUsers();
+  }
+
+  @Post('admin/preapproved')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
+  createPreapprovedUser(@Body() dto: CreatePreapprovedUserDto) {
+    return this.usersService.createPreapprovedUser(dto);
+  }
+
+  @Delete('admin/preapproved/:id')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
+  deletePreapprovedUser(@Param('id') id: string) {
+    return this.usersService.deletePreapprovedUser(id);
+  }
+
+  @Get('admin/departments')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
+  getDepartments() {
+    return this.usersService.getDepartments();
   }
 }

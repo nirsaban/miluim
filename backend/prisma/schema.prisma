@@ -7,6 +7,19 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Military Role - organizational identity
+enum MilitaryRole {
+  PLATOON_COMMANDER    // מפקד פלוגה
+  SERGEANT_MAJOR       // סמ״פ
+  OPERATIONS_SGT       // קמב״צ
+  OPERATIONS_NCO       // סמב״צ
+  DUTY_OFFICER         // מ״מ
+  SQUAD_COMMANDER      // מפקד
+  FIGHTER              // לוחם
+}
+
+// Legacy UserRole enum - kept for backward compatibility with existing code
+// Will be migrated to MilitaryRole over time
 enum UserRole {
   SOLDIER
   COMMANDER
@@ -83,23 +96,78 @@ enum RecommendationCategory {
   OTHER
 }
 
+// Department Model
+model Department {
+  id        String   @id @default(uuid())
+  name      String   @unique // e.g., "platoon_1"
+  code      String   @unique // e.g., "1"
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users User[]
+
+  @@map("departments")
+}
+
+// Permission Model
+model Permission {
+  id          String   @id @default(uuid())
+  key         String   @unique // e.g., "MANAGE_USERS"
+  description String
+  createdAt   DateTime @default(now())
+
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+// Role-Permission Mapping
+model RolePermission {
+  id           String       @id @default(uuid())
+  militaryRole MilitaryRole
+  permissionId String
+  permission   Permission   @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  createdAt    DateTime     @default(now())
+
+  @@unique([militaryRole, permissionId])
+  @@map("role_permissions")
+}
+
+// User Model - Extended for new auth system
 model User {
-  id             String    @id @default(uuid())
+  id             String        @id @default(uuid())
+  personalId     String        @unique @default("") // Primary identity - army personal number
   fullName       String
-  email          String    @unique
+  email          String        @unique
   phone          String
   passwordHash   String
-  role           UserRole  @default(SOLDIER)
-  armyNumber     String    @unique
-  idNumber       String    @unique
+
+  // Military identity
+  militaryRole   MilitaryRole  @default(FIGHTER)
+  departmentId   String?
+  department     Department?   @relation(fields: [departmentId], references: [id])
+
+  // Legacy role field - kept for backward compatibility
+  role           UserRole      @default(SOLDIER)
+
+  // Additional fields
+  armyNumber     String        @unique
+  idNumber       String        @unique
   dailyJob       String?
   city           String?
   fieldOfStudy   String?
   birthDay       DateTime?
-  isActive       Boolean   @default(true)
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
 
+  // Registration flow flags
+  isPreApproved  Boolean       @default(false) // Pre-created by admin
+  isRegistered   Boolean       @default(true) // Completed registration (default true for existing users)
+  isActive       Boolean       @default(true)
+
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  // Relations
   formSubmissions     FormSubmission[]
   socialPosts         SocialPost[]
   recommendations     Recommendation[]
@@ -112,6 +180,7 @@ model User {
   skills              SoldierSkill[]
   shiftAssignments    ShiftAssignment[]
   publishedSchedules  ShiftSchedule[]   @relation("PublishedSchedules")
+  messagesCreated     Message[]         @relation("CreatedMessages")
 
   @@map("users")
 }
@@ -129,14 +198,16 @@ model OTP {
 }
 
 model Message {
-  id        String          @id @default(uuid())
-  title     String
-  content   String
-  type      MessageType     @default(GENERAL)
-  priority  MessagePriority @default(MEDIUM)
-  isActive  Boolean         @default(true)
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
+  id          String          @id @default(uuid())
+  title       String
+  content     String
+  type        MessageType     @default(GENERAL)
+  priority    MessagePriority @default(MEDIUM)
+  isActive    Boolean         @default(true)
+  createdById String?
+  createdBy   User?           @relation("CreatedMessages", fields: [createdById], references: [id])
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
 
   @@map("messages")
 }
@@ -277,6 +348,7 @@ model Skill {
   id          String   @id @default(uuid())
   name        String   @unique
   displayName String
+  description String?
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
 

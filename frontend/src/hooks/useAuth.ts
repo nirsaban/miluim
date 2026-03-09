@@ -100,7 +100,26 @@ export const useAuth = () => {
   };
 };
 
+// Can access admin panel (ADMIN, OFFICER, COMMANDER)
 export const useIsAdmin = () => {
   const user = useAuthStore((state) => state.user);
-  return user?.role === 'ADMIN' || user?.role === 'COMMANDER' || user?.role === 'OFFICER' || user?.role === 'LOGISTICS';
+  return user?.role === 'ADMIN' || user?.role === 'OFFICER' || user?.role === 'COMMANDER';
+};
+
+// Full admin access (PLATOON_COMMANDER, SERGEANT_MAJOR, OPERATIONS_SGT)
+export const useIsFullAdmin = () => {
+  const user = useAuthStore((state) => state.user);
+  return user?.role === 'ADMIN';
+};
+
+// Can manage shifts and users (ADMIN + OFFICER = OPERATIONS_NCO)
+export const useCanManageShifts = () => {
+  const user = useAuthStore((state) => state.user);
+  return user?.role === 'ADMIN' || user?.role === 'OFFICER';
+};
+
+// Can manage forms and messages (ADMIN + COMMANDER = DUTY_OFFICER)
+export const useCanManageForms = () => {
+  const user = useAuthStore((state) => state.user);
+  return user?.role === 'ADMIN' || user?.role === 'COMMANDER';
 };

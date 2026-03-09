@@ -35,6 +35,7 @@ services:
       APP_URL: ${APP_URL:-http://localhost:3001}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
       NODE_ENV: production
+      SEED_DATABASE: ${SEED_DATABASE:-false}
     volumes:
       - uploads_data:/app/uploads
     depends_on:
@@ -53,13 +54,14 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost/api}
+        NEXT_PUBLIC_API_URL: /api
     container_name: yogev-frontend
     restart: unless-stopped
     environment:
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost/api}
+      NODE_ENV: production
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     networks:
       - yogev-network
     healthcheck:

@@ -1,12 +1,60 @@
-import { PrismaClient, UserRole, MessageType, MessagePriority } from '@prisma/client';
+import { PrismaClient, UserRole, MessageType, MessagePriority, MilitaryRole } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('Starting seed...');
+  console.log('🌱 Starting database seed...');
 
-  // Create roles
+  // 1. Create departments
+  console.log('\n📦 Creating departments...');
+
+  const dept1 = await prisma.department.upsert({
+    where: { code: '1' },
+    update: {},
+    create: {
+      name: 'מחלקה 1',
+      code: '1',
+      isActive: true,
+    },
+  });
+  console.log(`✅ Created department: ${dept1.name}`);
+
+  const dept2 = await prisma.department.upsert({
+    where: { code: '2' },
+    update: {},
+    create: {
+      name: 'מחלקה 2',
+      code: '2',
+      isActive: true,
+    },
+  });
+  console.log(`✅ Created department: ${dept2.name}`);
+
+  const dept3 = await prisma.department.upsert({
+    where: { code: '3' },
+    update: {},
+    create: {
+      name: 'מחלקה 3',
+      code: '3',
+      isActive: true,
+    },
+  });
+  console.log(`✅ Created department: ${dept3.name}`);
+  const dept0 = await prisma.department.upsert({
+    where: { code: '0' },
+    update: {},
+    create: {
+      name: 'סגל ומטה',
+      code: '0',
+      isActive: true,
+    },
+  });
+  console.log(`✅ Created department: ${dept3.name}`);
+
+  // 2. Create roles (legacy)
+  console.log('\n📋 Creating legacy roles...');
+
   const roles = [
     { name: 'SOLDIER', displayName: 'חייל' },
     { name: 'COMMANDER', displayName: 'מפקד' },
@@ -23,50 +71,56 @@ async function main() {
       create: role,
     });
   }
+  console.log('✅ Legacy roles created');
 
-  console.log('Roles created');
+  // 3. Create ONLY ONE bootstrap admin user (סמ״פ)
+  // According to architecture: Day 1 has only ONE admin who then creates others
+  console.log('\n👤 Creating bootstrap admin user (סמ״פ)...');
 
-  // Create admin user
-  const adminPassword = await bcrypt.hash('Admin123!', 10);
-  const admin = await prisma.user.upsert({
-    where: { email: 'admin@yogev.idf.il' },
+  const adminPassword = await bcrypt.hash('Yogev2024!', 10);
+
+  const adminUser = await prisma.user.upsert({
+    where: { personalId: '1000000' },
     update: {},
     create: {
-      email: 'admin@yogev.idf.il',
-      fullName: 'מנהל מערכת',
+      personalId: '1000000',
+      fullName: 'סמ״פ מערכת',
+      email: 'samal@yogev.idf',
       phone: '0501234567',
       passwordHash: adminPassword,
+      militaryRole: MilitaryRole.SERGEANT_MAJOR,
+      departmentId: dept1.id,
+      idNumber: '100000000',
+      isPreApproved: true,
+      isRegistered: true,
+      isActive: true,
+      // Legacy fields
       role: UserRole.ADMIN,
-      armyNumber: '0000001',
-      idNumber: '000000001',
-      dailyJob: 'מנהל מערכת',
-      city: 'תל אביב',
+      armyNumber: '1000000',
     },
   });
 
-  console.log('Admin user created:', admin.email);
+  console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('📋 Bootstrap Admin User Created:');
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log(`   שם: ${adminUser.fullName}`);
+  console.log(`   תפקיד: סמ״פ (Sergeant Major)`);
+  console.log(`   מספר אישי: ${adminUser.personalId}`);
+  console.log(`   סיסמה: Yogev2024!`);
+  console.log(`   אימייל: ${adminUser.email}`);
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('⚠️  IMPORTANT: Change password after first login!');
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('');
+  console.log('📌 Next Steps:');
+  console.log('   1. Login with the admin user above');
+  console.log('   2. Create officers and soldiers via Admin Panel');
+  console.log('   3. Or import users via CSV');
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
-  // Create sample commander
-  const commanderPassword = await bcrypt.hash('Commander123!', 10);
-  const commander = await prisma.user.upsert({
-    where: { email: 'commander@yogev.idf.il' },
-    update: {},
-    create: {
-      email: 'commander@yogev.idf.il',
-      fullName: 'יוסי כהן',
-      phone: '0502345678',
-      passwordHash: commanderPassword,
-      role: UserRole.COMMANDER,
-      armyNumber: '0000002',
-      idNumber: '000000002',
-      dailyJob: 'מהנדס תוכנה',
-      city: 'חיפה',
-    },
-  });
+  // 5. Create sample messages
+  console.log('\n💬 Creating sample messages...');
 
-  console.log('Commander created:', commander.email);
-
-  // Create sample messages
   const messages = [
     {
       title: 'ברוכים הבאים למערכת ניהול - פלוגת יוגב',
@@ -76,15 +130,9 @@ async function main() {
     },
     {
       title: 'סידור מזון - שבוע קרוב',
-      content: 'ארוחת בוקר: 07:00-08:30\nארוחת צהריים: 12:00-14:00\nארוחת ערב: 18:00-20:00\n\nנא להירשם מראש דרך מערכת סייבוס.',
+      content: 'ארוחת בוקר: 07:00-08:30\nארוחת צהריים: 12:00-14:00\nארוחת ערב: 18:00-20:00',
       type: MessageType.FOOD,
       priority: MessagePriority.MEDIUM,
-    },
-    {
-      title: 'תזכורת - עדכון סטטוס',
-      content: 'נא לעדכן סטטוס נוכחות עד סוף היום.',
-      type: MessageType.GENERAL,
-      priority: MessagePriority.LOW,
     },
   ];
 
@@ -93,10 +141,11 @@ async function main() {
       data: message,
     });
   }
+  console.log('✅ Sample messages created');
 
-  console.log('Sample messages created');
+  // 6. Create leave categories
+  console.log('\n📅 Creating leave categories...');
 
-  // Create leave categories
   const leaveCategories = [
     { name: 'FOOD', displayName: 'אוכל', icon: 'Utensils' },
     { name: 'GYM', displayName: 'חדר כושר', icon: 'Dumbbell' },
@@ -113,16 +162,19 @@ async function main() {
       create: category,
     });
   }
+  console.log('✅ Leave categories created');
 
-  console.log('Leave categories created');
+  // 7. Create default skills (if they don't already exist)
+  console.log('\n🎯 Creating skills...');
 
-  // Create default skills
   const skills = [
     { name: 'COMMANDER', displayName: 'מפקד' },
     { name: 'DRIVER', displayName: 'נהג' },
     { name: 'FIGHTER', displayName: 'לוחם' },
     { name: 'SFOGIST', displayName: 'ספוגיסט' },
     { name: 'MEDIC', displayName: 'חובש' },
+    { name: 'RADIO', displayName: 'קשר' },
+    { name: 'NAVIGATOR', displayName: 'נווט' },
   ];
 
   for (const skill of skills) {
@@ -132,10 +184,11 @@ async function main() {
       create: skill,
     });
   }
+  console.log('✅ Skills created');
 
-  console.log('Skills created');
+  // 8. Create default shift templates
+  console.log('\n⏰ Creating shift templates...');
 
-  // Create default shift templates
   const shiftTemplates = [
     { name: 'MORNING', displayName: 'בוקר', startTime: '06:00', endTime: '14:00', color: '#FCD34D', sortOrder: 1 },
     { name: 'EVENING', displayName: 'ערב', startTime: '14:00', endTime: '22:00', color: '#F97316', sortOrder: 2 },
@@ -149,14 +202,14 @@ async function main() {
       create: template,
     });
   }
+  console.log('✅ Shift templates created');
 
-  console.log('Shift templates created');
-
-  console.log('Seed completed successfully!');
+  console.log('\n✨ Seed completed successfully!\n');
 }
 
 main()
   .catch((e) => {
+    console.error('❌ Error during seed:');
     console.error(e);
     process.exit(1);
   })

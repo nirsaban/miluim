@@ -9,14 +9,16 @@ import { AuthLayout } from '@/components/layout/AuthLayout';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import api from '@/lib/api';
+import { useAuth } from '@/hooks/useAuth';
 
 interface LoginForm {
-  email: string;
+  personalId: string;
   password: string;
 }
 
 export default function LoginPage() {
   const router = useRouter();
+  const { login } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
 
   const {
@@ -31,9 +33,9 @@ export default function LoginPage() {
       const response = await api.post('/auth/login', data);
 
       if (response.data.success) {
-        sessionStorage.setItem('otpEmail', data.email);
-        toast.success(response.data.message);
-        router.push('/auth/otp');
+        login(response.data.user, response.data.token);
+        toast.success('התחברת בהצלחה!');
+        router.push('/dashboard');
       }
     } catch (error: any) {
       const message = error.response?.data?.message || 'שגיאה בהתחברות';
@@ -46,21 +48,16 @@ export default function LoginPage() {
   return (
     <AuthLayout>
       <h2 className="text-2xl font-bold text-center text-military-700 mb-6">
-        התחברות
+        התחברות למערכת
       </h2>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <Input
-          label="אימייל"
-          type="email"
-          placeholder="your@email.com"
-          error={errors.email?.message}
-          {...register('email', {
-            required: 'אימייל הוא שדה חובה',
-            pattern: {
-              value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-              message: 'כתובת אימייל לא תקינה',
-            },
+          label="מספר אישי"
+          placeholder="1234567"
+          error={errors.personalId?.message}
+          {...register('personalId', {
+            required: 'מספר אישי הוא שדה חובה',
           })}
         />
 
@@ -81,12 +78,12 @@ export default function LoginPage() {
 
       <div className="mt-6 text-center">
         <p className="text-gray-600">
-          אין לך חשבון?{' '}
+          עדיין לא השלמת הרשמה?{' '}
           <Link
             href="/auth/register"
             className="text-military-700 font-medium hover:underline"
           >
-            הרשם עכשיו
+            השלם הרשמה
           </Link>
         </p>
       </div>

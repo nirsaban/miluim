@@ -1,13 +1,30 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import Cookies from 'js-cookie';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+// In production behind nginx, use relative /api path
+// In development, use the full URL
+const getApiUrl = () => {
+  // Check if we're in browser
+  if (typeof window !== 'undefined') {
+    // In production, use relative path (nginx will proxy)
+    const envUrl = process.env.NEXT_PUBLIC_API_URL;
+    if (envUrl === '/api' || !envUrl) {
+      return '/api';
+    }
+    return envUrl;
+  }
+  // Server-side rendering - use environment variable or default
+  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+};
+
+const API_URL = getApiUrl();
 
 export const api = axios.create({
   baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true,
 });
 
 api.interceptors.request.use(
@@ -38,7 +55,7 @@ api.interceptors.response.use(
 );
 
 export const setAuthToken = (token: string) => {
-  Cookies.set('token', token, { expires: 0.5 }); // 12 hours
+  Cookies.set('token', token, { expires: 0.5, sameSite: 'None', secure: true }); // 12 hours
 };
 
 export const removeAuthToken = () => {
@@ -51,7 +68,7 @@ export const getAuthToken = () => {
 };
 
 export const setUserData = (user: any) => {
-  Cookies.set('user', JSON.stringify(user), { expires: 0.5 });
+  Cookies.set('user', JSON.stringify(user), { expires: 0.5, sameSite: 'None', secure: true });
 };
 
 export const getUserData = () => {

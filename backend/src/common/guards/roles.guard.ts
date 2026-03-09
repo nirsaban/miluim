@@ -13,7 +13,7 @@ export class RolesGuard implements CanActivate {
       context.getClass(),
     ]);
 
-    if (!requiredRoles) {
+    if (!requiredRoles || requiredRoles.length === 0) {
       return true;
     }
 
@@ -23,6 +23,12 @@ export class RolesGuard implements CanActivate {
       throw new ForbiddenException('אין הרשאה לבצע פעולה זו');
     }
 
+    // ADMIN always has access to everything
+    if (user.role === 'ADMIN') {
+      return true;
+    }
+
+    // Check if user has one of the required roles
     const hasRole = requiredRoles.some((role) => user.role === role);
 
     if (!hasRole) {

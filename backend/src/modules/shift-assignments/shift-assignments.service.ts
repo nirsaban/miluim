@@ -375,4 +375,81 @@ export class ShiftAssignmentsService {
   soldierHasSkill(soldier: { role: string; skills: { skill: { name: string } }[] }, skillName: string): boolean {
     return soldier.role === skillName || soldier.skills.some((s) => s.skill.name === skillName);
   }
+
+  async findMyShifts(userId: string) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Get shifts from 7 days ago to 14 days ahead
+    const startDate = new Date(today);
+    startDate.setDate(startDate.getDate() - 7);
+    const endDate = new Date(today);
+    endDate.setDate(endDate.getDate() + 14);
+
+    const myAssignments = await this.prisma.shiftAssignment.findMany({
+      where: {
+        soldierId: userId,
+        date: {
+          gte: startDate,
+          lte: endDate,
+        },
+      },
+      include: {
+        shiftTemplate: true,
+        task: {
+          include: {
+            zone: true,
+          },
+        },
+      },
+      orderBy: { date: 'asc' },
+    });
+
+    // For each assignment, get teammates (others in the same shift)
+    const shiftsWithTeammates = await Promise.all(
+      myAssignments.map(async (assignment) => {
+        const teammates = await this.prisma.shiftAssignment.findMany({
+          where: {
+            date: assignment.date,
+            shiftTemplateId: assignment.shiftTemplateId,
+            soldierId: { not: userId },
+          },
+          include: {
+            soldier: {
+              select: {
+                id: true,
+                fullName: true,
+                phone: true,
+              },
+            },
+            task: true,
+          },
+        });
+
+        return {
+          id: assignment.id,
+          date: assignment.date,
+          shiftTemplate: {
+            displayName: assignment.shiftTemplate.displayName,
+            startTime: assignment.shiftTemplate.startTime,
+            endTime: assignment.shiftTemplate.endTime,
+          },
+          task: {
+            name: assignment.task.name,
+            zone: assignment.task.zone
+              ? { name: assignment.task.zone.name }
+              : undefined,
+          },
+          teammates: teammates.map((t) => ({
+            id: t.soldier.id,
+            fullName: t.soldier.fullName,
+            phone: t.soldier.phone,
+            taskName: t.task.name,
+          })),
+        };
+      }),
+    );
+
+    return shiftsWithTeammates;
+  }
 }

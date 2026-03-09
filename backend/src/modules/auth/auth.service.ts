@@ -4,13 +4,13 @@ import {
   BadRequestException,
   ConflictException,
   Logger,
+  ForbiddenException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../../prisma/prisma.service';
-import { EmailService } from '../../email/email.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
-import { VerifyOtpDto } from './dto/verify-otp.dto';
+import { CheckPersonalIdDto } from './dto/check-personalid.dto';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -20,47 +20,108 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
-    private emailService: EmailService,
   ) {}
 
+  /**
+   * Check if personalId exists and is eligible for registration
+   */
+  async checkPersonalId(dto: CheckPersonalIdDto) {
+    const user = await this.prisma.user.findUnique({
+      where: { personalId: dto.personalId },
+      include: {
+        department: true,
+      },
+    });
+
+    if (!user) {
+      throw new BadRequestException('מספר אישי לא נמצא במערכת. יש לפנות למפקד הפלוגה');
+    }
+
+    if (user.isRegistered) {
+      throw new ConflictException('המשתמש כבר השלים הרשמה. יש להתחבר');
+    }
+
+    if (!user.isPreApproved) {
+      throw new ForbiddenException('המשתמש לא אושר מראש. יש לפנות למפקד');
+    }
+
+    return {
+      success: true,
+      message: 'מספר אישי אומת בהצלחה',
+      user: {
+        personalId: user.personalId,
+        fullName: user.fullName || '',
+        militaryRole: user.militaryRole,
+        department: user.department
+          ? {
+              id: user.department.id,
+              name: user.department.name,
+              code: user.department.code,
+            }
+          : null,
+      },
+    };
+  }
+
+  /**
+   * Complete registration for pre-approved user
+   */
   async register(dto: RegisterDto) {
-    const existingUser = await this.prisma.user.findFirst({
+    // Check if user exists and is pre-approved
+    const existingUser = await this.prisma.user.findUnique({
+      where: { personalId: dto.personalId },
+    });
+
+    if (!existingUser) {
+      throw new BadRequestException('מספר אישי לא נמצא במערכת');
+    }
+
+    if (existingUser.isRegistered) {
+      throw new ConflictException('המשתמש כבר השלים הרשמה');
+    }
+
+    if (!existingUser.isPreApproved) {
+      throw new ForbiddenException('המשתמש לא אושר מראש');
+    }
+
+    // Check if email or idNumber already taken by another user
+    const conflictUser = await this.prisma.user.findFirst({
       where: {
-        OR: [
-          { email: dto.email },
-          { armyNumber: dto.armyNumber },
-          { idNumber: dto.idNumber },
+        AND: [
+          { id: { not: existingUser.id } },
+          {
+            OR: [{ email: dto.email }, { idNumber: dto.idNumber }],
+          },
         ],
       },
     });
 
-    if (existingUser) {
-      if (existingUser.email === dto.email) {
+    if (conflictUser) {
+      if (conflictUser.email === dto.email) {
         throw new ConflictException('כתובת האימייל כבר קיימת במערכת');
       }
-      if (existingUser.armyNumber === dto.armyNumber) {
-        throw new ConflictException('המספר האישי כבר קיים במערכת');
-      }
-      if (existingUser.idNumber === dto.idNumber) {
+      if (conflictUser.idNumber === dto.idNumber) {
         throw new ConflictException('תעודת הזהות כבר קיימת במערכת');
       }
     }
 
     const passwordHash = await bcrypt.hash(dto.password, 10);
 
-    const user = await this.prisma.user.create({
+    // Update user with registration details
+    const user = await this.prisma.user.update({
+      where: { id: existingUser.id },
       data: {
         fullName: dto.fullName,
         email: dto.email,
         phone: dto.phone,
         passwordHash,
-        armyNumber: dto.armyNumber,
         idNumber: dto.idNumber,
-        role: dto.role || 'SOLDIER',
         dailyJob: dto.dailyJob,
         city: dto.city,
         fieldOfStudy: dto.fieldOfStudy,
         birthDay: dto.birthDay ? new Date(dto.birthDay) : null,
+        isRegistered: true,
+        armyNumber: dto.personalId, // Keep for backward compatibility
         skills: dto.skillIds?.length
           ? {
               create: dto.skillIds.map((skillId) => ({
@@ -71,22 +132,32 @@ export class AuthService {
       },
     });
 
-    this.logger.log(`User registered: ${user.email}`);
+    this.logger.log(`User completed registration: ${user.personalId}`);
 
     return {
       success: true,
-      message: 'ההרשמה בוצעה בהצלחה',
+      message: 'ההרשמה הושלמה בהצלחה',
       userId: user.id,
     };
   }
 
+  /**
+   * Login with personalId and password
+   */
   async login(dto: LoginDto) {
     const user = await this.prisma.user.findUnique({
-      where: { email: dto.email },
+      where: { personalId: dto.personalId },
+      include: {
+        department: true,
+      },
     });
 
     if (!user) {
-      throw new UnauthorizedException('אימייל או סיסמה שגויים');
+      throw new UnauthorizedException('מספר אישי או סיסמה שגויים');
+    }
+
+    if (!user.isRegistered) {
+      throw new UnauthorizedException('יש להשלים את ההרשמה תחילה');
     }
 
     if (!user.isActive) {
@@ -96,73 +167,21 @@ export class AuthService {
     const isPasswordValid = await bcrypt.compare(dto.password, user.passwordHash);
 
     if (!isPasswordValid) {
-      throw new UnauthorizedException('אימייל או סיסמה שגויים');
-    }
-
-    const otpCode = this.generateOTP();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-
-    await this.prisma.oTP.deleteMany({
-      where: { email: dto.email },
-    });
-
-    await this.prisma.oTP.create({
-      data: {
-        email: dto.email,
-        code: otpCode,
-        expiresAt,
-      },
-    });
-
-    await this.emailService.sendOTP(dto.email, otpCode);
-
-    this.logger.log(`OTP sent to: ${dto.email}`);
-
-    return {
-      success: true,
-      message: 'קוד אימות נשלח למייל שלך',
-      email: dto.email,
-    };
-  }
-
-  async verifyOtp(dto: VerifyOtpDto) {
-    const otp = await this.prisma.oTP.findFirst({
-      where: {
-        email: dto.email,
-        code: dto.code,
-        used: false,
-        expiresAt: {
-          gt: new Date(),
-        },
-      },
-    });
-
-    if (!otp) {
-      throw new BadRequestException('קוד האימות שגוי או פג תוקף');
-    }
-
-    await this.prisma.oTP.update({
-      where: { id: otp.id },
-      data: { used: true },
-    });
-
-    const user = await this.prisma.user.findUnique({
-      where: { email: dto.email },
-    });
-
-    if (!user) {
-      throw new UnauthorizedException('משתמש לא נמצא');
+      throw new UnauthorizedException('מספר אישי או סיסמה שגויים');
     }
 
     const payload = {
       sub: user.id,
+      personalId: user.personalId,
       email: user.email,
       role: user.role,
+      militaryRole: user.militaryRole,
+      departmentId: user.departmentId,
     };
 
     const token = this.jwtService.sign(payload);
 
-    this.logger.log(`User authenticated: ${user.email}`);
+    this.logger.log(`User authenticated: ${user.personalId}`);
 
     return {
       success: true,
@@ -170,47 +189,14 @@ export class AuthService {
       token,
       user: {
         id: user.id,
+        personalId: user.personalId,
         fullName: user.fullName,
         email: user.email,
         role: user.role,
+        militaryRole: user.militaryRole,
+        department: user.department,
       },
     };
-  }
-
-  async resendOtp(email: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { email },
-    });
-
-    if (!user) {
-      throw new BadRequestException('משתמש לא נמצא');
-    }
-
-    const otpCode = this.generateOTP();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-
-    await this.prisma.oTP.deleteMany({
-      where: { email },
-    });
-
-    await this.prisma.oTP.create({
-      data: {
-        email,
-        code: otpCode,
-        expiresAt,
-      },
-    });
-
-    await this.emailService.sendOTP(email, otpCode);
-
-    return {
-      success: true,
-      message: 'קוד אימות חדש נשלח',
-    };
-  }
-
-  private generateOTP(): string {
-    return Math.floor(100000 + Math.random() * 900000).toString();
   }
 
   async validateUser(userId: string) {
@@ -218,12 +204,15 @@ export class AuthService {
       where: { id: userId },
       select: {
         id: true,
+        personalId: true,
         email: true,
         fullName: true,
         role: true,
+        militaryRole: true,
+        departmentId: true,
         phone: true,
-        armyNumber: true,
         isActive: true,
+        isRegistered: true,
       },
     });
   }

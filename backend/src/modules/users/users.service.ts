@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { UserRole } from '@prisma/client';
+import { UserRole, MilitaryRole } from '@prisma/client';
+import { CreatePreapprovedUserDto } from './dto';
 
 @Injectable()
 export class UsersService {
@@ -29,16 +30,24 @@ export class UsersService {
       where: { id },
       select: {
         id: true,
+        personalId: true,
         fullName: true,
         email: true,
         phone: true,
         role: true,
+        militaryRole: true,
         armyNumber: true,
         idNumber: true,
         city: true,
         dailyJob: true,
         fieldOfStudy: true,
         birthDay: true,
+        department: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         createdAt: true,
       },
     });
@@ -54,18 +63,19 @@ export class UsersService {
     return this.prisma.user.findMany({
       where: {
         isActive: true,
-        role: {
-          not: UserRole.SOLDIER,
-        },
       },
       select: {
         id: true,
         fullName: true,
         phone: true,
-        role: true,
-        email: true,
+        militaryRole: true,
+        department: {
+          select: {
+            name: true,
+          },
+        },
       },
-      orderBy: { role: 'asc' },
+      orderBy: { fullName: 'asc' },
     });
   }
 
@@ -108,6 +118,7 @@ export class UsersService {
         email: true,
         phone: true,
         role: true,
+        militaryRole: true,
         armyNumber: true,
         city: true,
         dailyJob: true,
@@ -182,5 +193,349 @@ export class UsersService {
         role: true,
       },
     });
+  }
+
+  async updateMilitaryRole(userId: string, militaryRole: MilitaryRole) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('משתמש לא נמצא');
+    }
+
+    // Also update the legacy role based on the new military role
+    const legacyRole = this.mapMilitaryRoleToLegacyRole(militaryRole);
+
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        militaryRole,
+        role: legacyRole,
+      },
+      select: {
+        id: true,
+        fullName: true,
+        militaryRole: true,
+        role: true,
+      },
+    });
+  }
+
+  // Pre-approved users management
+
+  async findAllPreapprovedUsers() {
+    return this.prisma.user.findMany({
+      where: { isActive: true },
+      select: {
+        id: true,
+        personalId: true,
+        fullName: true,
+        email: true,
+        phone: true,
+        militaryRole: true,
+        department: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
+        isPreApproved: true,
+        isRegistered: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async createPreapprovedUser(dto: CreatePreapprovedUserDto) {
+    // Check if personalId already exists
+    const existing = await this.prisma.user.findUnique({
+      where: { personalId: dto.personalId },
+    });
+
+    if (existing) {
+      throw new ConflictException('מספר אישי כבר קיים במערכת');
+    }
+
+    // Check if department exists
+    const department = await this.prisma.department.findUnique({
+      where: { id: dto.departmentId },
+    });
+
+    if (!department) {
+      throw new NotFoundException('מחלקה לא נמצאה');
+    }
+
+    // Map militaryRole to legacy role
+    const legacyRole = this.mapMilitaryRoleToLegacyRole(dto.militaryRole);
+
+    // Create pre-approved user
+    const user = await this.prisma.user.create({
+      data: {
+        personalId: dto.personalId,
+        fullName: dto.fullName,
+        militaryRole: dto.militaryRole,
+        departmentId: dto.departmentId,
+        phone: dto.phone || '0000000000',
+        // Temporary values - will be filled during registration
+        email: `temp_${dto.personalId}@pending.local`,
+        passwordHash: '',
+        idNumber: dto.personalId,
+        // Flags
+        isPreApproved: true,
+        isRegistered: false,
+        isActive: true,
+        // Legacy fields
+        role: legacyRole,
+        armyNumber: dto.personalId,
+      },
+      select: {
+        id: true,
+        personalId: true,
+        fullName: true,
+        militaryRole: true,
+        department: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
+        isPreApproved: true,
+        isRegistered: true,
+        createdAt: true,
+      },
+    });
+
+    return user;
+  }
+
+  async deletePreapprovedUser(id: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+    });
+
+    if (!user) {
+      throw new NotFoundException('משתמש לא נמצא');
+    }
+
+    // Only allow deleting users who haven't completed registration
+    if (user.isRegistered) {
+      throw new ConflictException('לא ניתן למחוק משתמש שכבר השלים הרשמה');
+    }
+
+    await this.prisma.user.delete({
+      where: { id },
+    });
+
+    return { success: true, message: 'משתמש נמחק בהצלחה' };
+  }
+
+  async getDepartments() {
+    return this.prisma.department.findMany({
+      where: { isActive: true },
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  private mapMilitaryRoleToLegacyRole(militaryRole: MilitaryRole): UserRole {
+    // Permission mapping:
+    // ADMIN: Full access (PLATOON_COMMANDER, SERGEANT_MAJOR, OPERATIONS_SGT)
+    // OFFICER: Shifts, Users, Skills management (OPERATIONS_NCO)
+    // COMMANDER: Forms/Requests, Messages management (DUTY_OFFICER)
+    // SOLDIER: No admin access (SQUAD_COMMANDER, FIGHTER)
+    const mapping: Record<MilitaryRole, UserRole> = {
+      PLATOON_COMMANDER: UserRole.ADMIN,
+      SERGEANT_MAJOR: UserRole.ADMIN,
+      OPERATIONS_SGT: UserRole.ADMIN,
+      OPERATIONS_NCO: UserRole.OFFICER,
+      DUTY_OFFICER: UserRole.COMMANDER,
+      SQUAD_COMMANDER: UserRole.SOLDIER,
+      FIGHTER: UserRole.SOLDIER,
+    };
+
+    return mapping[militaryRole] || UserRole.SOLDIER;
+  }
+
+  async getHomeData(userId: string) {
+    // Get user with department info
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        fullName: true,
+        militaryRole: true,
+        departmentId: true,
+        department: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('משתמש לא נמצא');
+    }
+
+    // Get active zone from zones table (first active zone)
+    const activeZone = await this.prisma.zone.findFirst({
+      where: { isActive: true },
+      select: {
+        id: true,
+        name: true,
+      },
+      orderBy: { name: 'asc' },
+    });
+
+    // Get department commander (SQUAD_COMMANDER or DUTY_OFFICER in same department)
+    let departmentCommander = null;
+    if (user.departmentId) {
+      departmentCommander = await this.prisma.user.findFirst({
+        where: {
+          isActive: true,
+          departmentId: user.departmentId,
+          militaryRole: {
+            in: ['SQUAD_COMMANDER', 'DUTY_OFFICER'],
+          },
+        },
+        select: {
+          id: true,
+          fullName: true,
+          phone: true,
+          militaryRole: true,
+        },
+      });
+    }
+
+    // If no department commander, get platoon commander
+    const platoonCommander = await this.prisma.user.findFirst({
+      where: {
+        isActive: true,
+        militaryRole: {
+          in: ['PLATOON_COMMANDER', 'SERGEANT_MAJOR'],
+        },
+      },
+      select: {
+        id: true,
+        fullName: true,
+        phone: true,
+        militaryRole: true,
+      },
+    });
+
+    const commander = departmentCommander || platoonCommander;
+
+    // Get today's date range
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    // Get all my shifts for today and future (to find current and next)
+    const myShifts = await this.prisma.shiftAssignment.findMany({
+      where: {
+        soldierId: userId,
+        date: {
+          gte: today,
+        },
+      },
+      include: {
+        shiftTemplate: {
+          select: {
+            displayName: true,
+            startTime: true,
+            endTime: true,
+            sortOrder: true,
+          },
+        },
+        task: {
+          include: {
+            zone: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: [
+        { date: 'asc' },
+        { shiftTemplate: { sortOrder: 'asc' } },
+      ],
+    });
+
+    // Find current shift (today) and next shift
+    const todayShifts = myShifts.filter(s => {
+      const shiftDate = new Date(s.date);
+      shiftDate.setHours(0, 0, 0, 0);
+      return shiftDate.getTime() === today.getTime();
+    });
+
+    const futureShifts = myShifts.filter(s => {
+      const shiftDate = new Date(s.date);
+      shiftDate.setHours(0, 0, 0, 0);
+      return shiftDate.getTime() > today.getTime();
+    });
+
+    // Current shift is today's first shift
+    const currentShift = todayShifts.length > 0 ? todayShifts[0] : null;
+
+    // Next shift is either today's second shift or first future shift
+    const nextShift = todayShifts.length > 1
+      ? todayShifts[1]
+      : (futureShifts.length > 0 ? futureShifts[0] : null);
+
+    // Get notifications for user
+    const notifications = await this.prisma.notification.findMany({
+      where: {
+        userId,
+        isRead: false,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+    });
+
+    // Get active messages
+    const messages = await this.prisma.message.findMany({
+      where: {
+        isActive: true,
+      },
+      orderBy: [
+        { priority: 'desc' },
+        { createdAt: 'desc' },
+      ],
+      take: 5,
+    });
+
+    const formatShift = (shift: any) => shift ? {
+      id: shift.id,
+      date: shift.date,
+      shiftTemplate: {
+        displayName: shift.shiftTemplate.displayName,
+        startTime: shift.shiftTemplate.startTime,
+        endTime: shift.shiftTemplate.endTime,
+      },
+      task: {
+        name: shift.task.name,
+        zone: shift.task.zone,
+      },
+    } : null;
+
+    return {
+      user: {
+        ...user,
+        activeZone,
+        commander,
+      },
+      currentShift: formatShift(currentShift),
+      nextShift: formatShift(nextShift),
+      notifications,
+      messages,
+    };
   }
 }

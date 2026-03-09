@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   DndContext,
@@ -30,9 +30,41 @@ export default function ShiftAssignmentsPage() {
     const today = new Date();
     return today.toISOString().split('T')[0];
   });
-  const [selectedZoneId, setSelectedZoneId] = useState<string>('');
-  const [selectedShiftId, setSelectedShiftId] = useState<string>('');
+  const [selectedZoneId, setSelectedZoneId] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('shift-assignments-zone') || '';
+    }
+    return '';
+  });
+  const [selectedShiftId, setSelectedShiftId] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('shift-assignments-shift') || '';
+    }
+    return '';
+  });
   const [activeSoldier, setActiveSoldier] = useState<AvailableSoldier | null>(null);
+
+  // Persist selected zone to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      if (selectedZoneId) {
+        localStorage.setItem('shift-assignments-zone', selectedZoneId);
+      } else {
+        localStorage.removeItem('shift-assignments-zone');
+      }
+    }
+  }, [selectedZoneId]);
+
+  // Persist selected shift to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      if (selectedShiftId) {
+        localStorage.setItem('shift-assignments-shift', selectedShiftId);
+      } else {
+        localStorage.removeItem('shift-assignments-shift');
+      }
+    }
+  }, [selectedShiftId]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -113,11 +145,16 @@ export default function ShiftAssignmentsPage() {
 
   const publishMutation = useMutation({
     mutationFn: async () => {
-      const response = await api.post('/shift-schedules/publish', null, {
-        params: {
-          date: selectedDate,
-          zoneId: selectedZoneId || undefined,
-        },
+      const params: { date: string; zoneId?: string } = {
+        date: selectedDate,
+      };
+
+      if (selectedZoneId) {
+        params.zoneId = selectedZoneId;
+      }
+
+      const response = await api.post('/shift-schedules/publish', {}, {
+        params,
       });
       return response.data as PublishResult;
     },
@@ -146,6 +183,7 @@ export default function ShiftAssignmentsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['shift-assignments'] });
       queryClient.invalidateQueries({ queryKey: ['available-soldiers'] });
+      queryClient.invalidateQueries({ queryKey: ['schedule-status'] });
       toast.success('חייל שובץ בהצלחה');
     },
     onError: (error: any) => {
@@ -161,6 +199,7 @@ export default function ShiftAssignmentsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['shift-assignments'] });
       queryClient.invalidateQueries({ queryKey: ['available-soldiers'] });
+      queryClient.invalidateQueries({ queryKey: ['schedule-status'] });
       toast.success('שיבוץ הוסר');
     },
     onError: () => {
@@ -222,13 +261,15 @@ export default function ShiftAssignmentsPage() {
 
   return (
     <AdminLayout>
+      {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-military-700">שיבוץ משמרות</h1>
         <p className="text-gray-600 mt-1">גרור חיילים למשימות לשיבוץ משמרות</p>
       </div>
 
       {/* Controls */}
-      <div className="bg-white rounded-lg border p-4 mb-6">
+      <Card className="mb-6">
+        <CardContent className="py-4">
         <div className="flex flex-wrap items-center gap-4">
           {/* Date selector */}
           <div className="flex items-center gap-2">
@@ -321,7 +362,8 @@ export default function ShiftAssignmentsPage() {
             </div>
           )}
         </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {!selectedZoneId || !selectedShiftId ? (
         <Card>

@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Query,
+  Body,
   UseGuards,
   Request,
 } from '@nestjs/common';
@@ -25,7 +26,7 @@ export class ShiftSchedulesController {
     return this.shiftSchedulesService.findByDateRange(
       new Date(startDate),
       new Date(endDate),
-      zoneId,
+      zoneId && zoneId !== 'undefined' ? zoneId : undefined,
     );
   }
 
@@ -36,7 +37,7 @@ export class ShiftSchedulesController {
   ) {
     return this.shiftSchedulesService.getScheduleStatus(
       new Date(date),
-      zoneId,
+      zoneId && zoneId !== 'undefined' ? zoneId : undefined,
     );
   }
 
@@ -45,7 +46,7 @@ export class ShiftSchedulesController {
     @Query('date') date: string,
     @Query('zoneId') zoneId?: string,
   ) {
-    return this.shiftSchedulesService.findOrCreate(new Date(date), zoneId);
+    return this.shiftSchedulesService.findOrCreate(new Date(date), zoneId && zoneId !== 'undefined' ? zoneId : undefined);
   }
 
   @Post('publish')
@@ -54,11 +55,12 @@ export class ShiftSchedulesController {
   publish(
     @Query('date') date: string,
     @Query('zoneId') zoneId: string | undefined,
+    @Body() _body: any,
     @Request() req: any,
   ) {
     return this.shiftSchedulesService.publish(
       new Date(date),
-      zoneId,
+      zoneId && zoneId !== 'undefined' ? zoneId : undefined,
       req.user.id,
     );
   }
@@ -69,7 +71,8 @@ export class ShiftSchedulesController {
   unpublish(
     @Query('date') date: string,
     @Query('zoneId') zoneId?: string,
+    @Body() _body?: any,
   ) {
-    return this.shiftSchedulesService.unpublish(new Date(date), zoneId);
+    return this.shiftSchedulesService.unpublish(new Date(date), zoneId && zoneId !== 'undefined' ? zoneId : undefined);
   }
 }

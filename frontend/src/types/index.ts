@@ -1,15 +1,51 @@
+// Military Role - organizational identity
+export type MilitaryRole =
+  | 'PLATOON_COMMANDER'
+  | 'SERGEANT_MAJOR'
+  | 'OPERATIONS_SGT'
+  | 'OPERATIONS_NCO'
+  | 'DUTY_OFFICER'
+  | 'SQUAD_COMMANDER'
+  | 'FIGHTER';
+
+export const MILITARY_ROLE_LABELS: Record<MilitaryRole, string> = {
+  PLATOON_COMMANDER: 'מפקד פלוגה',
+  SERGEANT_MAJOR: 'סמ״פ',
+  OPERATIONS_SGT: 'קמב״צ',
+  OPERATIONS_NCO: 'סמב״צ',
+  DUTY_OFFICER: 'מ״מ',
+  SQUAD_COMMANDER: 'מפקד',
+  FIGHTER: 'לוחם',
+};
+
+// Department interface
+export interface Department {
+  id: string;
+  name: string;
+  code: string;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface User {
   id: string;
+  personalId?: string;
   fullName: string;
   email: string;
   phone: string;
-  role: UserRole;
+  role: UserRole; // Legacy
+  militaryRole?: MilitaryRole;
+  department?: Department;
+  departmentId?: string;
   armyNumber: string;
   idNumber?: string;
   dailyJob?: string;
   city?: string;
   fieldOfStudy?: string;
   birthDay?: string;
+  isPreApproved?: boolean;
+  isRegistered?: boolean;
   createdAt: string;
 }
 
@@ -211,7 +247,7 @@ export interface Contact {
 }
 
 export const ROLE_LABELS: Record<UserRole, string> = {
-  SOLDIER: 'חייל',
+  SOLDIER: 'לוחם',
   COMMANDER: 'מפקד',
   OFFICER: 'קצין',
   MEDIC: 'חובש',

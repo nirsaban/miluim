@@ -6,13 +6,15 @@ import {
   MinLength,
   Matches,
   IsDateString,
-  IsEnum,
   IsArray,
   IsUUID,
 } from 'class-validator';
-import { UserRole } from '@prisma/client';
 
 export class RegisterDto {
+  @IsNotEmpty({ message: 'מספר אישי הוא שדה חובה' })
+  @IsString()
+  personalId: string;
+
   @IsNotEmpty({ message: 'שם מלא הוא שדה חובה' })
   @IsString()
   fullName: string;
@@ -33,18 +35,10 @@ export class RegisterDto {
   })
   password: string;
 
-  @IsNotEmpty({ message: 'מספר אישי הוא שדה חובה' })
-  @IsString()
-  armyNumber: string;
-
   @IsNotEmpty({ message: 'תעודת זהות היא שדה חובה' })
   @IsString()
   @Matches(/^\d{9}$/, { message: 'מספר תעודת זהות לא תקין' })
   idNumber: string;
-
-  @IsOptional()
-  @IsEnum(UserRole)
-  role?: UserRole;
 
   @IsOptional()
   @IsArray()
