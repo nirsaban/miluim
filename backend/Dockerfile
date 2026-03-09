@@ -34,9 +34,9 @@ RUN addgroup -g 1001 -S nodejs && \
 COPY package*.json ./
 
 RUN if [ -f package-lock.json ]; then \
-      npm ci --only=production --ignore-scripts; \
+      npm ci --omit=dev; \
     else \
-      npm install --only=production --ignore-scripts; \
+      npm install --omit=dev; \
     fi
 
 COPY --from=builder /app/prisma ./prisma
