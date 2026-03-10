@@ -280,6 +280,121 @@ After initial deployment with `SEED_DATABASE=true`:
 
 **Important:** Change these passwords immediately after first login!
 
+## CI/CD - Automatic Deployment
+
+### Option 1: GitHub Actions (Recommended)
+
+Automatically deploy when you push to the `main` branch.
+
+**Setup:**
+
+1. Go to your GitHub repository → Settings → Secrets and variables → Actions
+
+2. Add these secrets:
+   - `SERVER_HOST` - Your server IP or domain
+   - `SERVER_USER` - SSH username (e.g., `root` or `ubuntu`)
+   - `SERVER_SSH_KEY` - Private SSH key for authentication
+   - `SERVER_PORT` - SSH port (default: 22)
+   - `PROJECT_PATH` - Path to project on server (default: `/opt/yogev-system`)
+
+3. Generate SSH key if needed:
+   ```bash
+   ssh-keygen -t ed25519 -C "github-actions-deploy"
+   # Add the public key to ~/.ssh/authorized_keys on your server
+   # Add the private key to GitHub Secrets as SERVER_SSH_KEY
+   ```
+
+4. Push to main branch - deployment will trigger automatically!
+
+**Manual Trigger:**
+Go to Actions tab → "Deploy to Production" → Run workflow
+
+### Option 2: Deploy Script (Manual)
+
+SSH into your server and run:
+
+```bash
+cd /opt/yogev-system
+./scripts/deploy.sh
+```
+
+Options:
+- `--build` - Force rebuild Docker images (default)
+- `--seed` - Seed the database
+- `--logs` - Show logs after deployment
+- `--no-pull` - Skip git pull
+
+### Option 3: Webhook-Based Auto-Deploy
+
+For servers without GitHub Actions access.
+
+**Setup on Server:**
+
+1. Install the service:
+   ```bash
+   # Edit the token in the service file first!
+   sudo cp scripts/yogev-deploy.service /etc/systemd/system/
+   sudo systemctl daemon-reload
+   sudo systemctl enable yogev-deploy
+   sudo systemctl start yogev-deploy
+   ```
+
+2. Configure GitHub webhook:
+   - Go to Repository → Settings → Webhooks → Add webhook
+   - Payload URL: `http://your-server:9000/deploy?token=YOUR_SECRET_TOKEN`
+   - Content type: `application/json`
+   - Events: Just the push event
+   - Active: ✓
+
+3. Open port 9000 on your firewall (or use a different port)
+
+### Deployment Flow
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│  git push   │────▶│   GitHub    │────▶│   Server    │
+│  to main    │     │   Actions   │     │   via SSH   │
+└─────────────┘     └─────────────┘     └──────┬──────┘
+                                               │
+                                        ┌──────▼──────┐
+                                        │   deploy.sh │
+                                        │  1. git pull│
+                                        │  2. build   │
+                                        │  3. deploy  │
+                                        └─────────────┘
+```
+
+## Initial Server Setup
+
+For a fresh Ubuntu/Debian server:
+
+```bash
+# 1. Update system
+sudo apt update && sudo apt upgrade -y
+
+# 2. Install Docker
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker $USER
+
+# 3. Install Docker Compose
+sudo apt install docker-compose-plugin -y
+
+# 4. Clone repository
+git clone https://github.com/your-repo/yogev-system.git /opt/yogev-system
+cd /opt/yogev-system
+
+# 5. Configure environment
+cp .env.example .env
+nano .env  # Edit with your values
+
+# 6. First deployment with seeding
+./scripts/deploy.sh --seed
+
+# 7. Verify deployment
+docker compose ps
+curl http://localhost/api/health
+```
+
 ## Production Checklist
 
 - [ ] Set strong `POSTGRES_PASSWORD`
@@ -291,3 +406,4 @@ After initial deployment with `SEED_DATABASE=true`:
 - [ ] Configure firewall (allow only 80/443)
 - [ ] Setup automated backups
 - [ ] Configure log rotation
+- [ ] Setup CI/CD (GitHub Actions or webhook)

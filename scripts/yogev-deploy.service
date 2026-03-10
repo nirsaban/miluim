@@ -1,0 +1,17 @@
+[Unit]
+Description=Yogev System Auto-Deploy Webhook
+After=network.target docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/yogev-system
+Environment=WEBHOOK_PORT=9000
+Environment=WEBHOOK_TOKEN=your-secret-token-change-me
+ExecStart=/opt/yogev-system/scripts/webhook-server.sh
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
