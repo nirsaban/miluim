@@ -44,8 +44,8 @@ api.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
     if (error.response?.status === 401) {
-      Cookies.remove('token');
-      Cookies.remove('user');
+      Cookies.remove('token', { path: '/' });
+      Cookies.remove('user', { path: '/' });
       if (typeof window !== 'undefined') {
         window.location.href = '/auth/login';
       }
@@ -54,13 +54,22 @@ api.interceptors.response.use(
   }
 );
 
+// Determine if we're on HTTPS
+const isSecure = () => typeof window !== 'undefined' && window.location.protocol === 'https:';
+
 export const setAuthToken = (token: string) => {
-  Cookies.set('token', token, { expires: 0.5, sameSite: 'None', secure: true }); // 12 hours
+  // Use 'Lax' for same-origin, secure only on HTTPS
+  Cookies.set('token', token, {
+    expires: 0.5, // 12 hours
+    sameSite: 'Lax',
+    secure: isSecure(),
+    path: '/',
+  });
 };
 
 export const removeAuthToken = () => {
-  Cookies.remove('token');
-  Cookies.remove('user');
+  Cookies.remove('token', { path: '/' });
+  Cookies.remove('user', { path: '/' });
 };
 
 export const getAuthToken = () => {
@@ -68,7 +77,12 @@ export const getAuthToken = () => {
 };
 
 export const setUserData = (user: any) => {
-  Cookies.set('user', JSON.stringify(user), { expires: 0.5, sameSite: 'None', secure: true });
+  Cookies.set('user', JSON.stringify(user), {
+    expires: 0.5, // 12 hours
+    sameSite: 'Lax',
+    secure: isSecure(),
+    path: '/',
+  });
 };
 
 export const getUserData = () => {
