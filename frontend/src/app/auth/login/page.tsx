@@ -33,7 +33,8 @@ export default function LoginPage() {
       const response = await api.post('/auth/login', data);
 
       if (response.data.success) {
-        login(response.data.user, response.data.token);
+        // Wait for token to be stored before redirecting
+        await login(response.data.user, response.data.token);
         toast.success('התחברת בהצלחה!');
         router.push('/dashboard');
       }

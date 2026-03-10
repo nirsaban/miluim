@@ -6,7 +6,8 @@
       "Bash(npm run dev:*)",
       "Bash(node get-gmail-token.js:*)",
       "Bash(ssh:*)",
-      "Bash(nc:*)"
+      "Bash(nc:*)",
+      "Bash(npm run build:*)"
     ]
   }
 }

@@ -82,7 +82,8 @@ export default function OTPPage() {
 
       if (response.data.success) {
         sessionStorage.removeItem('otpEmail');
-        login(response.data.user, response.data.token);
+        // Wait for token to be stored before redirecting
+        await login(response.data.user, response.data.token);
         toast.success('התחברת בהצלחה!');
         router.push('/dashboard');
       }

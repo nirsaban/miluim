@@ -67,7 +67,7 @@ interface HomeData {
 }
 
 export default function HomePage() {
-  const { user } = useAuth();
+  const { user, isAuthenticated, isHydrated } = useAuth();
 
   const { data: homeData, isLoading: homeLoading } = useQuery<HomeData>({
     queryKey: ['home-data'],
@@ -75,6 +75,8 @@ export default function HomePage() {
       const response = await api.get('/users/me/home');
       return response.data;
     },
+    // Only run query when auth is confirmed ready
+    enabled: isAuthenticated && isHydrated,
   });
 
   // Use data from homeData instead of separate queries

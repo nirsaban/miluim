@@ -10,7 +10,7 @@ interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   _hasHydrated: boolean;
-  login: (user: User, token: string) => void;
+  login: (user: User, token: string) => Promise<void>;
   logout: () => void;
   updateUser: (user: Partial<User>) => void;
   setHasHydrated: (state: boolean) => void;
@@ -23,9 +23,23 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       isAuthenticated: false,
       _hasHydrated: false,
-      login: (user: User, token: string) => {
+      login: async (user: User, token: string) => {
+        // 1. Store token in cookie first
         setAuthToken(token);
         setUserData(user);
+
+        // 2. Wait for next tick to ensure cookie is persisted and readable
+        await new Promise(resolve => setTimeout(resolve, 10));
+
+        // 3. Verify token was stored correctly
+        const storedToken = getAuthToken();
+        if (!storedToken) {
+          console.error('Token not stored correctly, retrying...');
+          setAuthToken(token);
+          await new Promise(resolve => setTimeout(resolve, 10));
+        }
+
+        // 4. Only then update auth state
         set({ user, isAuthenticated: true });
       },
       logout: () => {
