@@ -5,6 +5,7 @@ import { Bell, Check, CheckCheck } from 'lucide-react';
 import { Card, CardHeader, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
+import { PushNotificationToggle } from '@/components/ui/PushNotificationToggle';
 import api from '@/lib/api';
 import { Notification } from '@/types';
 import { formatRelativeTime, cn } from '@/lib/utils';
@@ -52,17 +53,20 @@ export function NotificationsSection() {
             </span>
           )}
         </div>
-        {unreadCount > 0 && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => markAllAsReadMutation.mutate()}
-            isLoading={markAllAsReadMutation.isPending}
-          >
-            <CheckCheck className="w-4 h-4 ml-1" />
-            סמן הכל כנקרא
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <PushNotificationToggle />
+          {unreadCount > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => markAllAsReadMutation.mutate()}
+              isLoading={markAllAsReadMutation.isPending}
+            >
+              <CheckCheck className="w-4 h-4 ml-1" />
+              סמן הכל כנקרא
+            </Button>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         {isLoading ? (

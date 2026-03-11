@@ -28,6 +28,8 @@ import {
   ChevronLeft,
   Settings,
   LucideIcon,
+  Shield,
+  CalendarCheck,
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -48,6 +50,16 @@ interface MenuSection {
 }
 
 const adminMenuSections: MenuSection[] = [
+  {
+    id: 'service',
+    label: 'סבב מילואים',
+    icon: Shield,
+    items: [
+      { href: '/admin/current-service', label: 'דשבורד נוכחי', icon: LayoutDashboard },
+      { href: '/admin/current-service/checklist', label: 'צ׳קליסט', icon: ClipboardList },
+      { href: '/admin/service-cycles', label: 'ניהול סבבים', icon: CalendarCheck },
+    ],
+  },
   {
     id: 'users',
     label: 'משתמשים',

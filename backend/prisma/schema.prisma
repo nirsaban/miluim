@@ -173,6 +173,7 @@ model User {
   socialPosts         SocialPost[]
   recommendations     Recommendation[]
   notifications       Notification[]
+  pushSubscriptions   PushSubscription[]
   soldierStatus       SoldierStatus?
   shiftsCreated       ShiftPost[]
   operationalLinks    OperationalLink[]
@@ -182,6 +183,12 @@ model User {
   shiftAssignments    ShiftAssignment[]
   publishedSchedules  ShiftSchedule[]   @relation("PublishedSchedules")
   messagesCreated     Message[]         @relation("CreatedMessages")
+
+  // Reserve Service Cycle relations
+  createdServiceCycles    ReserveServiceCycle[]    @relation("ServiceCycleCreator")
+  serviceAttendances      ServiceAttendance[]      @relation("ServiceAttendances")
+  completedChecklists     ServiceAdminChecklist[]  @relation("ChecklistCompleter")
+  assignedVehicles        ServiceVehicle[]         @relation("VehicleDriver")
 
   @@map("users")
 }
@@ -275,6 +282,20 @@ model Notification {
   createdAt DateTime @default(now())
 
   @@map("notifications")
+}
+
+model PushSubscription {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String   // Public key
+  auth      String   // Auth secret
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("push_subscriptions")
 }
 
 model SoldierStatus {
@@ -480,4 +501,127 @@ model ShiftAssignment {
 
   @@unique([date, shiftTemplateId, taskId, soldierId])
   @@map("shift_assignments")
+}
+
+// ============================================================
+// RESERVE SERVICE CYCLE - סבב מילואים
+// ============================================================
+
+enum ReserveServiceCycleStatus {
+  PLANNED   // מתוכנן
+  ACTIVE    // פעיל
+  COMPLETED // הושלם
+  CANCELLED // בוטל
+}
+
+enum ServiceAttendanceStatus {
+  PENDING     // ממתין לעדכון
+  ARRIVED     // הגיע
+  NOT_COMING  // לא מגיע
+  LATE        // איחור
+  LEFT_EARLY  // יצא מוקדם
+}
+
+enum ServiceChecklistCategory {
+  STAFF      // סגל
+  VEHICLES   // רכבים
+  LOGISTICS  // לוגיסטיקה
+  HOTEL      // מלון
+  WEAPONS    // נשקים
+  GENERAL    // כללי
+}
+
+// סבב מילואים / גיוס נוכחי
+model ReserveServiceCycle {
+  id          String                     @id @default(uuid())
+  name        String                     // שם הסבב
+  description String?                    // תיאור
+  startDate   DateTime                   @db.Date // תאריך התחלה
+  endDate     DateTime?                  @db.Date // תאריך סיום
+  location    String?                    // מיקום
+  status      ReserveServiceCycleStatus  @default(PLANNED)
+
+  createdById String
+  createdBy   User                       @relation("ServiceCycleCreator", fields: [createdById], references: [id])
+
+  createdAt   DateTime                   @default(now())
+  updatedAt   DateTime                   @updatedAt
+
+  // Relations
+  attendances        ServiceAttendance[]
+  adminChecklists    ServiceAdminChecklist[]
+  vehicles           ServiceVehicle[]
+
+  @@map("reserve_service_cycles")
+}
+
+// נוכחות / הצטרפות חייל לסבב
+model ServiceAttendance {
+  id                  String                   @id @default(uuid())
+  serviceCycleId      String
+  serviceCycle        ReserveServiceCycle      @relation(fields: [serviceCycleId], references: [id], onDelete: Cascade)
+  userId              String
+  user                User                     @relation("ServiceAttendances", fields: [userId], references: [id], onDelete: Cascade)
+
+  attendanceStatus    ServiceAttendanceStatus  @default(PENDING)
+  cannotAttendReason  String?                  // סיבת אי-הגעה
+
+  checkInAt           DateTime?                // זמן הגעה בפועל
+  checkOutAt          DateTime?                // זמן יציאה
+
+  onboardGunNumber    String?                  // מספר נשק
+  hotelRoomNumber     String?                  // מספר חדר
+  notes               String?                  // הערות
+
+  totalActiveDays     Int                      @default(0) // ימי פעילות מצטברים
+
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+
+  @@unique([serviceCycleId, userId])
+  @@map("service_attendances")
+}
+
+// צ'קליסט סגל / לוגיסטיקה
+model ServiceAdminChecklist {
+  id              String                    @id @default(uuid())
+  serviceCycleId  String
+  serviceCycle    ReserveServiceCycle       @relation(fields: [serviceCycleId], references: [id], onDelete: Cascade)
+
+  category        ServiceChecklistCategory  @default(GENERAL)
+  title           String                    // כותרת
+  description     String?                   // תיאור
+
+  isCompleted     Boolean                   @default(false)
+  completedById   String?
+  completedBy     User?                     @relation("ChecklistCompleter", fields: [completedById], references: [id])
+  completedAt     DateTime?
+
+  notes           String?                   // הערות
+  sortOrder       Int                       @default(0)
+
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+
+  @@map("service_admin_checklists")
+}
+
+// רכבים בסבב (Phase 2 - basic structure)
+model ServiceVehicle {
+  id              String               @id @default(uuid())
+  serviceCycleId  String
+  serviceCycle    ReserveServiceCycle  @relation(fields: [serviceCycleId], references: [id], onDelete: Cascade)
+
+  vehicleNumber   String               // מספר רכב
+  vehicleType     String?              // סוג רכב
+  driverUserId    String?
+  driver          User?                @relation("VehicleDriver", fields: [driverUserId], references: [id])
+
+  notes           String?
+  isActive        Boolean              @default(true)
+
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  @@map("service_vehicles")
 }

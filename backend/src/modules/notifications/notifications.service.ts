@@ -1,9 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { PushService } from '../push/push.service';
 
 @Injectable()
 export class NotificationsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private pushService: PushService,
+  ) {}
 
   async findByUser(userId: string, unreadOnly: boolean = false) {
     return this.prisma.notification.findMany({
@@ -29,13 +33,25 @@ export class NotificationsService {
     title: string;
     content: string;
   }) {
-    return this.prisma.notification.create({
+    const notification = await this.prisma.notification.create({
       data: {
         userId: data.userId,
         title: data.title,
         content: data.content,
       },
     });
+
+    // Send push notification
+    await this.pushService.sendToUser(data.userId, {
+      title: data.title,
+      body: data.content,
+      icon: '/icons/icon-192x192.png',
+      badge: '/icons/icon-72x72.png',
+      tag: `notification-${notification.id}`,
+      url: '/notifications',
+    });
+
+    return notification;
   }
 
   async createForAllUsers(data: {
@@ -53,9 +69,21 @@ export class NotificationsService {
       content: data.content,
     }));
 
-    return this.prisma.notification.createMany({
+    const result = await this.prisma.notification.createMany({
       data: notifications,
     });
+
+    // Send push notification to all users
+    await this.pushService.sendToAllUsers({
+      title: data.title,
+      body: data.content,
+      icon: '/icons/icon-192x192.png',
+      badge: '/icons/icon-72x72.png',
+      tag: 'system-notification',
+      url: '/notifications',
+    });
+
+    return result;
   }
 
   async markAsRead(id: string, userId: string) {

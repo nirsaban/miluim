@@ -12,6 +12,7 @@ import {
   LogIn,
   LogOut,
   RefreshCw,
+  BarChart3,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { AdminLayout } from '@/components/layout/AdminLayout';
@@ -19,6 +20,7 @@ import { Card, CardHeader, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Spinner } from '@/components/ui/Spinner';
+import { AttendanceCharts } from '@/components/charts/AttendanceCharts';
 import api from '@/lib/api';
 import {
   LeaveRequest,
@@ -65,11 +67,14 @@ function TimeRemaining({ expectedReturn, isOverdue }: { expectedReturn: string; 
   );
 }
 
+type TabType = 'leaves' | 'attendance';
+
 export default function AdminStatusPage() {
   const queryClient = useQueryClient();
   const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
   const [adminNote, setAdminNote] = useState('');
   const [actionType, setActionType] = useState<'approve' | 'reject' | null>(null);
+  const [activeTab, setActiveTab] = useState<TabType>('leaves');
 
   const { data: dashboard, isLoading, refetch } = useQuery<LeaveRequestDashboard>({
     queryKey: ['leave-dashboard'],
@@ -157,7 +162,13 @@ export default function AdminStatusPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-military-700">סטטוס חיילים - בזמן אמת</h1>
-          <p className="text-gray-600 mt-1">מעקב אחר יציאות וחזרות לבסיס</p>
+          {dashboard?.currentCycle ? (
+            <p className="text-gray-600 mt-1">
+              סבב נוכחי: <span className="font-semibold text-military-600">{dashboard.currentCycle.name}</span>
+            </p>
+          ) : (
+            <p className="text-orange-600 mt-1">אין סבב מילואים פעיל - מוצג מידע לכלל החיילים</p>
+          )}
         </div>
         <Button variant="secondary" onClick={() => refetch()}>
           <RefreshCw className="w-4 h-4 ml-1" />
@@ -165,7 +176,41 @@ export default function AdminStatusPage() {
         </Button>
       </div>
 
-      {isLoading ? (
+      {/* Tabs */}
+      <div className="flex gap-2 mb-6 border-b border-gray-200">
+        <button
+          onClick={() => setActiveTab('leaves')}
+          className={cn(
+            'px-4 py-2 font-medium text-sm border-b-2 transition-colors -mb-px',
+            activeTab === 'leaves'
+              ? 'border-military-600 text-military-700'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          )}
+        >
+          <div className="flex items-center gap-2">
+            <LogOut className="w-4 h-4" />
+            יציאות וחזרות
+          </div>
+        </button>
+        <button
+          onClick={() => setActiveTab('attendance')}
+          className={cn(
+            'px-4 py-2 font-medium text-sm border-b-2 transition-colors -mb-px',
+            activeTab === 'attendance'
+              ? 'border-military-600 text-military-700'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          )}
+        >
+          <div className="flex items-center gap-2">
+            <BarChart3 className="w-4 h-4" />
+            סטטיסטיקת נוכחות
+          </div>
+        </button>
+      </div>
+
+      {activeTab === 'attendance' ? (
+        <AttendanceCharts />
+      ) : isLoading ? (
         <div className="flex justify-center py-12">
           <Spinner size="lg" />
         </div>
@@ -175,7 +220,7 @@ export default function AdminStatusPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
             <div className="bg-white rounded-lg shadow p-4 text-center">
               <Users className="w-6 h-6 mx-auto text-military-600 mb-2" />
-              <p className="text-sm text-gray-500">סה"כ חיילים</p>
+              <p className="text-sm text-gray-500">{dashboard.currentCycle ? 'הגיעו לסבב' : 'סה"כ חיילים'}</p>
               <p className="text-2xl font-bold text-gray-700">{dashboard.stats.totalSoldiers}</p>
             </div>
             <div className="bg-green-50 rounded-lg shadow p-4 text-center border-2 border-green-200">

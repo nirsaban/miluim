@@ -141,6 +141,11 @@ export interface LeaveRequestDashboard {
   categoryBreakdown: CategoryBreakdown[];
   activeLeaves: LeaveRequest[];
   pendingRequests: LeaveRequest[];
+  currentCycle?: {
+    id: string;
+    name: string;
+    startDate: string;
+  } | null;
 }
 
 export interface FormSubmission {
@@ -475,4 +480,121 @@ export interface PublishResult {
 export const SHIFT_SCHEDULE_STATUS_LABELS: Record<ShiftScheduleStatus, string> = {
   DRAFT: 'טיוטה',
   PUBLISHED: 'פורסם',
+};
+
+// ============================================================
+// RESERVE SERVICE CYCLE - סבב מילואים
+// ============================================================
+
+export type ReserveServiceCycleStatus = 'PLANNED' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
+export type ServiceAttendanceStatus = 'PENDING' | 'ARRIVED' | 'NOT_COMING' | 'LATE' | 'LEFT_EARLY';
+export type ServiceChecklistCategory = 'STAFF' | 'VEHICLES' | 'LOGISTICS' | 'HOTEL' | 'WEAPONS' | 'GENERAL';
+
+export interface ReserveServiceCycle {
+  id: string;
+  name: string;
+  description?: string;
+  startDate: string;
+  endDate?: string;
+  location?: string;
+  status: ReserveServiceCycleStatus;
+  createdById: string;
+  createdBy?: {
+    id: string;
+    fullName: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+  _count?: {
+    attendances: number;
+    adminChecklists: number;
+  };
+}
+
+export interface ServiceAttendance {
+  id: string;
+  serviceCycleId: string;
+  serviceCycle?: ReserveServiceCycle;
+  userId: string;
+  user?: {
+    id: string;
+    fullName: string;
+    personalId?: string;
+    phone?: string;
+    militaryRole?: MilitaryRole;
+    department?: Department;
+  };
+  attendanceStatus: ServiceAttendanceStatus;
+  cannotAttendReason?: string;
+  checkInAt?: string;
+  checkOutAt?: string;
+  onboardGunNumber?: string;
+  hotelRoomNumber?: string;
+  notes?: string;
+  totalActiveDays: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ServiceAdminChecklist {
+  id: string;
+  serviceCycleId: string;
+  category: ServiceChecklistCategory;
+  title: string;
+  description?: string;
+  isCompleted: boolean;
+  completedById?: string;
+  completedBy?: {
+    id: string;
+    fullName: string;
+  };
+  completedAt?: string;
+  notes?: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ServiceCycleSummary {
+  cycle: ReserveServiceCycle;
+  stats: {
+    totalSoldiers: number;
+    totalResponded: number;
+    pending: number;
+    arrived: number;
+    notComing: number;
+    late: number;
+    leftEarly: number;
+    withGunAssigned: number;
+    withRoomAssigned: number;
+  };
+  reasonsGrouped: Record<string, number>;
+  checklistStats: {
+    total: number;
+    completed: number;
+  };
+}
+
+export const SERVICE_CYCLE_STATUS_LABELS: Record<ReserveServiceCycleStatus, string> = {
+  PLANNED: 'מתוכנן',
+  ACTIVE: 'פעיל',
+  COMPLETED: 'הושלם',
+  CANCELLED: 'בוטל',
+};
+
+export const SERVICE_ATTENDANCE_STATUS_LABELS: Record<ServiceAttendanceStatus, string> = {
+  PENDING: 'ממתין לעדכון',
+  ARRIVED: 'הגיע',
+  NOT_COMING: 'לא מגיע',
+  LATE: 'איחור',
+  LEFT_EARLY: 'יצא מוקדם',
+};
+
+export const SERVICE_CHECKLIST_CATEGORY_LABELS: Record<ServiceChecklistCategory, string> = {
+  STAFF: 'סגל',
+  VEHICLES: 'רכבים',
+  LOGISTICS: 'לוגיסטיקה',
+  HOTEL: 'מלון',
+  WEAPONS: 'נשקים',
+  GENERAL: 'כללי',
 };

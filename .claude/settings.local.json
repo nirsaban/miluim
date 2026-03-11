@@ -7,7 +7,9 @@
       "Bash(node get-gmail-token.js:*)",
       "Bash(ssh:*)",
       "Bash(nc:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(npx tsc:*)",
+      "Bash(NODE_TLS_REJECT_UNAUTHORIZED=0 npm run build:*)"
     ]
   }
 }

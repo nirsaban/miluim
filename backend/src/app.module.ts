@@ -25,6 +25,10 @@ import { ShiftSchedulesModule } from './modules/shift-schedules/shift-schedules.
 import { CsvImportModule } from './modules/csv-import/csv-import.module';
 import { EmailModule } from './email/email.module';
 import { UploadModule } from './upload/upload.module';
+import { ServiceCyclesModule } from './modules/service-cycles/service-cycles.module';
+import { ServiceAttendanceModule } from './modules/service-attendance/service-attendance.module';
+import { ServiceChecklistModule } from './modules/service-checklist/service-checklist.module';
+import { PushModule } from './modules/push/push.module';
 
 @Module({
   imports: [
@@ -62,6 +66,10 @@ import { UploadModule } from './upload/upload.module';
     ShiftAssignmentsModule,
     ShiftSchedulesModule,
     CsvImportModule,
+    ServiceCyclesModule,
+    ServiceAttendanceModule,
+    ServiceChecklistModule,
+    PushModule,
   ],
 })
 export class AppModule {}

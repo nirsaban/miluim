@@ -15,6 +15,7 @@ import {
   Heart,
   Shield,
   User,
+  ClipboardCheck,
 } from 'lucide-react';
 
 interface UserLayoutProps {
@@ -23,6 +24,7 @@ interface UserLayoutProps {
 
 const navItems = [
   { href: '/dashboard/home', label: 'בית', icon: Home },
+  { href: '/dashboard/current-service', label: 'מילואים', icon: ClipboardCheck },
   { href: '/dashboard/shifts', label: 'משמרות', icon: Calendar },
   { href: '/dashboard/friends', label: 'חברים', icon: Users },
   { href: '/dashboard/requests', label: 'טפסים', icon: FileText },

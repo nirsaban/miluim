@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { LeaveType, LeaveStatus } from '@prisma/client';
+import { LeaveType, LeaveStatus, ReserveServiceCycleStatus, ServiceAttendanceStatus } from '@prisma/client';
 
 @Injectable()
 export class LeaveRequestsService {
@@ -23,6 +23,39 @@ export class LeaveRequestsService {
       },
     },
   };
+
+  // Get current active service cycle (if any)
+  private async getCurrentActiveCycle() {
+    return this.prisma.reserveServiceCycle.findFirst({
+      where: { status: ReserveServiceCycleStatus.ACTIVE },
+    });
+  }
+
+  // Get users who arrived to the current service cycle
+  private async getArrivedSoldiersForCurrentCycle() {
+    const cycle = await this.getCurrentActiveCycle();
+
+    if (!cycle) {
+      // No active cycle - fallback to all active soldiers
+      return this.prisma.user.findMany({
+        where: { isActive: true, role: 'SOLDIER' },
+        select: { id: true },
+      });
+    }
+
+    // Get soldiers who arrived to the current cycle
+    const arrivedAttendances = await this.prisma.serviceAttendance.findMany({
+      where: {
+        serviceCycleId: cycle.id,
+        attendanceStatus: {
+          in: [ServiceAttendanceStatus.ARRIVED, ServiceAttendanceStatus.LATE],
+        },
+      },
+      select: { userId: true },
+    });
+
+    return arrivedAttendances.map(a => ({ id: a.userId }));
+  }
 
   async findUserRequests(userId: string) {
     return this.prisma.leaveRequest.findMany({
@@ -111,32 +144,50 @@ export class LeaveRequestsService {
   async getDashboard() {
     const now = new Date();
 
-    const [totalSoldiers, activeLeaves, overdueLeaves, pendingRequests] = await Promise.all([
-      this.prisma.user.count({
-        where: { isActive: true, role: 'SOLDIER' },
-      }),
+    // Get current active cycle and arrived soldiers
+    const cycle = await this.getCurrentActiveCycle();
+    const arrivedSoldiers = await this.getArrivedSoldiersForCurrentCycle();
+    const arrivedSoldierIds = arrivedSoldiers.map(s => s.id);
+
+    // Count active leaves ONLY for arrived soldiers
+    const [activeLeavesForArrived, overdueLeaves, pendingRequests] = await Promise.all([
       this.prisma.leaveRequest.count({
-        where: { status: 'ACTIVE' },
+        where: {
+          status: 'ACTIVE',
+          soldierId: { in: arrivedSoldierIds },
+        },
       }),
       this.prisma.leaveRequest.count({
         where: {
           status: 'ACTIVE',
+          soldierId: { in: arrivedSoldierIds },
           expectedReturn: { lt: now },
         },
       }),
       this.prisma.leaveRequest.count({
-        where: { status: 'PENDING' },
+        where: {
+          status: 'PENDING',
+          soldierId: { in: arrivedSoldierIds },
+        },
       }),
     ]);
 
+    // Get active leaves list for arrived soldiers only
     const activeLeavesList = await this.prisma.leaveRequest.findMany({
-      where: { status: 'ACTIVE' },
+      where: {
+        status: 'ACTIVE',
+        soldierId: { in: arrivedSoldierIds },
+      },
       include: this.includeRelations,
       orderBy: { expectedReturn: 'asc' },
     });
 
+    // Get pending requests for arrived soldiers only
     const pendingList = await this.prisma.leaveRequest.findMany({
-      where: { status: 'PENDING' },
+      where: {
+        status: 'PENDING',
+        soldierId: { in: arrivedSoldierIds },
+      },
       include: this.includeRelations,
       orderBy: { createdAt: 'asc' },
       take: 10,
@@ -186,11 +237,13 @@ export class LeaveRequestsService {
     // Sort by count descending
     categoryBreakdown.sort((a, b) => b.count - a.count);
 
+    const totalSoldiers = arrivedSoldierIds.length;
+
     return {
       stats: {
         totalSoldiers,
-        inBase: totalSoldiers - activeLeaves,
-        outOfBase: activeLeaves,
+        inBase: totalSoldiers - activeLeavesForArrived,
+        outOfBase: activeLeavesForArrived,
         overdue: overdueLeaves,
         pending: pendingRequests,
       },
@@ -200,6 +253,11 @@ export class LeaveRequestsService {
         isOverdue: new Date(leave.expectedReturn) < now,
       })),
       pendingRequests: pendingList,
+      currentCycle: cycle ? {
+        id: cycle.id,
+        name: cycle.name,
+        startDate: cycle.startDate,
+      } : null,
     };
   }
 
