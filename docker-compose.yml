@@ -9,10 +9,12 @@ services:
       POSTGRES_DB: yogev_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
     networks:
       - yogev-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U yogev -d yogev_db"]
+      test: [ "CMD-SHELL", "pg_isready -U yogev -d yogev_db" ]
       interval: 10s
       timeout: 5s
       retries: 5
