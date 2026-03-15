@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { MessageSquare, Bell, Calendar, MapPin, Building2, User, Phone, ChevronLeft } from 'lucide-react';
+import { PushNotificationToggle } from '@/components/ui/PushNotificationToggle';
 import Link from 'next/link';
 import { UserLayout } from '@/components/layout/UserLayout';
 import { Card, CardHeader, CardContent } from '@/components/ui/Card';
@@ -238,14 +239,17 @@ export default function HomePage() {
 
       {/* System Notifications */}
       <Card className="mb-4">
-        <CardHeader className="flex items-center gap-2">
-          <Bell className="w-5 h-5 text-red-500" />
-          <span>התראות מערכת</span>
-          {notifications.length > 0 && (
-            <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
-              {notifications.length}
-            </span>
-          )}
+        <CardHeader className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Bell className="w-5 h-5 text-red-500" />
+            <span>התראות מערכת</span>
+            {notifications.length > 0 && (
+              <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
+                {notifications.length}
+              </span>
+            )}
+          </div>
+          <PushNotificationToggle />
         </CardHeader>
         <CardContent>
           {homeLoading ? (
