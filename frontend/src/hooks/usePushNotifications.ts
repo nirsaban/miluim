@@ -77,9 +77,20 @@ export function usePushNotifications(): UsePushNotificationsReturn {
       }
 
       try {
-        const registration = await navigator.serviceWorker.ready;
-        const subscription = await registration.pushManager.getSubscription();
-        setIsSubscribed(!!subscription);
+        // Add timeout to prevent infinite loading
+        const timeoutPromise = new Promise<null>((_, reject) => {
+          setTimeout(() => reject(new Error('SW ready timeout')), 5000);
+        });
+
+        const registration = await Promise.race([
+          navigator.serviceWorker.ready,
+          timeoutPromise,
+        ]);
+
+        if (registration) {
+          const subscription = await registration.pushManager.getSubscription();
+          setIsSubscribed(!!subscription);
+        }
       } catch (error) {
         console.error('Failed to check subscription:', error);
       } finally {
