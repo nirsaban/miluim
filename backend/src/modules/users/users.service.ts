@@ -123,6 +123,14 @@ export class UsersService {
         city: true,
         dailyJob: true,
         createdAt: true,
+        departmentId: true,
+        department: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
         skills: {
           include: { skill: true },
         },
@@ -218,6 +226,42 @@ export class UsersService {
         fullName: true,
         militaryRole: true,
         role: true,
+      },
+    });
+  }
+
+  async updateDepartment(userId: string, departmentId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('משתמש לא נמצא');
+    }
+
+    // Verify department exists
+    const department = await this.prisma.department.findUnique({
+      where: { id: departmentId },
+    });
+
+    if (!department) {
+      throw new NotFoundException('מחלקה לא נמצאה');
+    }
+
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { departmentId },
+      select: {
+        id: true,
+        fullName: true,
+        departmentId: true,
+        department: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
       },
     });
   }
@@ -537,5 +581,217 @@ export class UsersService {
       notifications,
       messages,
     };
+  }
+
+  // Department view for OFFICER role
+
+  async getDepartmentSoldiers(userId: string) {
+    // Get the user's department
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { departmentId: true },
+    });
+
+    if (!user?.departmentId) {
+      throw new NotFoundException('משתמש לא משויך למחלקה');
+    }
+
+    // Get all soldiers in the department
+    return this.prisma.user.findMany({
+      where: {
+        isActive: true,
+        departmentId: user.departmentId,
+      },
+      select: {
+        id: true,
+        fullName: true,
+        phone: true,
+        militaryRole: true,
+        armyNumber: true,
+        skills: {
+          include: { skill: true },
+        },
+      },
+      orderBy: { fullName: 'asc' },
+    });
+  }
+
+  async getDepartmentAnalytics(userId: string) {
+    // Get the user's department
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        departmentId: true,
+        department: {
+          select: { id: true, name: true },
+        },
+      },
+    });
+
+    if (!user?.departmentId) {
+      throw new NotFoundException('משתמש לא משויך למחלקה');
+    }
+
+    const departmentId = user.departmentId;
+
+    // Get total soldiers in department
+    const totalSoldiers = await this.prisma.user.count({
+      where: {
+        isActive: true,
+        departmentId,
+      },
+    });
+
+    // Get current active service cycle
+    const activeCycle = await this.prisma.reserveServiceCycle.findFirst({
+      where: { status: 'ACTIVE' },
+    });
+
+    let attendanceStats = {
+      arrived: 0,
+      notComing: 0,
+      pending: 0,
+      late: 0,
+    };
+
+    if (activeCycle) {
+      // Get attendance for department soldiers in current cycle
+      const departmentUserIds = await this.prisma.user.findMany({
+        where: { isActive: true, departmentId },
+        select: { id: true },
+      });
+      const userIds = departmentUserIds.map(u => u.id);
+
+      const attendances = await this.prisma.serviceAttendance.findMany({
+        where: {
+          serviceCycleId: activeCycle.id,
+          userId: { in: userIds },
+        },
+        select: { attendanceStatus: true },
+      });
+
+      for (const att of attendances) {
+        switch (att.attendanceStatus) {
+          case 'ARRIVED':
+            attendanceStats.arrived++;
+            break;
+          case 'NOT_COMING':
+            attendanceStats.notComing++;
+            break;
+          case 'PENDING':
+            attendanceStats.pending++;
+            break;
+          case 'LATE':
+            attendanceStats.late++;
+            break;
+        }
+      }
+    }
+
+    // Get active leaves for department soldiers
+    const activeLeaves = await this.prisma.leaveRequest.count({
+      where: {
+        status: 'ACTIVE',
+        soldier: {
+          departmentId,
+          isActive: true,
+        },
+      },
+    });
+
+    // Get today's shifts for department soldiers
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const todayShifts = await this.prisma.shiftAssignment.count({
+      where: {
+        date: {
+          gte: today,
+          lt: tomorrow,
+        },
+        soldier: {
+          departmentId,
+          isActive: true,
+        },
+      },
+    });
+
+    return {
+      department: user.department,
+      totalSoldiers,
+      attendanceStats,
+      activeLeaves,
+      todayShifts,
+      activeCycle: activeCycle ? {
+        id: activeCycle.id,
+        name: activeCycle.name,
+      } : null,
+    };
+  }
+
+  async getDepartmentSoldiersWithStatus(userId: string) {
+    // Get the user's department
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { departmentId: true },
+    });
+
+    if (!user?.departmentId) {
+      throw new NotFoundException('משתמש לא משויך למחלקה');
+    }
+
+    const departmentId = user.departmentId;
+
+    // Get current active service cycle
+    const activeCycle = await this.prisma.reserveServiceCycle.findFirst({
+      where: { status: 'ACTIVE' },
+    });
+
+    // Get all soldiers in the department with their attendance and leave status
+    const soldiers = await this.prisma.user.findMany({
+      where: {
+        isActive: true,
+        departmentId,
+      },
+      select: {
+        id: true,
+        fullName: true,
+        phone: true,
+        militaryRole: true,
+        armyNumber: true,
+        skills: {
+          include: { skill: true },
+        },
+        leaveRequests: {
+          where: { status: 'ACTIVE' },
+          take: 1,
+          select: {
+            id: true,
+            type: true,
+            exitTime: true,
+            expectedReturn: true,
+          },
+        },
+        serviceAttendances: activeCycle ? {
+          where: { serviceCycleId: activeCycle.id },
+          take: 1,
+          select: {
+            attendanceStatus: true,
+            checkInAt: true,
+          },
+        } : undefined,
+      },
+      orderBy: { fullName: 'asc' },
+    });
+
+    return soldiers.map(soldier => ({
+      ...soldier,
+      activeLeave: soldier.leaveRequests[0] || null,
+      attendance: soldier.serviceAttendances?.[0] || null,
+      leaveRequests: undefined,
+      serviceAttendances: undefined,
+    }));
   }
 }

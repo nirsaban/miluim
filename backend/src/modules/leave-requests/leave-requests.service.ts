@@ -88,17 +88,7 @@ export class LeaveRequestsService {
       throw new BadRequestException('זמן חזרה צפוי חייב להיות אחרי זמן היציאה');
     }
 
-    // Check if soldier has an active leave request
-    const activeRequest = await this.prisma.leaveRequest.findFirst({
-      where: {
-        soldierId,
-        status: { in: ['PENDING', 'APPROVED', 'ACTIVE'] },
-      },
-    });
-
-    if (activeRequest) {
-      throw new BadRequestException('יש לך כבר בקשת יציאה פעילה');
-    }
+    // Allow multiple requests - removed single active request restriction
 
     return this.prisma.leaveRequest.create({
       data: {

@@ -30,6 +30,51 @@ export class ShiftAssignmentsController {
     return this.shiftAssignmentsService.findMyShifts(user.id);
   }
 
+  // ============================================================
+  // ACTIVE SHIFT MANAGEMENT ENDPOINTS
+  // ============================================================
+
+  @Get('active/today')
+  getTodayActiveShifts(@Query('zoneId') zoneId?: string) {
+    return this.shiftAssignmentsService.getTodayActiveShifts(
+      zoneId && zoneId !== 'undefined' ? zoneId : undefined,
+    );
+  }
+
+  @Get('active/my-shift')
+  getMyTodayShift(@CurrentUser() user: any) {
+    return this.shiftAssignmentsService.getMyTodayShift(user.id);
+  }
+
+  @Get('active/officer-duty')
+  getShiftOfficerDuty(@CurrentUser() user: any) {
+    return this.shiftAssignmentsService.getShiftOfficerDuty(user.id);
+  }
+
+  @Post('active/:id/arrive')
+  confirmArrival(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.shiftAssignmentsService.confirmArrival(id, user.id);
+  }
+
+  @Patch('active/:id/status')
+  updateActiveStatus(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+    @Body() data: { hasVehicle?: boolean; hasPhone?: boolean },
+  ) {
+    return this.shiftAssignmentsService.updateActiveStatus(id, user.id, data);
+  }
+
+  @Patch('schedule/:id/officer')
+  @UseGuards(RolesGuard)
+  @Roles('OFFICER')
+  assignShiftOfficer(
+    @Param('id') id: string,
+    @Body() data: { officerId: string },
+  ) {
+    return this.shiftAssignmentsService.assignShiftOfficer(id, data.officerId);
+  }
+
   @Get()
   findByDateRange(
     @Query('startDate') startDate: string,

@@ -1,10 +1,14 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { PushService } from '../push/push.service';
 import { ShiftScheduleStatus } from '@prisma/client';
 
 @Injectable()
 export class ShiftSchedulesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private pushService: PushService,
+  ) {}
 
   async findOrCreate(date: Date, zoneId?: string) {
     // Try to find existing schedule
@@ -217,6 +221,23 @@ export class ShiftSchedulesService {
     await this.prisma.notification.createMany({
       data: notifications,
     });
+
+    // Send push notifications to all assigned soldiers
+    for (const soldierId of uniqueSoldierIds) {
+      const soldierAssignments = assignments.filter((a) => a.soldierId === soldierId);
+      const shiftsText = soldierAssignments
+        .map((a) => `${a.shiftTemplate.displayName} - ${a.task.name}`)
+        .join(', ');
+
+      await this.pushService.sendToUser(soldierId, {
+        title: 'שיבוץ משמרות חדש',
+        body: `שובצת למשמרות ב${formattedDate}${zone ? ` באזור ${zone.name}` : ''}: ${shiftsText}`,
+        icon: '/icons/icon-192x192.png',
+        badge: '/icons/icon-72x72.png',
+        url: '/dashboard/shifts',
+        tag: `shift-${schedule.id}`,
+      });
+    }
 
     return {
       schedule: updatedSchedule,

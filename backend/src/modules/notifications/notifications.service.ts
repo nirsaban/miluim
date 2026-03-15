@@ -48,7 +48,7 @@ export class NotificationsService {
       icon: '/icons/icon-192x192.png',
       badge: '/icons/icon-72x72.png',
       tag: `notification-${notification.id}`,
-      url: '/notifications',
+      url: '/dashboard/home',
     });
 
     return notification;
@@ -80,7 +80,7 @@ export class NotificationsService {
       icon: '/icons/icon-192x192.png',
       badge: '/icons/icon-72x72.png',
       tag: 'system-notification',
-      url: '/notifications',
+      url: '/dashboard/home',
     });
 
     return result;

@@ -16,16 +16,26 @@ import {
   Shield,
   User,
   ClipboardCheck,
+  Building2,
 } from 'lucide-react';
+import { UserRole } from '@/types';
 
 interface UserLayoutProps {
   children: ReactNode;
 }
 
-const navItems = [
+interface NavItem {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  roles?: UserRole[]; // If specified, only show for these roles
+}
+
+const navItems: NavItem[] = [
   { href: '/dashboard/home', label: 'בית', icon: Home },
   { href: '/dashboard/current-service', label: 'מילואים', icon: ClipboardCheck },
   { href: '/dashboard/shifts', label: 'משמרות', icon: Calendar },
+  { href: '/dashboard/department', label: 'מחלקה', icon: Building2, roles: ['OFFICER', 'ADMIN'] },
   { href: '/dashboard/friends', label: 'חברים', icon: Users },
   { href: '/dashboard/requests', label: 'טפסים', icon: FileText },
   { href: '/dashboard/social', label: 'חברתי', icon: Heart },
@@ -48,6 +58,12 @@ export function UserLayout({ children }: UserLayoutProps) {
     return <PageLoader />;
   }
 
+  // Filter nav items based on user role
+  const filteredNavItems = navItems.filter((item) => {
+    if (!item.roles) return true;
+    return item.roles.includes(user.role);
+  });
+
   return (
     <div className="min-h-screen flex flex-col bg-gray-100">
       <Header />
@@ -58,9 +74,9 @@ export function UserLayout({ children }: UserLayoutProps) {
       </main>
 
       {/* Bottom Navigation - Mobile */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 lg:hidden z-50">
-        <div className="flex justify-around items-center h-16">
-          {navItems.slice(0, 5).map((item) => {
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 lg:hidden z-50 safe-area-pb">
+        <div className="flex justify-around items-center h-16 px-1">
+          {filteredNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
             return (
@@ -68,30 +84,17 @@ export function UserLayout({ children }: UserLayoutProps) {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  'flex flex-col items-center justify-center w-full h-full transition-colors',
+                  'flex flex-col items-center justify-center flex-1 h-full transition-colors min-w-0',
                   isActive
                     ? 'text-military-700'
                     : 'text-gray-500 hover:text-military-600'
                 )}
               >
                 <Icon className={cn('w-5 h-5', isActive && 'text-military-700')} />
-                <span className="text-[10px] mt-1">{item.label}</span>
+                <span className="text-[9px] mt-0.5 truncate">{item.label}</span>
               </Link>
             );
           })}
-          {/* More menu for additional items */}
-          <Link
-            href="/dashboard/profile"
-            className={cn(
-              'flex flex-col items-center justify-center w-full h-full transition-colors',
-              pathname === '/dashboard/profile' || pathname === '/dashboard/operational'
-                ? 'text-military-700'
-                : 'text-gray-500 hover:text-military-600'
-            )}
-          >
-            <User className="w-5 h-5" />
-            <span className="text-[10px] mt-1">עוד</span>
-          </Link>
         </div>
       </nav>
 
@@ -99,7 +102,7 @@ export function UserLayout({ children }: UserLayoutProps) {
       <aside className="hidden lg:block fixed right-0 top-16 bottom-0 w-56 bg-white border-l border-gray-200 overflow-y-auto">
         <nav className="p-4">
           <ul className="space-y-1">
-            {navItems.map((item) => {
+            {filteredNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
               return (

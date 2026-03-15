@@ -181,8 +181,10 @@ model User {
   approvedLeaves      LeaveRequest[]    @relation("ApprovedLeaves")
   skills              SoldierSkill[]
   shiftAssignments    ShiftAssignment[]
-  publishedSchedules  ShiftSchedule[]   @relation("PublishedSchedules")
-  messagesCreated     Message[]         @relation("CreatedMessages")
+  publishedSchedules    ShiftSchedule[]        @relation("PublishedSchedules")
+  shiftOfficerDuties    ShiftSchedule[]        @relation("ShiftOfficer")
+  messagesCreated       Message[]              @relation("CreatedMessages")
+  messageConfirmations  MessageConfirmation[]  @relation("MessageConfirmations")
 
   // Reserve Service Cycle relations
   createdServiceCycles    ReserveServiceCycle[]    @relation("ServiceCycleCreator")
@@ -217,7 +219,21 @@ model Message {
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 
+  confirmations MessageConfirmation[]
+
   @@map("messages")
+}
+
+model MessageConfirmation {
+  id          String   @id @default(uuid())
+  messageId   String
+  message     Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation("MessageConfirmations", fields: [userId], references: [id], onDelete: Cascade)
+  confirmedAt DateTime @default(now())
+
+  @@unique([messageId, userId])
+  @@map("message_confirmations")
 }
 
 model ShiftPost {
@@ -474,6 +490,11 @@ model ShiftSchedule {
   publishedAt   DateTime?
   publishedById String?
   publishedBy   User?               @relation("PublishedSchedules", fields: [publishedById], references: [id])
+
+  // Shift Officer for the day
+  shiftOfficerId String?
+  shiftOfficer   User?               @relation("ShiftOfficer", fields: [shiftOfficerId], references: [id])
+
   createdAt     DateTime            @default(now())
   updatedAt     DateTime            @updatedAt
 
@@ -496,6 +517,12 @@ model ShiftAssignment {
   soldier         User                  @relation(fields: [soldierId], references: [id], onDelete: Cascade)
   status          ShiftAssignmentStatus @default(PENDING)
   notes           String?
+
+  // Active Shift Management fields
+  arrivedAt       DateTime?             // When soldier confirmed arrival
+  hasVehicle      Boolean               @default(false)  // Vehicle availability
+  hasPhone        Boolean               @default(false)  // Phone availability
+
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt
 

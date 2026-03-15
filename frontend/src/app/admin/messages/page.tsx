@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Edit2, Trash2 } from 'lucide-react';
+import { Plus, Edit2, Trash2, BarChart2, CheckCircle, XCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { Card, CardHeader, CardContent } from '@/components/ui/Card';
@@ -22,6 +22,29 @@ import {
 } from '@/types';
 import { formatDateTime, getPriorityColor } from '@/lib/utils';
 
+interface MessageAnalytics {
+  messageId: string;
+  totalUsers: number;
+  confirmedCount: number;
+  notConfirmedCount: number;
+  confirmationRate: number;
+  confirmedUsers: Array<{
+    user: {
+      id: string;
+      fullName: string;
+      militaryRole?: string;
+      department?: { id: string; name: string };
+    };
+    confirmedAt: string;
+  }>;
+  notConfirmedUsers: Array<{
+    id: string;
+    fullName: string;
+    militaryRole?: string;
+    department?: { id: string; name: string };
+  }>;
+}
+
 export default function AdminMessagesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
@@ -31,6 +54,9 @@ export default function AdminMessagesPage() {
     type: 'GENERAL' as MessageType,
     priority: 'MEDIUM' as MessagePriority,
   });
+  const [analyticsModalOpen, setAnalyticsModalOpen] = useState(false);
+  const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
+  const [analyticsTab, setAnalyticsTab] = useState<'confirmed' | 'notConfirmed'>('confirmed');
   const queryClient = useQueryClient();
 
   const { data: messages, isLoading } = useQuery<Message[]>({
@@ -40,6 +66,26 @@ export default function AdminMessagesPage() {
       return response.data;
     },
   });
+
+  const { data: analytics, isLoading: isLoadingAnalytics } = useQuery<MessageAnalytics>({
+    queryKey: ['message-analytics', selectedMessageId],
+    queryFn: async () => {
+      const response = await api.get(`/messages/${selectedMessageId}/analytics`);
+      return response.data;
+    },
+    enabled: !!selectedMessageId && analyticsModalOpen,
+  });
+
+  const openAnalyticsModal = (messageId: string) => {
+    setSelectedMessageId(messageId);
+    setAnalyticsTab('confirmed');
+    setAnalyticsModalOpen(true);
+  };
+
+  const closeAnalyticsModal = () => {
+    setAnalyticsModalOpen(false);
+    setSelectedMessageId(null);
+  };
 
   const createMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
@@ -170,6 +216,9 @@ export default function AdminMessagesPage() {
                       עדיפות
                     </th>
                     <th className="text-right px-4 py-3 text-sm font-medium text-gray-700">
+                      אישורים
+                    </th>
+                    <th className="text-right px-4 py-3 text-sm font-medium text-gray-700">
                       תאריך
                     </th>
                     <th className="text-right px-4 py-3 text-sm font-medium text-gray-700">
@@ -199,6 +248,15 @@ export default function AdminMessagesPage() {
                         >
                           {PRIORITY_LABELS[message.priority]}
                         </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => openAnalyticsModal(message.id)}
+                          className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 hover:underline"
+                        >
+                          <BarChart2 className="w-4 h-4" />
+                          צפה באישורים
+                        </button>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">
                         {formatDateTime(message.createdAt)}
@@ -294,6 +352,121 @@ export default function AdminMessagesPage() {
             </Button>
           </div>
         </div>
+      </Modal>
+
+      {/* Analytics Modal */}
+      <Modal
+        isOpen={analyticsModalOpen}
+        onClose={closeAnalyticsModal}
+        title="סטטיסטיקת אישורי קריאה"
+        size="lg"
+      >
+        {isLoadingAnalytics ? (
+          <div className="flex justify-center py-8">
+            <Spinner size="lg" />
+          </div>
+        ) : analytics ? (
+          <div className="space-y-4">
+            {/* Stats Summary */}
+            <div className="grid grid-cols-3 gap-4">
+              <div className="bg-gray-50 rounded-lg p-4 text-center">
+                <p className="text-2xl font-bold text-gray-900">{analytics.totalUsers}</p>
+                <p className="text-sm text-gray-600">סה״כ משתמשים</p>
+              </div>
+              <div className="bg-green-50 rounded-lg p-4 text-center">
+                <p className="text-2xl font-bold text-green-700">{analytics.confirmedCount}</p>
+                <p className="text-sm text-green-600">אישרו קריאה</p>
+              </div>
+              <div className="bg-red-50 rounded-lg p-4 text-center">
+                <p className="text-2xl font-bold text-red-700">{analytics.notConfirmedCount}</p>
+                <p className="text-sm text-red-600">לא אישרו</p>
+              </div>
+            </div>
+
+            {/* Progress Bar */}
+            <div className="bg-gray-200 rounded-full h-4 overflow-hidden">
+              <div
+                className="bg-green-500 h-full transition-all"
+                style={{ width: `${analytics.confirmationRate}%` }}
+              />
+            </div>
+            <p className="text-center text-sm text-gray-600">
+              {analytics.confirmationRate}% אישרו קריאה
+            </p>
+
+            {/* Tab Buttons */}
+            <div className="flex border-b">
+              <button
+                onClick={() => setAnalyticsTab('confirmed')}
+                className={`flex-1 py-2 text-center border-b-2 transition-colors ${
+                  analyticsTab === 'confirmed'
+                    ? 'border-green-500 text-green-700'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <CheckCircle className="w-4 h-4 inline ml-1" />
+                אישרו ({analytics.confirmedCount})
+              </button>
+              <button
+                onClick={() => setAnalyticsTab('notConfirmed')}
+                className={`flex-1 py-2 text-center border-b-2 transition-colors ${
+                  analyticsTab === 'notConfirmed'
+                    ? 'border-red-500 text-red-700'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <XCircle className="w-4 h-4 inline ml-1" />
+                לא אישרו ({analytics.notConfirmedCount})
+              </button>
+            </div>
+
+            {/* Users List */}
+            <div className="max-h-64 overflow-y-auto">
+              {analyticsTab === 'confirmed' ? (
+                analytics.confirmedUsers.length > 0 ? (
+                  <ul className="divide-y">
+                    {analytics.confirmedUsers.map((confirmation) => (
+                      <li key={confirmation.user.id} className="py-2 flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">{confirmation.user.fullName}</p>
+                          <p className="text-sm text-gray-500">
+                            {confirmation.user.department?.name || 'ללא מחלקה'}
+                          </p>
+                        </div>
+                        <p className="text-xs text-gray-400">
+                          {formatDateTime(confirmation.confirmedAt)}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-center text-gray-500 py-4">אין משתמשים שאישרו</p>
+                )
+              ) : (
+                analytics.notConfirmedUsers.length > 0 ? (
+                  <ul className="divide-y">
+                    {analytics.notConfirmedUsers.map((user) => (
+                      <li key={user.id} className="py-2">
+                        <p className="font-medium">{user.fullName}</p>
+                        <p className="text-sm text-gray-500">
+                          {user.department?.name || 'ללא מחלקה'}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-center text-gray-500 py-4">כל המשתמשים אישרו</p>
+                )
+              )}
+            </div>
+
+            <Button variant="secondary" onClick={closeAnalyticsModal} className="w-full">
+              סגור
+            </Button>
+          </div>
+        ) : (
+          <p className="text-center text-gray-500 py-8">לא נמצאו נתונים</p>
+        )}
       </Modal>
     </AdminLayout>
   );

@@ -89,12 +89,22 @@ export class UsersController {
 
   @Patch(':id/military-role')
   @UseGuards(RolesGuard)
-  @Roles('ADMIN')
+  @Roles('OFFICER')
   updateMilitaryRole(
     @Param('id') id: string,
     @Body() data: { militaryRole: MilitaryRole },
   ) {
     return this.usersService.updateMilitaryRole(id, data.militaryRole);
+  }
+
+  @Patch(':id/department')
+  @UseGuards(RolesGuard)
+  @Roles('OFFICER')
+  updateDepartment(
+    @Param('id') id: string,
+    @Body() data: { departmentId: string },
+  ) {
+    return this.usersService.updateDepartment(id, data.departmentId);
   }
 
   // Pre-approved users management
@@ -122,8 +132,30 @@ export class UsersController {
 
   @Get('admin/departments')
   @UseGuards(RolesGuard)
-  @Roles('ADMIN')
+  @Roles('OFFICER')
   getDepartments() {
     return this.usersService.getDepartments();
+  }
+
+  // Department view endpoints for OFFICER role
+  @Get('department/my-soldiers')
+  @UseGuards(RolesGuard)
+  @Roles('OFFICER')
+  getDepartmentSoldiers(@CurrentUser() user: any) {
+    return this.usersService.getDepartmentSoldiers(user.id);
+  }
+
+  @Get('department/analytics')
+  @UseGuards(RolesGuard)
+  @Roles('OFFICER')
+  getDepartmentAnalytics(@CurrentUser() user: any) {
+    return this.usersService.getDepartmentAnalytics(user.id);
+  }
+
+  @Get('department/soldiers-with-status')
+  @UseGuards(RolesGuard)
+  @Roles('OFFICER')
+  getDepartmentSoldiersWithStatus(@CurrentUser() user: any) {
+    return this.usersService.getDepartmentSoldiersWithStatus(user.id);
   }
 }

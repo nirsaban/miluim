@@ -376,6 +376,354 @@ export class ShiftAssignmentsService {
     return soldier.role === skillName || soldier.skills.some((s) => s.skill.name === skillName);
   }
 
+  // ============================================================
+  // ACTIVE SHIFT MANAGEMENT
+  // ============================================================
+
+  async getTodayActiveShifts(zoneId?: string) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const where: any = {
+      date: today,
+    };
+
+    if (zoneId) {
+      where.task = { zoneId };
+    }
+
+    // Get schedule with officer info
+    const schedule = await this.prisma.shiftSchedule.findFirst({
+      where: {
+        date: today,
+        zoneId: zoneId || null,
+        status: 'PUBLISHED',
+      },
+      include: {
+        shiftOfficer: {
+          select: {
+            id: true,
+            fullName: true,
+            phone: true,
+          },
+        },
+      },
+    });
+
+    // Get all assignments for today with arrival info
+    const assignments = await this.prisma.shiftAssignment.findMany({
+      where,
+      include: {
+        shiftTemplate: true,
+        task: {
+          include: {
+            zone: true,
+          },
+        },
+        soldier: {
+          select: {
+            id: true,
+            fullName: true,
+            phone: true,
+            armyNumber: true,
+            militaryRole: true,
+          },
+        },
+      },
+      orderBy: [{ shiftTemplate: { sortOrder: 'asc' } }, { task: { name: 'asc' } }],
+    });
+
+    // Group by shift template
+    const groupedByShift = assignments.reduce((acc, assignment) => {
+      const shiftId = assignment.shiftTemplateId;
+      if (!acc[shiftId]) {
+        acc[shiftId] = {
+          shiftTemplate: assignment.shiftTemplate,
+          assignments: [],
+          stats: { total: 0, arrived: 0, pending: 0, withVehicle: 0, withPhone: 0 },
+        };
+      }
+      acc[shiftId].assignments.push({
+        id: assignment.id,
+        soldier: assignment.soldier,
+        task: assignment.task,
+        arrivedAt: assignment.arrivedAt,
+        hasVehicle: assignment.hasVehicle,
+        hasPhone: assignment.hasPhone,
+        status: assignment.status,
+      });
+      acc[shiftId].stats.total++;
+      if (assignment.arrivedAt) {
+        acc[shiftId].stats.arrived++;
+      } else {
+        acc[shiftId].stats.pending++;
+      }
+      if (assignment.hasVehicle) acc[shiftId].stats.withVehicle++;
+      if (assignment.hasPhone) acc[shiftId].stats.withPhone++;
+      return acc;
+    }, {} as Record<string, any>);
+
+    return {
+      date: today,
+      schedule: schedule ? {
+        id: schedule.id,
+        shiftOfficer: schedule.shiftOfficer,
+      } : null,
+      shifts: Object.values(groupedByShift),
+      totalStats: {
+        total: assignments.length,
+        arrived: assignments.filter(a => a.arrivedAt).length,
+        pending: assignments.filter(a => !a.arrivedAt).length,
+        withVehicle: assignments.filter(a => a.hasVehicle).length,
+        withPhone: assignments.filter(a => a.hasPhone).length,
+      },
+    };
+  }
+
+  async confirmArrival(assignmentId: string, userId: string) {
+    const assignment = await this.prisma.shiftAssignment.findUnique({
+      where: { id: assignmentId },
+    });
+
+    if (!assignment) {
+      throw new NotFoundException('Assignment not found');
+    }
+
+    if (assignment.soldierId !== userId) {
+      throw new BadRequestException('You can only confirm your own arrival');
+    }
+
+    if (assignment.arrivedAt) {
+      throw new BadRequestException('Already confirmed arrival');
+    }
+
+    return this.prisma.shiftAssignment.update({
+      where: { id: assignmentId },
+      data: {
+        arrivedAt: new Date(),
+        status: 'CONFIRMED',
+      },
+      include: {
+        shiftTemplate: true,
+        task: { include: { zone: true } },
+        soldier: {
+          select: {
+            id: true,
+            fullName: true,
+          },
+        },
+      },
+    });
+  }
+
+  async updateActiveStatus(
+    assignmentId: string,
+    userId: string,
+    data: { hasVehicle?: boolean; hasPhone?: boolean },
+  ) {
+    const assignment = await this.prisma.shiftAssignment.findUnique({
+      where: { id: assignmentId },
+    });
+
+    if (!assignment) {
+      throw new NotFoundException('Assignment not found');
+    }
+
+    if (assignment.soldierId !== userId) {
+      throw new BadRequestException('You can only update your own status');
+    }
+
+    return this.prisma.shiftAssignment.update({
+      where: { id: assignmentId },
+      data: {
+        hasVehicle: data.hasVehicle ?? assignment.hasVehicle,
+        hasPhone: data.hasPhone ?? assignment.hasPhone,
+      },
+      include: {
+        shiftTemplate: true,
+        task: { include: { zone: true } },
+        soldier: {
+          select: {
+            id: true,
+            fullName: true,
+          },
+        },
+      },
+    });
+  }
+
+  async getMyTodayShift(userId: string) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const assignment = await this.prisma.shiftAssignment.findFirst({
+      where: {
+        soldierId: userId,
+        date: today,
+      },
+      include: {
+        shiftTemplate: true,
+        task: {
+          include: {
+            zone: true,
+          },
+        },
+        schedule: {
+          include: {
+            shiftOfficer: {
+              select: {
+                id: true,
+                fullName: true,
+                phone: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { shiftTemplate: { sortOrder: 'asc' } },
+    });
+
+    if (!assignment) {
+      return null;
+    }
+
+    // Get teammates in the same shift
+    const teammates = await this.prisma.shiftAssignment.findMany({
+      where: {
+        date: today,
+        shiftTemplateId: assignment.shiftTemplateId,
+        soldierId: { not: userId },
+      },
+      include: {
+        soldier: {
+          select: {
+            id: true,
+            fullName: true,
+            phone: true,
+          },
+        },
+        task: true,
+      },
+    });
+
+    return {
+      id: assignment.id,
+      date: today,
+      shiftTemplate: assignment.shiftTemplate,
+      task: assignment.task,
+      arrivedAt: assignment.arrivedAt,
+      hasVehicle: assignment.hasVehicle,
+      hasPhone: assignment.hasPhone,
+      status: assignment.status,
+      shiftOfficer: assignment.schedule?.shiftOfficer || null,
+      teammates: teammates.map(t => ({
+        id: t.soldier.id,
+        fullName: t.soldier.fullName,
+        phone: t.soldier.phone,
+        taskName: t.task.name,
+      })),
+    };
+  }
+
+  async assignShiftOfficer(scheduleId: string, officerId: string) {
+    const schedule = await this.prisma.shiftSchedule.findUnique({
+      where: { id: scheduleId },
+    });
+
+    if (!schedule) {
+      throw new NotFoundException('Schedule not found');
+    }
+
+    return this.prisma.shiftSchedule.update({
+      where: { id: scheduleId },
+      data: {
+        shiftOfficerId: officerId,
+      },
+      include: {
+        shiftOfficer: {
+          select: {
+            id: true,
+            fullName: true,
+            phone: true,
+          },
+        },
+      },
+    });
+  }
+
+  async getShiftOfficerDuty(userId: string) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const schedule = await this.prisma.shiftSchedule.findFirst({
+      where: {
+        date: today,
+        shiftOfficerId: userId,
+      },
+      include: {
+        zone: true,
+        shiftOfficer: {
+          select: {
+            id: true,
+            fullName: true,
+            phone: true,
+          },
+        },
+      },
+    });
+
+    if (!schedule) {
+      return null;
+    }
+
+    // Build where clause for assignments
+    const whereClause: any = {
+      date: today,
+    };
+    if (schedule.zoneId) {
+      whereClause.task = { zoneId: schedule.zoneId };
+    }
+
+    // Get all assignments for this schedule
+    const assignments = await this.prisma.shiftAssignment.findMany({
+      where: whereClause,
+      include: {
+        shiftTemplate: true,
+        task: true,
+        soldier: {
+          select: {
+            id: true,
+            fullName: true,
+            phone: true,
+            militaryRole: true,
+          },
+        },
+      },
+      orderBy: [{ shiftTemplate: { sortOrder: 'asc' } }, { soldier: { fullName: 'asc' } }],
+    });
+
+    return {
+      schedule: {
+        id: schedule.id,
+        date: schedule.date,
+        zone: schedule.zone,
+      },
+      isShiftOfficer: true,
+      totalSoldiers: assignments.length,
+      arrivedCount: assignments.filter(a => a.arrivedAt).length,
+      pendingCount: assignments.filter(a => !a.arrivedAt).length,
+      assignments: assignments.map(a => ({
+        id: a.id,
+        soldier: a.soldier,
+        shiftTemplate: a.shiftTemplate,
+        task: a.task,
+        arrivedAt: a.arrivedAt,
+        hasVehicle: a.hasVehicle,
+        hasPhone: a.hasPhone,
+      })),
+    };
+  }
+
   async findMyShifts(userId: string) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
