@@ -68,37 +68,42 @@ export function usePushNotifications(): UsePushNotificationsReturn {
     }
   }, [isSupported]);
 
-  // Check current subscription status
+  // Check current subscription status with retry
   useEffect(() => {
+    if (!isSupported) {
+      setIsLoading(false);
+      return;
+    }
+
+    let attempts = 0;
+    const maxAttempts = 10;
+
     const checkSubscription = async () => {
-      if (!isSupported) {
-        setIsLoading(false);
-        return;
-      }
-
       try {
-        // Add timeout to prevent infinite loading
-        const timeoutPromise = new Promise<null>((_, reject) => {
-          setTimeout(() => reject(new Error('SW ready timeout')), 5000);
-        });
+        const registration = await navigator.serviceWorker.getRegistration();
 
-        const registration = await Promise.race([
-          navigator.serviceWorker.ready,
-          timeoutPromise,
-        ]);
-
-        if (registration) {
+        if (registration?.active) {
+          // SW is active, check subscription
           const subscription = await registration.pushManager.getSubscription();
           setIsSubscribed(!!subscription);
+          setIsLoading(false);
+        } else if (attempts < maxAttempts) {
+          // SW not active yet, retry
+          attempts++;
+          setTimeout(checkSubscription, 500);
+        } else {
+          // Give up after max attempts
+          setIsLoading(false);
         }
       } catch (error) {
         console.error('Failed to check subscription:', error);
-      } finally {
         setIsLoading(false);
       }
     };
 
-    checkSubscription();
+    // Start checking after a short delay
+    const timer = setTimeout(checkSubscription, 500);
+    return () => clearTimeout(timer);
   }, [isSupported]);
 
   const requestPermission = useCallback(async (): Promise<NotificationPermission> => {
@@ -129,13 +134,26 @@ export function usePushNotifications(): UsePushNotificationsReturn {
         }
       }
 
-      // Get service worker registration
-      const registration = await navigator.serviceWorker.ready;
+      // Get or wait for service worker registration
+      let registration = await navigator.serviceWorker.getRegistration();
+
+      // If no active SW, wait a bit for it to activate
+      if (!registration?.active) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        registration = await navigator.serviceWorker.getRegistration();
+      }
+
+      if (!registration) {
+        console.error('No service worker registration found');
+        setIsLoading(false);
+        return false;
+      }
 
       // Subscribe to push
+      const applicationServerKey = urlBase64ToUint8Array(vapidPublicKey);
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey).buffer as ArrayBuffer,
+        applicationServerKey: applicationServerKey.buffer as ArrayBuffer,
       });
 
       // Send subscription to server
@@ -166,17 +184,19 @@ export function usePushNotifications(): UsePushNotificationsReturn {
     setIsLoading(true);
 
     try {
-      const registration = await navigator.serviceWorker.ready;
-      const subscription = await registration.pushManager.getSubscription();
+      const registration = await navigator.serviceWorker.getRegistration();
+      if (registration) {
+        const subscription = await registration.pushManager.getSubscription();
 
-      if (subscription) {
-        // Unsubscribe from push
-        await subscription.unsubscribe();
+        if (subscription) {
+          // Unsubscribe from push
+          await subscription.unsubscribe();
 
-        // Notify server
-        await api.delete('/push/unsubscribe', {
-          data: { endpoint: subscription.endpoint },
-        });
+          // Notify server
+          await api.delete('/push/unsubscribe', {
+            data: { endpoint: subscription.endpoint },
+          });
+        }
       }
 
       setIsSubscribed(false);

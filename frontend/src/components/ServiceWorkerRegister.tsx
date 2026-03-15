@@ -5,27 +5,14 @@ import { useEffect } from 'react';
 export function ServiceWorkerRegister() {
   useEffect(() => {
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-      // Check if sw.js exists before trying to register
-      fetch('/sw.js', { method: 'HEAD' })
-        .then((response) => {
-          if (response.ok) {
-            navigator.serviceWorker
-              .register('/sw.js')
-              .then((registration) => {
-                console.log('SW registered successfully:', registration.scope);
-
-                // Check for updates
-                registration.addEventListener('updatefound', () => {
-                  console.log('SW update found');
-                });
-              })
-              .catch((error) => {
-                console.error('SW registration failed:', error);
-              });
-          }
+      // Register simple push service worker
+      navigator.serviceWorker
+        .register('/sw-push.js')
+        .then((registration) => {
+          console.log('Push SW registered:', registration.scope);
         })
-        .catch(() => {
-          // sw.js doesn't exist, skip registration (development mode)
+        .catch((error) => {
+          console.error('Push SW registration failed:', error);
         });
     }
   }, []);
