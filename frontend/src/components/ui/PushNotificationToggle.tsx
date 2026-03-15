@@ -1,6 +1,6 @@
 'use client';
 
-import { BellRing, BellOff } from 'lucide-react';
+import { BellRing, BellOff, BellMinus } from 'lucide-react';
 import { Button } from './Button';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import toast from 'react-hot-toast';
@@ -15,8 +15,19 @@ export function PushNotificationToggle() {
     unsubscribe,
   } = usePushNotifications();
 
+  // Show disabled state if not supported (instead of hiding completely)
   if (!isSupported) {
-    return null;
+    return (
+      <Button
+        variant="outline"
+        size="sm"
+        disabled
+        className="gap-1 opacity-50"
+        title="התראות Push לא נתמכות בדפדפן זה"
+      >
+        <BellMinus className="w-4 h-4" />
+      </Button>
+    );
   }
 
   const handleToggle = async () => {
