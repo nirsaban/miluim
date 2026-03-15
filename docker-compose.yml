@@ -38,6 +38,9 @@ services:
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
       NODE_ENV: production
       SEED_DATABASE: ${SEED_DATABASE:-false}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY}
+      VAPID_SUBJECT: ${VAPID_SUBJECT}
     volumes:
       - uploads_data:/app/uploads
     depends_on:
