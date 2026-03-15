@@ -114,10 +114,11 @@ export function GallerySection() {
             <div>
               <div className="relative h-48 rounded-lg overflow-hidden bg-gray-200">
                 <Image
-                  src={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '')}${currentPost!.imageUrl}`}
+                  src={currentPost!.imageUrl}
                   alt="תמונת גלריה"
                   fill
                   className="object-cover"
+                  unoptimized
                 />
               </div>
 

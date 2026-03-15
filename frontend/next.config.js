@@ -17,6 +17,16 @@ const nextConfig = {
         port: '3001',
         pathname: '/uploads/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'miltech.cloud',
+        pathname: '/uploads/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'www.miltech.cloud',
+        pathname: '/uploads/**',
+      },
     ],
   },
   async rewrites() {

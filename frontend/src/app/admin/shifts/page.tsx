@@ -176,10 +176,11 @@ export default function AdminShiftsPage() {
                   {shift.imageUrl && (
                     <div className="relative h-40 bg-gray-200">
                       <Image
-                        src={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '')}${shift.imageUrl}`}
+                        src={shift.imageUrl}
                         alt="סידור משמרות"
                         fill
                         className="object-contain"
+                        unoptimized
                       />
                     </div>
                   )}
@@ -288,10 +289,11 @@ export default function AdminShiftsPage() {
               ) : editingShift?.imageUrl ? (
                 <div className="relative h-32 w-full">
                   <Image
-                    src={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '')}${editingShift.imageUrl}`}
+                    src={editingShift.imageUrl}
                     alt="סידור נוכחי"
                     fill
                     className="object-contain rounded"
+                    unoptimized
                   />
                   <p className="text-xs text-gray-400 mt-2">לחץ להחלפה</p>
                 </div>

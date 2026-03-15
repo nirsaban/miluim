@@ -56,10 +56,11 @@ export function ShiftsSection() {
                   onClick={() => setIsFullscreen(true)}
                 >
                   <Image
-                    src={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '')}${currentShift.imageUrl}`}
+                    src={currentShift.imageUrl}
                     alt="סידור משמרות"
                     fill
                     className="object-contain"
+                    unoptimized
                   />
                   <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all flex items-center justify-center">
                     <ZoomIn className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -152,10 +153,11 @@ export function ShiftsSection() {
           </button>
           <div className="relative w-full h-full max-w-5xl max-h-[90vh]">
             <Image
-              src={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '')}${currentShift.imageUrl}`}
+              src={currentShift.imageUrl}
               alt="סידור משמרות"
               fill
               className="object-contain"
+              unoptimized
               onClick={(e) => e.stopPropagation()}
             />
           </div>
