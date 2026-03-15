@@ -54,4 +54,14 @@ export class PushController {
     await this.pushService.unsubscribeAll(userId);
     return { success: true, message: 'הוסרת מכל ההתראות' };
   }
+
+  @Post('test')
+  async sendTestNotification(@CurrentUser('id') userId: string) {
+    const result = await this.pushService.sendToUser(userId, {
+      title: 'בדיקת התראה',
+      body: 'זוהי התראת בדיקה מהמערכת',
+      url: '/dashboard',
+    });
+    return { success: true, ...result };
+  }
 }

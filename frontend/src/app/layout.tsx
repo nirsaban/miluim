@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Rubik } from 'next/font/google';
 import './globals.css';
 import { Providers } from './providers';
+import { ServiceWorkerRegister } from '@/components/ServiceWorkerRegister';
 
 const rubik = Rubik({ subsets: ['latin', 'hebrew'] });
 
@@ -38,6 +39,7 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
       </head>
       <body className={`${rubik.className} bg-gray-100 min-h-screen`}>
+        <ServiceWorkerRegister />
         <Providers>{children}</Providers>
       </body>
     </html>
