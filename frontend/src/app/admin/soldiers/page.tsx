@@ -12,7 +12,7 @@ import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
 import { MultiSelect } from '@/components/ui/MultiSelect';
 import api from '@/lib/api';
-import { SoldierWithSkills, Skill, MilitaryRole, MILITARY_ROLE_LABELS, Department } from '@/types';
+import { SoldierWithSkills, Skill, MilitaryRole, MILITARY_ROLE_LABELS, Department, UserRole, USER_ROLE_LABELS } from '@/types';
 
 export default function AdminSoldiersPage() {
   const queryClient = useQueryClient();
@@ -21,6 +21,7 @@ export default function AdminSoldiersPage() {
   const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>([]);
   const [selectedMilitaryRole, setSelectedMilitaryRole] = useState<MilitaryRole | ''>('');
   const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>('');
+  const [selectedUserRole, setSelectedUserRole] = useState<UserRole>('SOLDIER');
 
   // Filter states
   const [filterRole, setFilterRole] = useState<MilitaryRole | ''>('');
@@ -95,6 +96,20 @@ export default function AdminSoldiersPage() {
     },
   });
 
+  const updateUserRoleMutation = useMutation({
+    mutationFn: async ({ id, role }: { id: string; role: UserRole }) => {
+      const response = await api.patch(`/users/${id}/role`, { role });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['soldiers-with-skills'] });
+      toast.success('הרשאה עודכנה בהצלחה');
+    },
+    onError: () => {
+      toast.error('שגיאה בעדכון הרשאה');
+    },
+  });
+
   const filteredSoldiers = soldiers?.filter((soldier) => {
     const matchesSearch =
       soldier.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -112,6 +127,7 @@ export default function AdminSoldiersPage() {
     setSelectedSkillIds(soldier.skills?.map((s) => s.skillId) || []);
     setSelectedMilitaryRole(soldier.militaryRole || 'FIGHTER');
     setSelectedDepartmentId(soldier.departmentId || '');
+    setSelectedUserRole(soldier.role || 'SOLDIER');
   };
 
   const handleDepartmentChange = (soldierId: string, departmentId: string) => {
@@ -127,6 +143,10 @@ export default function AdminSoldiersPage() {
 
   const handleMilitaryRoleChange = (soldierId: string, militaryRole: MilitaryRole) => {
     updateMilitaryRoleMutation.mutate({ id: soldierId, militaryRole });
+  };
+
+  const handleUserRoleChange = (soldierId: string, role: UserRole) => {
+    updateUserRoleMutation.mutate({ id: soldierId, role });
   };
 
   const skillOptions = skills?.map((s) => ({ value: s.id, label: s.displayName })) || [];
@@ -224,6 +244,7 @@ export default function AdminSoldiersPage() {
                     <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">מספר אישי</th>
                     <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">טלפון</th>
                     <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">מחלקה</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">הרשאה</th>
                     <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">תפקיד ראשי</th>
                     <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">כישורים</th>
                     <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">פעולות</th>
@@ -262,6 +283,33 @@ export default function AdminSoldiersPage() {
                         ) : (
                           <span className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded-lg font-medium">
                             {soldier.department?.name || 'לא הוגדר'}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {editingId === soldier.id ? (
+                          <Select
+                            value={selectedUserRole}
+                            onChange={(e) => {
+                              const newRole = e.target.value as UserRole;
+                              setSelectedUserRole(newRole);
+                              handleUserRoleChange(soldier.id, newRole);
+                            }}
+                            options={Object.entries(USER_ROLE_LABELS).map(([value, label]) => ({
+                              value,
+                              label,
+                            }))}
+                            className="w-32"
+                          />
+                        ) : (
+                          <span className={`px-2 py-1 text-xs rounded-lg font-medium ${
+                            soldier.role === 'ADMIN' ? 'bg-red-100 text-red-700' :
+                            soldier.role === 'OFFICER' ? 'bg-orange-100 text-orange-700' :
+                            soldier.role === 'LOGISTICS' ? 'bg-green-100 text-green-700' :
+                            soldier.role === 'COMMANDER' ? 'bg-blue-100 text-blue-700' :
+                            'bg-gray-100 text-gray-700'
+                          }`}>
+                            {USER_ROLE_LABELS[soldier.role] || 'חייל'}
                           </span>
                         )}
                       </td>
@@ -330,6 +378,7 @@ export default function AdminSoldiersPage() {
                                 setSelectedSkillIds([]);
                                 setSelectedMilitaryRole('');
                                 setSelectedDepartmentId('');
+                                setSelectedUserRole('SOLDIER');
                               }}
                             >
                               <X className="w-4 h-4" />

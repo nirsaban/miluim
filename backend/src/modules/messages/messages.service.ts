@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { MessageType, MessagePriority } from '@prisma/client';
+import { MessageType, MessagePriority, MessageTargetAudience, UserRole } from '@prisma/client';
 import { PushService } from '../push/push.service';
 
 @Injectable()
@@ -9,6 +9,37 @@ export class MessagesService {
     private prisma: PrismaService,
     private pushService: PushService,
   ) {}
+
+  // Helper to determine which targetAudiences a user can see based on their role
+  private getVisibleAudiences(userRole: UserRole): MessageTargetAudience[] {
+    switch (userRole) {
+      case 'ADMIN':
+        return ['ALL', 'COMMANDERS_PLUS', 'OFFICERS_PLUS', 'ADMIN_ONLY'];
+      case 'LOGISTICS':
+      case 'OFFICER':
+        return ['ALL', 'COMMANDERS_PLUS', 'OFFICERS_PLUS'];
+      case 'COMMANDER':
+        return ['ALL', 'COMMANDERS_PLUS'];
+      case 'SOLDIER':
+      default:
+        return ['ALL'];
+    }
+  }
+
+  // Helper to get user roles that should see a message based on targetAudience
+  private getTargetRoles(targetAudience: MessageTargetAudience): UserRole[] {
+    switch (targetAudience) {
+      case 'ADMIN_ONLY':
+        return ['ADMIN'];
+      case 'OFFICERS_PLUS':
+        return ['ADMIN', 'LOGISTICS', 'OFFICER'];
+      case 'COMMANDERS_PLUS':
+        return ['ADMIN', 'LOGISTICS', 'OFFICER', 'COMMANDER'];
+      case 'ALL':
+      default:
+        return ['ADMIN', 'LOGISTICS', 'OFFICER', 'COMMANDER', 'SOLDIER'];
+    }
+  }
 
   async findAll(type?: MessageType) {
     return this.prisma.message.findMany({
@@ -53,6 +84,8 @@ export class MessagesService {
     content: string;
     type?: MessageType;
     priority?: MessagePriority;
+    targetAudience?: MessageTargetAudience;
+    requiresConfirmation?: boolean;
   }) {
     const message = await this.prisma.message.create({
       data: {
@@ -60,6 +93,8 @@ export class MessagesService {
         content: data.content,
         type: data.type || MessageType.GENERAL,
         priority: data.priority || MessagePriority.MEDIUM,
+        targetAudience: data.targetAudience || MessageTargetAudience.ALL,
+        requiresConfirmation: data.requiresConfirmation || false,
       },
     });
 
@@ -69,14 +104,28 @@ export class MessagesService {
                        data.priority === MessagePriority.CRITICAL;
 
     if (shouldPush) {
-      await this.pushService.sendToAllUsers({
-        title: this.getMessageTypeLabel(data.type || MessageType.GENERAL),
-        body: data.title,
-        icon: '/icons/icon-192x192.png',
-        badge: '/icons/icon-72x72.png',
-        tag: `message-${message.id}`,
-        url: '/dashboard/home',
+      // Get target roles based on audience
+      const targetRoles = this.getTargetRoles(data.targetAudience || MessageTargetAudience.ALL);
+
+      // Send push to users with matching roles
+      const targetUsers = await this.prisma.user.findMany({
+        where: {
+          isActive: true,
+          role: { in: targetRoles },
+        },
+        select: { id: true },
       });
+
+      for (const user of targetUsers) {
+        await this.pushService.sendToUser(user.id, {
+          title: this.getMessageTypeLabel(data.type || MessageType.GENERAL),
+          body: data.title,
+          icon: '/icons/icon-192x192.png',
+          badge: '/icons/icon-72x72.png',
+          tag: `message-${message.id}`,
+          url: '/dashboard/home',
+        });
+      }
     }
 
     return message;
@@ -87,6 +136,8 @@ export class MessagesService {
     content: string;
     type: MessageType;
     priority: MessagePriority;
+    targetAudience: MessageTargetAudience;
+    requiresConfirmation: boolean;
     isActive: boolean;
   }>) {
     const message = await this.prisma.message.findUnique({
@@ -273,10 +324,14 @@ export class MessagesService {
     return !!confirmation;
   }
 
-  async findAllWithConfirmationStatus(userId: string, type?: MessageType) {
+  async findAllWithConfirmationStatus(userId: string, userRole: UserRole, type?: MessageType) {
+    // Get audiences this user can see based on their role
+    const visibleAudiences = this.getVisibleAudiences(userRole);
+
     const messages = await this.prisma.message.findMany({
       where: {
         isActive: true,
+        targetAudience: { in: visibleAudiences },
         ...(type && { type }),
       },
       include: {

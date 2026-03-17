@@ -52,24 +52,24 @@ export class UsersController {
     return this.usersService.updateProfile(user.id, data);
   }
 
-  // OFFICER can view/manage soldiers and skills (OPERATIONS_NCO)
+  // ADMIN only: manage all soldiers
   @Get('admin/soldiers')
   @UseGuards(RolesGuard)
-  @Roles('OFFICER')
+  @Roles('ADMIN')
   findAllSoldiersWithSkills() {
     return this.usersService.findAllSoldiersWithSkills();
   }
 
   @Get(':id/skills')
   @UseGuards(RolesGuard)
-  @Roles('OFFICER')
+  @Roles('ADMIN')
   getUserSkills(@Param('id') id: string) {
     return this.usersService.getUserSkills(id);
   }
 
   @Put(':id/skills')
   @UseGuards(RolesGuard)
-  @Roles('OFFICER')
+  @Roles('ADMIN')
   updateUserSkills(
     @Param('id') id: string,
     @Body() data: { skillIds: string[] },
@@ -89,7 +89,7 @@ export class UsersController {
 
   @Patch(':id/military-role')
   @UseGuards(RolesGuard)
-  @Roles('OFFICER')
+  @Roles('ADMIN')
   updateMilitaryRole(
     @Param('id') id: string,
     @Body() data: { militaryRole: MilitaryRole },
@@ -99,7 +99,7 @@ export class UsersController {
 
   @Patch(':id/department')
   @UseGuards(RolesGuard)
-  @Roles('OFFICER')
+  @Roles('ADMIN')
   updateDepartment(
     @Param('id') id: string,
     @Body() data: { departmentId: string },
@@ -132,7 +132,7 @@ export class UsersController {
 
   @Get('admin/departments')
   @UseGuards(RolesGuard)
-  @Roles('OFFICER')
+  @Roles('ADMIN')
   getDepartments() {
     return this.usersService.getDepartments();
   }

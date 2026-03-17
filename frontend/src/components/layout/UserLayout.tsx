@@ -17,6 +17,8 @@ import {
   User,
   ClipboardCheck,
   Building2,
+  UserCheck,
+  BarChart3,
 } from 'lucide-react';
 import { UserRole } from '@/types';
 
@@ -35,6 +37,8 @@ const navItems: NavItem[] = [
   { href: '/dashboard/home', label: 'בית', icon: Home },
   { href: '/dashboard/current-service', label: 'מילואים', icon: ClipboardCheck },
   { href: '/dashboard/shifts', label: 'משמרות', icon: Calendar },
+  { href: '/dashboard/workloads', label: 'עומסים', icon: BarChart3 },
+  { href: '/dashboard/shift-duty', label: 'ניהול משמרת', icon: UserCheck, roles: ['OFFICER', 'LOGISTICS', 'ADMIN'] },
   { href: '/dashboard/department', label: 'מחלקה', icon: Building2, roles: ['OFFICER', 'ADMIN'] },
   { href: '/dashboard/friends', label: 'חברים', icon: Users },
   { href: '/dashboard/requests', label: 'טפסים', icon: FileText },

@@ -1,7 +1,7 @@
 'use client';
 
 import { useDroppable } from '@dnd-kit/core';
-import { Target, Users, Check, AlertTriangle, X } from 'lucide-react';
+import { Target, Users, Check, AlertTriangle, X, Edit2, StickyNote } from 'lucide-react';
 import { Task, ShiftTemplate, ShiftAssignment, ROLE_LABELS } from '@/types';
 
 interface TaskDropZoneProps {
@@ -10,6 +10,7 @@ interface TaskDropZoneProps {
   shiftTemplate?: ShiftTemplate;
   assignments: ShiftAssignment[];
   onRemoveAssignment: (id: string) => void;
+  onEditAssignment?: (assignment: ShiftAssignment) => void;
 }
 
 export function TaskDropZone({
@@ -18,6 +19,7 @@ export function TaskDropZone({
   shiftTemplate,
   assignments,
   onRemoveAssignment,
+  onEditAssignment,
 }: TaskDropZoneProps) {
   const { isOver, setNodeRef } = useDroppable({
     id: `${task.id}::${shiftTemplateId}`,
@@ -136,8 +138,14 @@ export function TaskDropZone({
             {assignments.map((assignment) => (
               <div
                 key={assignment.id}
-                className="bg-gray-50 rounded-lg p-3 border flex items-center justify-between group"
+                className="bg-gray-50 rounded-lg p-3 border flex items-center justify-between group relative"
               >
+                {/* Notes indicator */}
+                {assignment.notes && (
+                  <div className="absolute -top-1 -right-1">
+                    <StickyNote className="w-3.5 h-3.5 text-yellow-500" />
+                  </div>
+                )}
                 <div className="flex-1 min-w-0">
                   <div className="font-medium text-sm truncate">
                     {assignment.soldier.fullName}
@@ -158,12 +166,22 @@ export function TaskDropZone({
                     </div>
                   )}
                 </div>
-                <button
-                  onClick={() => onRemoveAssignment(assignment.id)}
-                  className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {onEditAssignment && (
+                    <button
+                      onClick={() => onEditAssignment(assignment)}
+                      className="p-1.5 text-gray-400 hover:text-military-600 hover:bg-military-50 rounded"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                  )}
+                  <button
+                    onClick={() => onRemoveAssignment(assignment.id)}
+                    className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             ))}
             {/* Drop zone for adding more */}

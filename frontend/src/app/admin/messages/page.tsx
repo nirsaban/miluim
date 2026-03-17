@@ -17,8 +17,10 @@ import {
   Message,
   MessageType,
   MessagePriority,
+  MessageTargetAudience,
   MESSAGE_TYPE_LABELS,
   PRIORITY_LABELS,
+  MESSAGE_TARGET_LABELS,
 } from '@/types';
 import { formatDateTime, getPriorityColor } from '@/lib/utils';
 
@@ -53,6 +55,8 @@ export default function AdminMessagesPage() {
     content: '',
     type: 'GENERAL' as MessageType,
     priority: 'MEDIUM' as MessagePriority,
+    targetAudience: 'ALL' as MessageTargetAudience,
+    requiresConfirmation: false,
   });
   const [analyticsModalOpen, setAnalyticsModalOpen] = useState(false);
   const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
@@ -138,6 +142,8 @@ export default function AdminMessagesPage() {
         content: message.content,
         type: message.type,
         priority: message.priority,
+        targetAudience: message.targetAudience || 'ALL',
+        requiresConfirmation: message.requiresConfirmation || false,
       });
     } else {
       setEditingMessage(null);
@@ -146,6 +152,8 @@ export default function AdminMessagesPage() {
         content: '',
         type: 'GENERAL',
         priority: 'MEDIUM',
+        targetAudience: 'ALL',
+        requiresConfirmation: false,
       });
     }
     setIsModalOpen(true);
@@ -159,6 +167,8 @@ export default function AdminMessagesPage() {
       content: '',
       type: 'GENERAL',
       priority: 'MEDIUM',
+      targetAudience: 'ALL',
+      requiresConfirmation: false,
     });
   };
 
@@ -181,6 +191,11 @@ export default function AdminMessagesPage() {
   }));
 
   const priorityOptions = Object.entries(PRIORITY_LABELS).map(([value, label]) => ({
+    value,
+    label,
+  }));
+
+  const targetAudienceOptions = Object.entries(MESSAGE_TARGET_LABELS).map(([value, label]) => ({
     value,
     label,
   }));
@@ -216,6 +231,9 @@ export default function AdminMessagesPage() {
                       עדיפות
                     </th>
                     <th className="text-right px-4 py-3 text-sm font-medium text-gray-700">
+                      קהל יעד
+                    </th>
+                    <th className="text-right px-4 py-3 text-sm font-medium text-gray-700">
                       אישורים
                     </th>
                     <th className="text-right px-4 py-3 text-sm font-medium text-gray-700">
@@ -248,6 +266,16 @@ export default function AdminMessagesPage() {
                         >
                           {PRIORITY_LABELS[message.priority]}
                         </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-col gap-1">
+                          <Badge variant={message.targetAudience === 'ALL' ? 'default' : 'warning'}>
+                            {MESSAGE_TARGET_LABELS[message.targetAudience] || 'כולם'}
+                          </Badge>
+                          {message.requiresConfirmation && (
+                            <span className="text-xs text-orange-600">דורש אישור</span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         <button
@@ -337,6 +365,38 @@ export default function AdminMessagesPage() {
               }
               options={priorityOptions}
             />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <Select
+              label="קהל יעד"
+              value={formData.targetAudience}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  targetAudience: e.target.value as MessageTargetAudience,
+                })
+              }
+              options={targetAudienceOptions}
+            />
+
+            <div className="flex items-center gap-2 pt-6">
+              <input
+                type="checkbox"
+                id="requiresConfirmation"
+                checked={formData.requiresConfirmation}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    requiresConfirmation: e.target.checked,
+                  })
+                }
+                className="w-4 h-4 text-military-600 border-gray-300 rounded focus:ring-military-500"
+              />
+              <label htmlFor="requiresConfirmation" className="text-sm text-gray-700">
+                דורש אישור קריאה
+              </label>
+            </div>
           </div>
 
           <div className="flex gap-3 pt-4">

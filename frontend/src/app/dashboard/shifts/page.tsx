@@ -12,6 +12,7 @@ import {
   CheckCircle,
   Car,
   Smartphone,
+  Battery,
   UserCheck,
   AlertCircle,
 } from 'lucide-react';
@@ -94,6 +95,7 @@ interface MyTodayShift {
   arrivedAt: string | null;
   hasVehicle: boolean;
   hasPhone: boolean;
+  hasBattery: boolean;
   status: string;
   shiftOfficer: {
     id: string;
@@ -160,10 +162,11 @@ export default function ShiftsPage() {
 
   // Update status mutation
   const updateStatusMutation = useMutation({
-    mutationFn: async (data: { assignmentId: string; hasVehicle?: boolean; hasPhone?: boolean }) => {
+    mutationFn: async (data: { assignmentId: string; hasVehicle?: boolean; hasPhone?: boolean; hasBattery?: boolean }) => {
       const response = await api.patch(`/shift-assignments/active/${data.assignmentId}/status`, {
         hasVehicle: data.hasVehicle,
         hasPhone: data.hasPhone,
+        hasBattery: data.hasBattery,
       });
       return response.data;
     },
@@ -331,6 +334,22 @@ export default function ShiftsPage() {
                         >
                           <Smartphone className="w-5 h-5" />
                           <span>יש לי טלפון</span>
+                        </button>
+                        <button
+                          onClick={() => updateStatusMutation.mutate({
+                            assignmentId: myTodayShift.id,
+                            hasBattery: !myTodayShift.hasBattery,
+                          })}
+                          disabled={updateStatusMutation.isPending}
+                          className={cn(
+                            'flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-colors',
+                            myTodayShift.hasBattery
+                              ? 'bg-green-100 border-green-400 text-green-700'
+                              : 'bg-gray-100 border-gray-300 text-gray-500'
+                          )}
+                        >
+                          <Battery className="w-5 h-5" />
+                          <span>יש לי סוללה</span>
                         </button>
                       </div>
                     </div>

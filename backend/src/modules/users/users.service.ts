@@ -544,17 +544,62 @@ export class UsersService {
       take: 5,
     });
 
-    // Get active messages
+    // Get the user with role for message filtering
+    const userWithRole = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+
+    // Helper to get visible audiences based on user role
+    const getVisibleAudiences = (userRole: string) => {
+      switch (userRole) {
+        case 'ADMIN':
+          return ['ALL', 'COMMANDERS_PLUS', 'OFFICERS_PLUS', 'ADMIN_ONLY'];
+        case 'LOGISTICS':
+        case 'OFFICER':
+          return ['ALL', 'COMMANDERS_PLUS', 'OFFICERS_PLUS'];
+        case 'COMMANDER':
+          return ['ALL', 'COMMANDERS_PLUS'];
+        case 'SOLDIER':
+        default:
+          return ['ALL'];
+      }
+    };
+
+    const visibleAudiences = getVisibleAudiences(userWithRole?.role || 'SOLDIER');
+
+    // Get active messages filtered by targetAudience and include confirmation status
     const messages = await this.prisma.message.findMany({
       where: {
         isActive: true,
+        targetAudience: { in: visibleAudiences as any },
+      },
+      include: {
+        confirmations: {
+          where: { userId },
+          select: { confirmedAt: true },
+        },
       },
       orderBy: [
         { priority: 'desc' },
         { createdAt: 'desc' },
       ],
-      take: 5,
+      take: 10,
     });
+
+    // Map messages to include isConfirmed status
+    const messagesWithConfirmation = messages.map((message) => ({
+      id: message.id,
+      title: message.title,
+      content: message.content,
+      type: message.type,
+      priority: message.priority,
+      targetAudience: message.targetAudience,
+      requiresConfirmation: message.requiresConfirmation,
+      isConfirmed: message.confirmations.length > 0,
+      confirmedAt: message.confirmations[0]?.confirmedAt || null,
+      createdAt: message.createdAt,
+    }));
 
     const formatShift = (shift: any) => shift ? {
       id: shift.id,
@@ -579,7 +624,7 @@ export class UsersService {
       currentShift: formatShift(currentShift),
       nextShift: formatShift(nextShift),
       notifications,
-      messages,
+      messages: messagesWithConfirmation,
     };
   }
 

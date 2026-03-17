@@ -60,14 +60,33 @@ export class ShiftAssignmentsController {
   updateActiveStatus(
     @Param('id') id: string,
     @CurrentUser() user: any,
-    @Body() data: { hasVehicle?: boolean; hasPhone?: boolean },
+    @Body() data: { hasVehicle?: boolean; hasPhone?: boolean; hasBattery?: boolean },
   ) {
     return this.shiftAssignmentsService.updateActiveStatus(id, user.id, data);
   }
 
+  @Post('active/:id/arrive-supervisor')
+  confirmArrivalBySupervisor(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.shiftAssignmentsService.confirmArrivalBySupervisor(id, user.id);
+  }
+
+  @Patch('active/:id/equipment')
+  updateEquipmentStatus(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+    @Body() data: { hasBattery?: boolean; missingItems?: string },
+  ) {
+    return this.shiftAssignmentsService.updateEquipmentStatus(id, user.id, data);
+  }
+
+  @Get('active/shift-overview')
+  getCurrentShiftOverview(@CurrentUser() user: any) {
+    return this.shiftAssignmentsService.getCurrentShiftOverview(user.id);
+  }
+
   @Patch('schedule/:id/officer')
   @UseGuards(RolesGuard)
-  @Roles('OFFICER')
+  @Roles('LOGISTICS')
   assignShiftOfficer(
     @Param('id') id: string,
     @Body() data: { officerId: string },
@@ -119,10 +138,10 @@ export class ShiftAssignmentsController {
     );
   }
 
-  // OFFICER can manage shifts (OPERATIONS_NCO) - ADMIN also allowed via hierarchy
+  // LOGISTICS manages all shift operations
   @Post()
   @UseGuards(RolesGuard)
-  @Roles('OFFICER')
+  @Roles('LOGISTICS')
   create(
     @Body()
     data: {
@@ -141,7 +160,7 @@ export class ShiftAssignmentsController {
 
   @Post('bulk')
   @UseGuards(RolesGuard)
-  @Roles('OFFICER')
+  @Roles('LOGISTICS')
   bulkCreate(
     @Body()
     data: {
@@ -164,7 +183,7 @@ export class ShiftAssignmentsController {
 
   @Patch(':id')
   @UseGuards(RolesGuard)
-  @Roles('OFFICER')
+  @Roles('LOGISTICS')
   update(
     @Param('id') id: string,
     @Body() data: { status?: ShiftAssignmentStatus; notes?: string },
@@ -174,7 +193,7 @@ export class ShiftAssignmentsController {
 
   @Patch(':id/move')
   @UseGuards(RolesGuard)
-  @Roles('OFFICER')
+  @Roles('LOGISTICS')
   moveAssignment(
     @Param('id') id: string,
     @Body()
@@ -194,7 +213,7 @@ export class ShiftAssignmentsController {
 
   @Delete(':id')
   @UseGuards(RolesGuard)
-  @Roles('OFFICER')
+  @Roles('LOGISTICS')
   delete(@Param('id') id: string) {
     return this.shiftAssignmentsService.delete(id);
   }
@@ -220,5 +239,36 @@ export class ShiftAssignmentsController {
     @Query('zoneId') zoneId?: string,
   ) {
     return this.validationService.validateDaySchedule(new Date(date), zoneId && zoneId !== 'undefined' ? zoneId : undefined);
+  }
+
+  // ============================================================
+  // WORKLOAD ANALYTICS ENDPOINTS
+  // ============================================================
+
+  @Get('workloads')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'OFFICER', 'LOGISTICS')
+  getWorkloadsSummary(
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('departmentId') departmentId?: string,
+  ) {
+    return this.shiftAssignmentsService.getWorkloadsSummary({
+      startDate: startDate ? new Date(startDate) : undefined,
+      endDate: endDate ? new Date(endDate) : undefined,
+      departmentId: departmentId && departmentId !== 'undefined' ? departmentId : undefined,
+    });
+  }
+
+  @Get('workloads/my')
+  getMyWorkload(
+    @CurrentUser() user: any,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.shiftAssignmentsService.getUserWorkload(user.id, {
+      startDate: startDate ? new Date(startDate) : undefined,
+      endDate: endDate ? new Date(endDate) : undefined,
+    });
   }
 }

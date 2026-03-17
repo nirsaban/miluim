@@ -49,7 +49,24 @@ export interface User {
   createdAt: string;
 }
 
-export type UserRole = 'SOLDIER' | 'COMMANDER' | 'OFFICER' | 'MEDIC' | 'LOGISTICS' | 'ADMIN'| 'SFOGIST';
+export type UserRole = 'SOLDIER' | 'COMMANDER' | 'OFFICER' | 'LOGISTICS' | 'ADMIN';
+
+export const USER_ROLE_LABELS: Record<UserRole, string> = {
+  SOLDIER: 'חייל',
+  COMMANDER: 'מפקד',
+  OFFICER: 'קצין',
+  LOGISTICS: 'לוגיסטיקה',
+  ADMIN: 'מנהל',
+};
+
+export type MessageTargetAudience = 'ALL' | 'COMMANDERS_PLUS' | 'OFFICERS_PLUS' | 'ADMIN_ONLY';
+
+export const MESSAGE_TARGET_LABELS: Record<MessageTargetAudience, string> = {
+  ALL: 'כולם',
+  COMMANDERS_PLUS: 'מפקדים ומעלה',
+  OFFICERS_PLUS: 'קצינים ומעלה',
+  ADMIN_ONLY: 'מנהלים בלבד',
+};
 
 export interface LoginResponse {
   success: boolean;
@@ -65,6 +82,8 @@ export interface Message {
   content: string;
   type: MessageType;
   priority: MessagePriority;
+  targetAudience: MessageTargetAudience;
+  requiresConfirmation: boolean;
   isActive: boolean;
   createdAt: string;
 }
@@ -85,7 +104,7 @@ export interface ShiftPost {
   createdAt: string;
 }
 
-export type ShiftType = 'GUARD' | 'PATROL';
+export type ShiftType = 'GUARD' | 'PATROL' | 'KITCHEN' | 'CLEANING' | 'SPECIAL';
 
 export type LeaveType = 'SHORT' | 'HOME';
 export type LeaveStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'ACTIVE' | 'RETURNED' | 'OVERDUE';
@@ -255,10 +274,8 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   SOLDIER: 'לוחם',
   COMMANDER: 'מפקד',
   OFFICER: 'קצין',
-  MEDIC: 'חובש',
   LOGISTICS: 'לוגיסטיקה',
   ADMIN: 'מנהל מערכת',
-  SFOGIST: 'ספוגיסט',
 };
 
 // Skills, Zones, Tasks Types
@@ -331,8 +348,11 @@ export const FORM_STATUS_LABELS: Record<FormStatus, string> = {
 };
 
 export const SHIFT_TYPE_LABELS: Record<ShiftType, string> = {
-  GUARD: 'משמרת שמירה',
-  PATROL: 'משמרת סיור',
+  GUARD: 'שמירה',
+  PATROL: 'סיור',
+  KITCHEN: 'מטבח',
+  CLEANING: 'ניקיון',
+  SPECIAL: 'מיוחד',
 };
 
 export const STATUS_LABELS: Record<SoldierStatusType, string> = {

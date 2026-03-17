@@ -129,7 +129,7 @@ export class ShiftSchedulesService {
     };
   }
 
-  async publish(date: Date, zoneId: string | undefined, userId: string) {
+  async publish(date: Date, zoneId: string | undefined, userId: string, shiftTemplateId?: string) {
     // Find or create the schedule
     let schedule = await this.prisma.shiftSchedule.findFirst({
       where: {
@@ -149,16 +149,26 @@ export class ShiftSchedulesService {
       });
     }
 
-    if (schedule.status === 'PUBLISHED') {
+    // For partial publish (single shift template), don't check if already published
+    // Only check for full publish
+    if (!shiftTemplateId && schedule.status === 'PUBLISHED') {
       throw new BadRequestException('לוח משמרות זה כבר פורסם');
     }
 
-    // Get all assignments for this schedule
+    // Build where clause for assignments
+    const whereClause: any = {
+      date,
+      ...(zoneId ? { task: { zoneId } } : {}),
+    };
+
+    // If partial publish, filter by shift template
+    if (shiftTemplateId) {
+      whereClause.shiftTemplateId = shiftTemplateId;
+    }
+
+    // Get assignments for this schedule (or specific shift template)
     const assignments = await this.prisma.shiftAssignment.findMany({
-      where: {
-        date,
-        ...(zoneId ? { task: { zoneId } } : {}),
-      },
+      where: whereClause,
       include: {
         shiftTemplate: true,
         task: true,
@@ -170,7 +180,7 @@ export class ShiftSchedulesService {
       throw new BadRequestException('אין שיבוצים לפרסום');
     }
 
-    // Update schedule status
+    // Update schedule status to PUBLISHED if it isn't already
     const updatedSchedule = await this.prisma.shiftSchedule.update({
       where: { id: schedule.id },
       data: {
@@ -180,12 +190,9 @@ export class ShiftSchedulesService {
       },
     });
 
-    // Link all assignments to this schedule
+    // Link assignments to this schedule and confirm them
     await this.prisma.shiftAssignment.updateMany({
-      where: {
-        date,
-        ...(zoneId ? { task: { zoneId } } : {}),
-      },
+      where: whereClause,
       data: {
         scheduleId: schedule.id,
         status: 'CONFIRMED',

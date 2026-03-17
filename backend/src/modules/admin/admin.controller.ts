@@ -23,11 +23,11 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { UserRole, MessageType, MessagePriority, ShiftType, FormStatus, SoldierStatusType } from '@prisma/client';
+import { UserRole, MessageType, MessagePriority, MessageTargetAudience, ShiftType, FormStatus, SoldierStatusType } from '@prisma/client';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRole.ADMIN, UserRole.COMMANDER, UserRole.OFFICER)
+@Roles(UserRole.ADMIN, UserRole.OFFICER)
 export class AdminController {
   constructor(
     private readonly adminService: AdminService,
@@ -55,6 +55,8 @@ export class AdminController {
       content: string;
       type?: MessageType;
       priority?: MessagePriority;
+      targetAudience?: MessageTargetAudience;
+      requiresConfirmation?: boolean;
     },
   ) {
     return this.messagesService.create(body);
@@ -68,6 +70,8 @@ export class AdminController {
       content?: string;
       type?: MessageType;
       priority?: MessagePriority;
+      targetAudience?: MessageTargetAudience;
+      requiresConfirmation?: boolean;
       isActive?: boolean;
     },
   ) {

@@ -51,10 +51,11 @@ export class ShiftSchedulesController {
 
   @Post('publish')
   @UseGuards(RolesGuard)
-  @Roles('ADMIN', 'COMMANDER')
+  @Roles('LOGISTICS')
   publish(
     @Query('date') date: string,
     @Query('zoneId') zoneId: string | undefined,
+    @Query('shiftTemplateId') shiftTemplateId: string | undefined,
     @Body() _body: any,
     @Request() req: any,
   ) {
@@ -62,12 +63,13 @@ export class ShiftSchedulesController {
       new Date(date),
       zoneId && zoneId !== 'undefined' ? zoneId : undefined,
       req.user.id,
+      shiftTemplateId && shiftTemplateId !== 'undefined' ? shiftTemplateId : undefined,
     );
   }
 
   @Post('unpublish')
   @UseGuards(RolesGuard)
-  @Roles('ADMIN')
+  @Roles('LOGISTICS')
   unpublish(
     @Query('date') date: string,
     @Query('zoneId') zoneId?: string,

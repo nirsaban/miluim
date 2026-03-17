@@ -30,6 +30,7 @@ import {
   LucideIcon,
   Shield,
   CalendarCheck,
+  BarChart3,
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -88,6 +89,7 @@ const adminMenuSections: MenuSection[] = [
       { href: '/admin/shifts', label: 'סידור משמרות', icon: Calendar },
       { href: '/admin/shift-templates', label: 'תבניות משמרות', icon: Clock },
       { href: '/admin/shift-assignments', label: 'שיבוץ משמרות', icon: UserCheck },
+      { href: '/admin/workloads', label: 'עומסי עבודה', icon: BarChart3 },
       { href: '/admin/tasks', label: 'משימות', icon: ClipboardList },
       { href: '/admin/zones', label: 'אזורים', icon: Map },
     ],

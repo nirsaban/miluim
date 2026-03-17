@@ -10,6 +10,7 @@ const FORM_TYPE_LABELS: Record<FormType, string> = {
   HOME_LEAVE: 'בקשת יציאה הביתה',
   IMPROVEMENT_SUGGESTION: 'הצעות לשיפור',
   RESTAURANT_RECOMMENDATION: 'המלצת מסעדה',
+  SHIFT_REQUEST: 'בקשה ממשמרת',
 };
 
 @Injectable()

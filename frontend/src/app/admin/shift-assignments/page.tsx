@@ -12,17 +12,137 @@ import {
   DragStartEvent,
   DragEndEvent,
 } from '@dnd-kit/core';
-import { ChevronRight, ChevronLeft, Calendar, Users, AlertTriangle, Check, Send, FileText } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Calendar, Users, AlertTriangle, Check, Send, FileText, X, StickyNote } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { Card, CardHeader, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
+import { Input } from '@/components/ui/Input';
 import { Spinner } from '@/components/ui/Spinner';
 import { SoldierCard } from '@/components/shifts/SoldierCard';
 import { TaskDropZone } from '@/components/shifts/TaskDropZone';
 import api from '@/lib/api';
 import { ShiftTemplate, ShiftAssignment, Zone, Task, AvailableSoldier, ScheduleStatus, PublishResult } from '@/types';
+
+// Edit Assignment Modal Component
+interface EditAssignmentModalProps {
+  assignment: ShiftAssignment;
+  tasks: Task[];
+  shiftTemplates: ShiftTemplate[];
+  onClose: () => void;
+  onUpdate: (data: { notes?: string }) => void;
+  onMove: (taskId: string, shiftTemplateId?: string) => void;
+  onDelete: () => void;
+  isLoading: boolean;
+}
+
+function EditAssignmentModal({
+  assignment,
+  tasks,
+  shiftTemplates,
+  onClose,
+  onUpdate,
+  onMove,
+  onDelete,
+  isLoading,
+}: EditAssignmentModalProps) {
+  const [notes, setNotes] = useState(assignment.notes || '');
+  const [newTaskId, setNewTaskId] = useState(assignment.taskId);
+  const [newShiftTemplateId, setNewShiftTemplateId] = useState(assignment.shiftTemplateId);
+
+  const handleSave = () => {
+    // Update notes if changed
+    if (notes !== (assignment.notes || '')) {
+      onUpdate({ notes });
+    }
+    // Move if task or shift changed
+    if (newTaskId !== assignment.taskId || newShiftTemplateId !== assignment.shiftTemplateId) {
+      onMove(newTaskId, newShiftTemplateId !== assignment.shiftTemplateId ? newShiftTemplateId : undefined);
+    } else if (notes !== (assignment.notes || '')) {
+      onClose();
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
+      <div
+        className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between p-4 border-b">
+          <h3 className="font-bold text-lg">עריכת שיבוץ</h3>
+          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="p-4 space-y-4">
+          {/* Soldier info */}
+          <div className="bg-gray-50 rounded-lg p-3">
+            <p className="font-medium">{assignment.soldier.fullName}</p>
+            <p className="text-sm text-gray-500">{assignment.soldier.armyNumber}</p>
+          </div>
+
+          {/* Task select */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">משימה</label>
+            <Select
+              value={newTaskId}
+              onChange={(e) => setNewTaskId(e.target.value)}
+              options={tasks.map((t) => ({ value: t.id, label: t.name }))}
+            />
+          </div>
+
+          {/* Shift select */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">משמרת</label>
+            <Select
+              value={newShiftTemplateId}
+              onChange={(e) => setNewShiftTemplateId(e.target.value)}
+              options={shiftTemplates.map((s) => ({ value: s.id, label: s.displayName }))}
+            />
+          </div>
+
+          {/* Notes */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              <StickyNote className="w-4 h-4 inline ml-1" />
+              הערות
+            </label>
+            <Input
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="הוסף הערה לשיבוץ..."
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between p-4 border-t bg-gray-50">
+          <Button
+            variant="secondary"
+            onClick={() => {
+              if (confirm('האם למחוק את השיבוץ?')) {
+                onDelete();
+              }
+            }}
+            className="text-red-600 hover:bg-red-50"
+          >
+            מחק שיבוץ
+          </Button>
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={onClose}>
+              ביטול
+            </Button>
+            <Button onClick={handleSave} isLoading={isLoading}>
+              שמור
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function ShiftAssignmentsPage() {
   const queryClient = useQueryClient();
@@ -43,6 +163,7 @@ export default function ShiftAssignmentsPage() {
     return '';
   });
   const [activeSoldier, setActiveSoldier] = useState<AvailableSoldier | null>(null);
+  const [editingAssignment, setEditingAssignment] = useState<ShiftAssignment | null>(null);
 
   // Persist selected zone to localStorage
   useEffect(() => {
@@ -144,13 +265,17 @@ export default function ShiftAssignmentsPage() {
   });
 
   const publishMutation = useMutation({
-    mutationFn: async () => {
-      const params: { date: string; zoneId?: string } = {
+    mutationFn: async (shiftTemplateId?: string) => {
+      const params: { date: string; zoneId?: string; shiftTemplateId?: string } = {
         date: selectedDate,
       };
 
       if (selectedZoneId) {
         params.zoneId = selectedZoneId;
+      }
+
+      if (shiftTemplateId) {
+        params.shiftTemplateId = shiftTemplateId;
       }
 
       const response = await api.post('/shift-schedules/publish', {}, {
@@ -162,11 +287,11 @@ export default function ShiftAssignmentsPage() {
       queryClient.invalidateQueries({ queryKey: ['schedule-status'] });
       queryClient.invalidateQueries({ queryKey: ['shift-assignments'] });
       toast.success(
-        `לוח משמרות פורסם בהצלחה! ${data.notifiedSoldiers} חיילים קיבלו התראה`,
+        `פורסם בהצלחה! ${data.notifiedSoldiers} חיילים קיבלו התראה`,
       );
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'שגיאה בפרסום לוח משמרות');
+      toast.error(error.response?.data?.message || 'שגיאה בפרסום');
     },
   });
 
@@ -201,9 +326,44 @@ export default function ShiftAssignmentsPage() {
       queryClient.invalidateQueries({ queryKey: ['available-soldiers'] });
       queryClient.invalidateQueries({ queryKey: ['schedule-status'] });
       toast.success('שיבוץ הוסר');
+      setEditingAssignment(null);
     },
     onError: () => {
       toast.error('שגיאה בהסרת שיבוץ');
+    },
+  });
+
+  const updateAssignmentMutation = useMutation({
+    mutationFn: async ({ id, notes }: { id: string; notes?: string }) => {
+      const response = await api.patch(`/shift-assignments/${id}`, { notes });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['shift-assignments'] });
+      toast.success('שיבוץ עודכן');
+      setEditingAssignment(null);
+    },
+    onError: () => {
+      toast.error('שגיאה בעדכון שיבוץ');
+    },
+  });
+
+  const moveAssignmentMutation = useMutation({
+    mutationFn: async ({ id, newTaskId, newShiftTemplateId }: { id: string; newTaskId: string; newShiftTemplateId?: string }) => {
+      const response = await api.patch(`/shift-assignments/${id}/move`, {
+        newTaskId,
+        newShiftTemplateId,
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['shift-assignments'] });
+      queryClient.invalidateQueries({ queryKey: ['available-soldiers'] });
+      toast.success('שיבוץ הועבר');
+      setEditingAssignment(null);
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'שגיאה בהעברת שיבוץ');
     },
   });
 
@@ -325,7 +485,7 @@ export default function ShiftAssignmentsPage() {
 
           {/* Schedule Status & Publish */}
           {selectedZoneId && (
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               {scheduleStatus?.status === 'PUBLISHED' ? (
                 <div className="flex items-center gap-2 px-3 py-2 bg-green-50 text-green-700 rounded-lg">
                   <Check className="w-4 h-4" />
@@ -337,27 +497,69 @@ export default function ShiftAssignmentsPage() {
                   )}
                 </div>
               ) : (
-                <>
-                  <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 text-amber-700 rounded-lg">
-                    <FileText className="w-4 h-4" />
-                    <span className="text-sm font-medium">טיוטה</span>
-                    {scheduleStatus?.assignmentCount ? (
-                      <span className="text-xs">({scheduleStatus.assignmentCount} שיבוצים)</span>
-                    ) : null}
-                  </div>
-                  <Button
-                    onClick={() => {
-                      if (confirm('האם לפרסם את לוח המשמרות? כל החיילים המשובצים יקבלו התראה.')) {
-                        publishMutation.mutate();
-                      }
-                    }}
-                    isLoading={publishMutation.isPending}
-                    disabled={!scheduleStatus?.assignmentCount}
-                  >
-                    <Send className="w-4 h-4 ml-2" />
-                    פרסם משמרות
-                  </Button>
-                </>
+                <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 text-amber-700 rounded-lg">
+                  <FileText className="w-4 h-4" />
+                  <span className="text-sm font-medium">טיוטה</span>
+                  {scheduleStatus?.assignmentCount ? (
+                    <span className="text-xs">({scheduleStatus.assignmentCount} שיבוצים)</span>
+                  ) : null}
+                </div>
+              )}
+
+              {/* Publish buttons per shift template */}
+              {shiftTemplates && shiftTemplates.length > 0 && (
+                <div className="flex items-center gap-2 border-r pr-3 mr-2">
+                  {shiftTemplates.map((template) => {
+                    const templateAssignments = assignments?.filter(a => a.shiftTemplateId === template.id) || [];
+                    const confirmedCount = templateAssignments.filter(a => a.status === 'CONFIRMED').length;
+                    const isPublished = confirmedCount > 0 && confirmedCount === templateAssignments.length;
+
+                    return (
+                      <Button
+                        key={template.id}
+                        size="sm"
+                        variant={isPublished ? 'secondary' : 'primary'}
+                        onClick={() => {
+                          if (templateAssignments.length === 0) {
+                            toast.error(`אין שיבוצים למשמרת ${template.displayName}`);
+                            return;
+                          }
+                          if (confirm(`האם לפרסם את משמרת ${template.displayName}? ${templateAssignments.length} חיילים יקבלו התראה.`)) {
+                            publishMutation.mutate(template.id);
+                          }
+                        }}
+                        isLoading={publishMutation.isPending}
+                        disabled={templateAssignments.length === 0 || isPublished}
+                        className="text-xs"
+                      >
+                        {isPublished ? (
+                          <Check className="w-3 h-3 ml-1" />
+                        ) : (
+                          <Send className="w-3 h-3 ml-1" />
+                        )}
+                        {template.displayName}
+                        {templateAssignments.length > 0 && !isPublished && (
+                          <span className="mr-1 text-xs">({templateAssignments.length})</span>
+                        )}
+                      </Button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Publish All button */}
+              {scheduleStatus?.status !== 'PUBLISHED' && scheduleStatus?.assignmentCount && scheduleStatus.assignmentCount > 0 && (
+                <Button
+                  onClick={() => {
+                    if (confirm('האם לפרסם את כל המשמרות? כל החיילים המשובצים יקבלו התראה.')) {
+                      publishMutation.mutate(undefined);
+                    }
+                  }}
+                  isLoading={publishMutation.isPending}
+                >
+                  <Send className="w-4 h-4 ml-2" />
+                  פרסם הכל
+                </Button>
               )}
             </div>
           )}
@@ -437,6 +639,7 @@ export default function ShiftAssignmentsPage() {
                       shiftTemplate={shiftTemplates?.find((s) => s.id === selectedShiftId)}
                       assignments={assignmentsByTaskAndShift[task.id]?.[selectedShiftId] || []}
                       onRemoveAssignment={(id) => deleteAssignmentMutation.mutate(id)}
+                      onEditAssignment={(assignment) => setEditingAssignment(assignment)}
                     />
                   ))}
                 </div>
@@ -450,6 +653,24 @@ export default function ShiftAssignmentsPage() {
             )}
           </DragOverlay>
         </DndContext>
+      )}
+
+      {/* Edit Assignment Modal */}
+      {editingAssignment && tasks && shiftTemplates && (
+        <EditAssignmentModal
+          assignment={editingAssignment}
+          tasks={tasks}
+          shiftTemplates={shiftTemplates}
+          onClose={() => setEditingAssignment(null)}
+          onUpdate={(data) => updateAssignmentMutation.mutate({ id: editingAssignment.id, ...data })}
+          onMove={(taskId, shiftTemplateId) => moveAssignmentMutation.mutate({
+            id: editingAssignment.id,
+            newTaskId: taskId,
+            newShiftTemplateId: shiftTemplateId,
+          })}
+          onDelete={() => deleteAssignmentMutation.mutate(editingAssignment.id)}
+          isLoading={updateAssignmentMutation.isPending || moveAssignmentMutation.isPending}
+        />
       )}
     </AdminLayout>
   );

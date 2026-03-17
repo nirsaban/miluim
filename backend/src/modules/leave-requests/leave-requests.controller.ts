@@ -51,49 +51,50 @@ export class LeaveRequestsController {
     return this.leaveRequestsService.cancelRequest(id, req.user.id);
   }
 
-  // Admin endpoints
+  // OFFICER endpoints (manages leave from their department, ADMIN has full access)
   @Get('dashboard')
   @UseGuards(RolesGuard)
-  @Roles('ADMIN', 'OFFICER', 'COMMANDER')
-  getDashboard() {
-    return this.leaveRequestsService.getDashboard();
+  @Roles('OFFICER')
+  getDashboard(@Request() req: any) {
+    return this.leaveRequestsService.getDashboard(req.user.id, req.user.role);
   }
 
   @Get('pending')
   @UseGuards(RolesGuard)
-  @Roles('ADMIN', 'OFFICER', 'COMMANDER')
-  findPending() {
-    return this.leaveRequestsService.findPending();
+  @Roles('OFFICER')
+  findPending(@Request() req: any) {
+    return this.leaveRequestsService.findPending(req.user.id, req.user.role);
   }
 
   @Get('active')
   @UseGuards(RolesGuard)
-  @Roles('ADMIN', 'OFFICER', 'COMMANDER')
-  findActive() {
-    return this.leaveRequestsService.findActive();
+  @Roles('OFFICER')
+  findActive(@Request() req: any) {
+    return this.leaveRequestsService.findActive(req.user.id, req.user.role);
   }
 
   @Get('overdue')
   @UseGuards(RolesGuard)
-  @Roles('ADMIN', 'OFFICER', 'COMMANDER')
-  findOverdue() {
-    return this.leaveRequestsService.findOverdue();
+  @Roles('OFFICER')
+  findOverdue(@Request() req: any) {
+    return this.leaveRequestsService.findOverdue(req.user.id, req.user.role);
   }
 
   @Get()
   @UseGuards(RolesGuard)
-  @Roles('ADMIN', 'OFFICER', 'COMMANDER')
+  @Roles('OFFICER')
   findAll(
+    @Request() req: any,
     @Query('status') status?: LeaveStatus,
     @Query('type') type?: LeaveType,
     @Query('soldierId') soldierId?: string,
   ) {
-    return this.leaveRequestsService.findAll({ status, type, soldierId });
+    return this.leaveRequestsService.findAll({ status, type, soldierId }, req.user.id, req.user.role);
   }
 
   @Patch(':id/approve')
   @UseGuards(RolesGuard)
-  @Roles('ADMIN', 'OFFICER', 'COMMANDER')
+  @Roles('OFFICER')
   approve(
     @Request() req: any,
     @Param('id') id: string,
@@ -104,7 +105,7 @@ export class LeaveRequestsController {
 
   @Patch(':id/reject')
   @UseGuards(RolesGuard)
-  @Roles('ADMIN', 'OFFICER', 'COMMANDER')
+  @Roles('OFFICER')
   reject(
     @Request() req: any,
     @Param('id') id: string,
@@ -115,14 +116,14 @@ export class LeaveRequestsController {
 
   @Patch(':id/activate')
   @UseGuards(RolesGuard)
-  @Roles('ADMIN', 'OFFICER', 'COMMANDER')
+  @Roles('OFFICER')
   markActive(@Param('id') id: string) {
     return this.leaveRequestsService.markActive(id);
   }
 
   @Patch(':id/return')
   @UseGuards(RolesGuard)
-  @Roles('ADMIN', 'OFFICER', 'COMMANDER')
+  @Roles('OFFICER')
   markReturned(@Param('id') id: string) {
     return this.leaveRequestsService.markReturned(id);
   }

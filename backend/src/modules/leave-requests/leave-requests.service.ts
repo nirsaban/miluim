@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { LeaveType, LeaveStatus, ReserveServiceCycleStatus, ServiceAttendanceStatus } from '@prisma/client';
+import { LeaveType, LeaveStatus, ReserveServiceCycleStatus, ServiceAttendanceStatus, UserRole } from '@prisma/client';
 
 @Injectable()
 export class LeaveRequestsService {
@@ -13,6 +13,7 @@ export class LeaveRequestsService {
         fullName: true,
         phone: true,
         armyNumber: true,
+        departmentId: true,
       },
     },
     category: true,
@@ -23,6 +24,31 @@ export class LeaveRequestsService {
       },
     },
   };
+
+  // Get department soldiers for OFFICER filtering
+  private async getDepartmentSoldierIds(userId: string, userRole: UserRole): Promise<string[] | null> {
+    // ADMIN sees all - return null to skip filtering
+    if (userRole === 'ADMIN') {
+      return null;
+    }
+
+    // For OFFICER, get their department soldiers
+    const officer = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { departmentId: true },
+    });
+
+    if (!officer?.departmentId) {
+      return []; // No department = no soldiers to see
+    }
+
+    const departmentSoldiers = await this.prisma.user.findMany({
+      where: { departmentId: officer.departmentId, isActive: true },
+      select: { id: true },
+    });
+
+    return departmentSoldiers.map(s => s.id);
+  }
 
   // Get current active service cycle (if any)
   private async getCurrentActiveCycle() {
@@ -103,43 +129,64 @@ export class LeaveRequestsService {
     });
   }
 
-  async findPending() {
+  async findPending(userId: string, userRole: UserRole) {
+    const soldierIds = await this.getDepartmentSoldierIds(userId, userRole);
+
     return this.prisma.leaveRequest.findMany({
-      where: { status: 'PENDING' },
+      where: {
+        status: 'PENDING',
+        ...(soldierIds !== null && { soldierId: { in: soldierIds } }),
+      },
       include: this.includeRelations,
       orderBy: { createdAt: 'asc' },
     });
   }
 
-  async findActive() {
+  async findActive(userId: string, userRole: UserRole) {
+    const soldierIds = await this.getDepartmentSoldierIds(userId, userRole);
+
     return this.prisma.leaveRequest.findMany({
-      where: { status: 'ACTIVE' },
+      where: {
+        status: 'ACTIVE',
+        ...(soldierIds !== null && { soldierId: { in: soldierIds } }),
+      },
       include: this.includeRelations,
       orderBy: { exitTime: 'asc' },
     });
   }
 
-  async findOverdue() {
+  async findOverdue(userId: string, userRole: UserRole) {
+    const soldierIds = await this.getDepartmentSoldierIds(userId, userRole);
     const now = new Date();
+
     return this.prisma.leaveRequest.findMany({
       where: {
         status: 'ACTIVE',
         expectedReturn: { lt: now },
+        ...(soldierIds !== null && { soldierId: { in: soldierIds } }),
       },
       include: this.includeRelations,
       orderBy: { expectedReturn: 'asc' },
     });
   }
 
-  async getDashboard() {
+  async getDashboard(userId: string, userRole: UserRole) {
     const now = new Date();
+
+    // Get department soldier IDs for OFFICER filtering
+    const departmentSoldierIds = await this.getDepartmentSoldierIds(userId, userRole);
 
     // Get current active cycle and arrived soldiers
     const cycle = await this.getCurrentActiveCycle();
     const arrivedSoldiers = await this.getArrivedSoldiersForCurrentCycle();
-    const arrivedSoldierIds = arrivedSoldiers.map(s => s.id);
+    let arrivedSoldierIds = arrivedSoldiers.map(s => s.id);
 
-    // Count active leaves ONLY for arrived soldiers
+    // Filter by department if OFFICER
+    if (departmentSoldierIds !== null) {
+      arrivedSoldierIds = arrivedSoldierIds.filter(id => departmentSoldierIds.includes(id));
+    }
+
+    // Count active leaves ONLY for arrived soldiers (filtered by department for OFFICER)
     const [activeLeavesForArrived, overdueLeaves, pendingRequests] = await Promise.all([
       this.prisma.leaveRequest.count({
         where: {
@@ -348,16 +395,23 @@ export class LeaveRequestsService {
     });
   }
 
-  async findAll(params?: {
-    status?: LeaveStatus;
-    type?: LeaveType;
-    soldierId?: string;
-  }) {
+  async findAll(
+    params: {
+      status?: LeaveStatus;
+      type?: LeaveType;
+      soldierId?: string;
+    } | undefined,
+    userId: string,
+    userRole: UserRole,
+  ) {
+    const soldierIds = await this.getDepartmentSoldierIds(userId, userRole);
+
     return this.prisma.leaveRequest.findMany({
       where: {
         ...(params?.status && { status: params.status }),
         ...(params?.type && { type: params.type }),
         ...(params?.soldierId && { soldierId: params.soldierId }),
+        ...(soldierIds !== null && { soldierId: { in: soldierIds } }),
       },
       include: this.includeRelations,
       orderBy: { createdAt: 'desc' },

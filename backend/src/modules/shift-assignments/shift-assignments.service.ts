@@ -519,7 +519,7 @@ export class ShiftAssignmentsService {
   async updateActiveStatus(
     assignmentId: string,
     userId: string,
-    data: { hasVehicle?: boolean; hasPhone?: boolean },
+    data: { hasVehicle?: boolean; hasPhone?: boolean; hasBattery?: boolean },
   ) {
     const assignment = await this.prisma.shiftAssignment.findUnique({
       where: { id: assignmentId },
@@ -538,6 +538,7 @@ export class ShiftAssignmentsService {
       data: {
         hasVehicle: data.hasVehicle ?? assignment.hasVehicle,
         hasPhone: data.hasPhone ?? assignment.hasPhone,
+        hasBattery: data.hasBattery ?? assignment.hasBattery,
       },
       include: {
         shiftTemplate: true,
@@ -550,6 +551,241 @@ export class ShiftAssignmentsService {
         },
       },
     });
+  }
+
+  // Shift officer confirms arrival FOR another soldier
+  async confirmArrivalBySupervisor(assignmentId: string, supervisorId: string) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Verify the supervisor is shift officer for today
+    const schedule = await this.prisma.shiftSchedule.findFirst({
+      where: {
+        date: today,
+        shiftOfficerId: supervisorId,
+      },
+    });
+
+    if (!schedule) {
+      throw new BadRequestException('רק קצין תורן יכול לאשר הגעה של חיילים אחרים');
+    }
+
+    const assignment = await this.prisma.shiftAssignment.findUnique({
+      where: { id: assignmentId },
+    });
+
+    if (!assignment) {
+      throw new NotFoundException('Assignment not found');
+    }
+
+    if (assignment.arrivedAt) {
+      throw new BadRequestException('הגעה כבר אושרה');
+    }
+
+    return this.prisma.shiftAssignment.update({
+      where: { id: assignmentId },
+      data: {
+        arrivedAt: new Date(),
+        status: 'CONFIRMED',
+      },
+      include: {
+        shiftTemplate: true,
+        task: { include: { zone: true } },
+        soldier: {
+          select: {
+            id: true,
+            fullName: true,
+            phone: true,
+          },
+        },
+      },
+    });
+  }
+
+  // Update equipment status (battery, missing items)
+  async updateEquipmentStatus(
+    assignmentId: string,
+    userId: string,
+    data: { hasBattery?: boolean; missingItems?: string },
+  ) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const assignment = await this.prisma.shiftAssignment.findUnique({
+      where: { id: assignmentId },
+    });
+
+    if (!assignment) {
+      throw new NotFoundException('Assignment not found');
+    }
+
+    // Check if user is the soldier or the shift officer
+    const isOwner = assignment.soldierId === userId;
+    const schedule = await this.prisma.shiftSchedule.findFirst({
+      where: {
+        date: today,
+        shiftOfficerId: userId,
+      },
+    });
+    const isShiftOfficer = !!schedule;
+
+    if (!isOwner && !isShiftOfficer) {
+      throw new BadRequestException('אין הרשאה לעדכן סטטוס זה');
+    }
+
+    return this.prisma.shiftAssignment.update({
+      where: { id: assignmentId },
+      data: {
+        hasBattery: data.hasBattery ?? assignment.hasBattery,
+        missingItems: data.missingItems !== undefined ? data.missingItems : assignment.missingItems,
+      },
+      include: {
+        shiftTemplate: true,
+        task: { include: { zone: true } },
+        soldier: {
+          select: {
+            id: true,
+            fullName: true,
+            phone: true,
+          },
+        },
+      },
+    });
+  }
+
+  // Get current shift overview for shift officer - detailed view
+  async getCurrentShiftOverview(userId: string) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Check if user is shift officer today
+    const schedule = await this.prisma.shiftSchedule.findFirst({
+      where: {
+        date: today,
+        shiftOfficerId: userId,
+      },
+      include: {
+        zone: true,
+        shiftOfficer: {
+          select: {
+            id: true,
+            fullName: true,
+            phone: true,
+          },
+        },
+      },
+    });
+
+    if (!schedule) {
+      return null;
+    }
+
+    // Build where clause
+    const whereClause: any = { date: today };
+    if (schedule.zoneId) {
+      whereClause.task = { zoneId: schedule.zoneId };
+    }
+
+    // Get all assignments for today
+    const assignments = await this.prisma.shiftAssignment.findMany({
+      where: whereClause,
+      include: {
+        shiftTemplate: true,
+        task: {
+          include: { zone: true },
+        },
+        soldier: {
+          select: {
+            id: true,
+            fullName: true,
+            phone: true,
+            militaryRole: true,
+          },
+        },
+      },
+      orderBy: [{ shiftTemplate: { sortOrder: 'asc' } }, { task: { name: 'asc' } }],
+    });
+
+    // Group by shift template and task
+    const shiftGroups: Record<string, {
+      shiftTemplate: any;
+      tasks: Record<string, {
+        task: any;
+        soldiers: any[];
+      }>;
+      stats: { total: number; arrived: number; withVehicle: number; withPhone: number; withBattery: number };
+    }> = {};
+
+    for (const assignment of assignments) {
+      const shiftId = assignment.shiftTemplateId;
+      const taskId = assignment.taskId;
+
+      if (!shiftGroups[shiftId]) {
+        shiftGroups[shiftId] = {
+          shiftTemplate: assignment.shiftTemplate,
+          tasks: {},
+          stats: { total: 0, arrived: 0, withVehicle: 0, withPhone: 0, withBattery: 0 },
+        };
+      }
+
+      if (!shiftGroups[shiftId].tasks[taskId]) {
+        shiftGroups[shiftId].tasks[taskId] = {
+          task: assignment.task,
+          soldiers: [],
+        };
+      }
+
+      shiftGroups[shiftId].tasks[taskId].soldiers.push({
+        id: assignment.id,
+        soldier: assignment.soldier,
+        arrivedAt: assignment.arrivedAt,
+        hasVehicle: assignment.hasVehicle,
+        hasPhone: assignment.hasPhone,
+        hasBattery: assignment.hasBattery,
+        missingItems: assignment.missingItems,
+        status: assignment.status,
+      });
+
+      shiftGroups[shiftId].stats.total++;
+      if (assignment.arrivedAt) shiftGroups[shiftId].stats.arrived++;
+      if (assignment.hasVehicle) shiftGroups[shiftId].stats.withVehicle++;
+      if (assignment.hasPhone) shiftGroups[shiftId].stats.withPhone++;
+      if (assignment.hasBattery) shiftGroups[shiftId].stats.withBattery++;
+    }
+
+    // Convert tasks from Record to array
+    const shifts = Object.values(shiftGroups).map((group) => ({
+      ...group,
+      tasks: Object.values(group.tasks),
+    }));
+
+    // Collect all missing items
+    const allMissingItems = assignments
+      .filter(a => a.missingItems)
+      .map(a => ({
+        soldier: a.soldier.fullName,
+        task: a.task.name,
+        items: a.missingItems,
+      }));
+
+    return {
+      date: today,
+      schedule: {
+        id: schedule.id,
+        zone: schedule.zone,
+        shiftOfficer: schedule.shiftOfficer,
+      },
+      shifts,
+      totalStats: {
+        total: assignments.length,
+        arrived: assignments.filter(a => a.arrivedAt).length,
+        pending: assignments.filter(a => !a.arrivedAt).length,
+        withVehicle: assignments.filter(a => a.hasVehicle).length,
+        withPhone: assignments.filter(a => a.hasPhone).length,
+        withBattery: assignments.filter(a => a.hasBattery).length,
+      },
+      missingItems: allMissingItems,
+    };
   }
 
   async getMyTodayShift(userId: string) {
@@ -799,5 +1035,186 @@ export class ShiftAssignmentsService {
     );
 
     return shiftsWithTeammates;
+  }
+
+  // ============================================================
+  // WORKLOAD ANALYTICS METHODS
+  // ============================================================
+
+  async getWorkloadsSummary(params: {
+    startDate?: Date;
+    endDate?: Date;
+    departmentId?: string;
+  }) {
+    const where: any = {
+      status: ShiftAssignmentStatus.COMPLETED,
+    };
+
+    if (params.startDate && params.endDate) {
+      where.date = {
+        gte: params.startDate,
+        lte: params.endDate,
+      };
+    }
+
+    // Get all assignments with soldier and shift template info
+    const assignments = await this.prisma.shiftAssignment.findMany({
+      where,
+      include: {
+        soldier: {
+          select: {
+            id: true,
+            fullName: true,
+            department: {
+              select: { id: true, name: true },
+            },
+          },
+        },
+        shiftTemplate: {
+          select: { id: true, displayName: true, name: true },
+        },
+        task: {
+          select: { id: true, name: true },
+        },
+      },
+    });
+
+    // Filter by department if specified
+    const filteredAssignments = params.departmentId
+      ? assignments.filter((a) => a.soldier.department?.id === params.departmentId)
+      : assignments;
+
+    // Group by soldier
+    const soldierWorkloads: Record<
+      string,
+      {
+        soldier: { id: string; fullName: string; department: { id: string; name: string } | null };
+        totalShifts: number;
+        shiftsByTemplate: Record<string, number>;
+        lastShiftDate: Date | null;
+        taskBreakdown: Record<string, number>;
+      }
+    > = {};
+
+    for (const assignment of filteredAssignments) {
+      const soldierId = assignment.soldierId;
+
+      if (!soldierWorkloads[soldierId]) {
+        soldierWorkloads[soldierId] = {
+          soldier: {
+            id: assignment.soldier.id,
+            fullName: assignment.soldier.fullName,
+            department: assignment.soldier.department,
+          },
+          totalShifts: 0,
+          shiftsByTemplate: {},
+          lastShiftDate: null,
+          taskBreakdown: {},
+        };
+      }
+
+      soldierWorkloads[soldierId].totalShifts++;
+
+      // Count by shift template
+      const templateName = assignment.shiftTemplate.displayName || assignment.shiftTemplate.name;
+      soldierWorkloads[soldierId].shiftsByTemplate[templateName] =
+        (soldierWorkloads[soldierId].shiftsByTemplate[templateName] || 0) + 1;
+
+      // Count by task
+      const taskName = assignment.task.name;
+      soldierWorkloads[soldierId].taskBreakdown[taskName] =
+        (soldierWorkloads[soldierId].taskBreakdown[taskName] || 0) + 1;
+
+      // Track latest shift
+      if (
+        !soldierWorkloads[soldierId].lastShiftDate ||
+        assignment.date > soldierWorkloads[soldierId].lastShiftDate
+      ) {
+        soldierWorkloads[soldierId].lastShiftDate = assignment.date;
+      }
+    }
+
+    // Convert to array and sort by total shifts
+    return Object.values(soldierWorkloads).sort((a, b) => b.totalShifts - a.totalShifts);
+  }
+
+  async getUserWorkload(
+    userId: string,
+    params: {
+      startDate?: Date;
+      endDate?: Date;
+    },
+  ) {
+    const where: any = {
+      soldierId: userId,
+      status: ShiftAssignmentStatus.COMPLETED,
+    };
+
+    if (params.startDate && params.endDate) {
+      where.date = {
+        gte: params.startDate,
+        lte: params.endDate,
+      };
+    }
+
+    // Get all completed assignments for this user
+    const assignments = await this.prisma.shiftAssignment.findMany({
+      where,
+      include: {
+        shiftTemplate: {
+          select: { id: true, displayName: true, name: true, color: true },
+        },
+        task: {
+          select: { id: true, name: true },
+        },
+      },
+      orderBy: { date: 'desc' },
+    });
+
+    // Calculate statistics
+    const totalShifts = assignments.length;
+    const shiftsByTemplate: Record<string, { count: number; color?: string | null }> = {};
+    const taskBreakdown: Record<string, number> = {};
+    const shiftsByMonth: Record<string, number> = {};
+
+    for (const assignment of assignments) {
+      // By template
+      const templateName = assignment.shiftTemplate.displayName || assignment.shiftTemplate.name;
+      if (!shiftsByTemplate[templateName]) {
+        shiftsByTemplate[templateName] = { count: 0, color: assignment.shiftTemplate.color ?? undefined };
+      }
+      shiftsByTemplate[templateName].count++;
+
+      // By task
+      const taskName = assignment.task.name;
+      taskBreakdown[taskName] = (taskBreakdown[taskName] || 0) + 1;
+
+      // By month
+      const monthKey = assignment.date.toISOString().slice(0, 7); // YYYY-MM
+      shiftsByMonth[monthKey] = (shiftsByMonth[monthKey] || 0) + 1;
+    }
+
+    // Recent shifts (last 10)
+    const recentShifts = assignments.slice(0, 10).map((a) => ({
+      id: a.id,
+      date: a.date,
+      shiftTemplate: a.shiftTemplate.displayName || a.shiftTemplate.name,
+      task: a.task.name,
+      color: a.shiftTemplate.color,
+    }));
+
+    // Monthly trend (last 6 months)
+    const monthlyTrend = Object.entries(shiftsByMonth)
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .slice(-6)
+      .map(([month, count]) => ({ month, count }));
+
+    return {
+      totalShifts,
+      shiftsByTemplate,
+      taskBreakdown,
+      recentShifts,
+      monthlyTrend,
+    };
   }
 }

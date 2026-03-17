@@ -1,16 +1,27 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
-import { MessageSquare, Bell, Calendar, MapPin, Building2, User, Phone, ChevronLeft } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { MessageSquare, Bell, Calendar, MapPin, Building2, User, Phone, ChevronLeft, CheckCircle2, Image } from 'lucide-react';
 import { PushNotificationToggle } from '@/components/ui/PushNotificationToggle';
 import Link from 'next/link';
+import toast from 'react-hot-toast';
 import { UserLayout } from '@/components/layout/UserLayout';
 import { Card, CardHeader, CardContent } from '@/components/ui/Card';
 import { Spinner } from '@/components/ui/Spinner';
+import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/hooks/useAuth';
 import api from '@/lib/api';
-import { MILITARY_ROLE_LABELS, MilitaryRole } from '@/types';
-import { formatWhatsAppLink } from '@/lib/utils';
+import { MILITARY_ROLE_LABELS, MilitaryRole, MessageTargetAudience, ShiftType, SHIFT_TYPE_LABELS } from '@/types';
+import { formatWhatsAppLink, formatDate } from '@/lib/utils';
+
+interface ShiftPost {
+  id: string;
+  date: string;
+  shiftType: ShiftType;
+  message?: string;
+  imageUrl?: string;
+  createdAt: string;
+}
 
 interface ShiftInfo {
   id: string;
@@ -63,12 +74,17 @@ interface HomeData {
     content: string;
     priority: string;
     type: string;
+    targetAudience: MessageTargetAudience;
+    requiresConfirmation: boolean;
+    isConfirmed?: boolean;
+    confirmedAt?: string | null;
     createdAt: string;
   }>;
 }
 
 export default function HomePage() {
   const { user, isAuthenticated, isHydrated } = useAuth();
+  const queryClient = useQueryClient();
 
   const { data: homeData, isLoading: homeLoading } = useQuery<HomeData>({
     queryKey: ['home-data'],
@@ -78,6 +94,29 @@ export default function HomePage() {
     },
     // Only run query when auth is confirmed ready
     enabled: isAuthenticated && isHydrated,
+  });
+
+  const { data: shiftPosts } = useQuery<ShiftPost[]>({
+    queryKey: ['shift-posts-latest'],
+    queryFn: async () => {
+      const response = await api.get('/shifts/latest?limit=3');
+      return response.data;
+    },
+    enabled: isAuthenticated && isHydrated,
+  });
+
+  const confirmMessageMutation = useMutation({
+    mutationFn: async (messageId: string) => {
+      const response = await api.post(`/messages/${messageId}/confirm`);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['home-data'] });
+      toast.success('אישור קריאה נשמר');
+    },
+    onError: () => {
+      toast.error('שגיאה בשמירת אישור הקריאה');
+    },
   });
 
   // Use data from homeData instead of separate queries
@@ -237,6 +276,57 @@ export default function HomePage() {
         </CardContent>
       </Card>
 
+      {/* Shift Posts Section */}
+      {shiftPosts && shiftPosts.length > 0 && (
+        <Card className="mb-4">
+          <CardHeader className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Image className="w-5 h-5 text-purple-600" />
+              <span>סידור משמרות</span>
+            </div>
+            <Link
+              href="/dashboard/shifts"
+              className="text-sm text-military-600 hover:text-military-700 flex items-center gap-1"
+            >
+              צפייה בכל הסידורים
+              <ChevronLeft className="w-4 h-4" />
+            </Link>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {shiftPosts.map((post) => (
+                <div
+                  key={post.id}
+                  className="relative rounded-lg overflow-hidden border border-gray-200 group cursor-pointer"
+                >
+                  {post.imageUrl ? (
+                    <img
+                      src={post.imageUrl}
+                      alt={`סידור משמרת ${formatDate(post.date, 'dd/MM')}`}
+                      className="w-full h-32 object-cover group-hover:scale-105 transition-transform"
+                    />
+                  ) : (
+                    <div className="w-full h-32 bg-gray-100 flex items-center justify-center">
+                      <Image className="w-8 h-8 text-gray-400" />
+                    </div>
+                  )}
+                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
+                    <div className="flex items-center justify-between text-white">
+                      <span className="text-xs font-medium">
+                        {formatDate(post.date, 'dd/MM/yyyy')}
+                      </span>
+                      <span className="text-xs px-2 py-0.5 bg-purple-500 rounded">
+                        {SHIFT_TYPE_LABELS[post.shiftType]}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* System Notifications */}
       <Card className="mb-4">
         <CardHeader className="flex items-center justify-between">
@@ -289,7 +379,7 @@ export default function HomePage() {
             <p className="text-center text-gray-500 py-4">אין הודעות חדשות</p>
           ) : (
             <div className="space-y-3">
-              {messages.slice(0, 3).map((message) => (
+              {messages.slice(0, 5).map((message) => (
                 <div
                   key={message.id}
                   className={`p-3 rounded-lg border-r-4 ${
@@ -300,8 +390,33 @@ export default function HomePage() {
                         : 'bg-gray-50 border-gray-300'
                   }`}
                 >
-                  <h4 className="font-medium text-sm">{message.title}</h4>
-                  <p className="text-xs text-gray-600 mt-1 line-clamp-2">{message.content}</p>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1">
+                      <h4 className="font-medium text-sm">{message.title}</h4>
+                      <p className="text-xs text-gray-600 mt-1 line-clamp-2">{message.content}</p>
+                    </div>
+                    {message.requiresConfirmation && (
+                      <div className="flex-shrink-0">
+                        {message.isConfirmed ? (
+                          <span className="inline-flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-1 rounded">
+                            <CheckCircle2 className="w-3 h-3" />
+                            אושר
+                          </span>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => confirmMessageMutation.mutate(message.id)}
+                            isLoading={confirmMessageMutation.isPending}
+                            className="text-xs"
+                          >
+                            <CheckCircle2 className="w-3 h-3 ml-1" />
+                            אשר קריאה
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

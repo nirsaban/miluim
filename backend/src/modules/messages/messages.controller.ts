@@ -18,7 +18,7 @@ export class MessagesController {
 
   @Get('with-status')
   findAllWithStatus(@CurrentUser() user: any, @Query('type') type?: MessageType) {
-    return this.messagesService.findAllWithConfirmationStatus(user.id, type);
+    return this.messagesService.findAllWithConfirmationStatus(user.id, user.role, type);
   }
 
   @Get('food')

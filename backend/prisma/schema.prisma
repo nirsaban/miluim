@@ -19,16 +19,13 @@ enum MilitaryRole {
   FIGHTER              // לוחם
 }
 
-// Legacy UserRole enum - kept for backward compatibility with existing code
-// Will be migrated to MilitaryRole over time
+// UserRole enum - used for authorization/permissions
 enum UserRole {
-  SOLDIER
-  COMMANDER
-  OFFICER
-  MEDIC
-  LOGISTICS
-  ADMIN
-  SFOGIST
+  SOLDIER     // Basic user access
+  COMMANDER   // Like soldier + receives command-level notifications
+  OFFICER     // Manages their department + leave requests from department
+  LOGISTICS   // Manages operational links, shifts, zones
+  ADMIN       // Full system control
 }
 
 enum FormType {
@@ -37,6 +34,7 @@ enum FormType {
   HOME_LEAVE
   IMPROVEMENT_SUGGESTION
   RESTAURANT_RECOMMENDATION
+  SHIFT_REQUEST        // Requests during shift (food, equipment, etc.)
 }
 
 enum FormStatus {
@@ -58,6 +56,13 @@ enum MessagePriority {
   MEDIUM
   HIGH
   CRITICAL
+}
+
+enum MessageTargetAudience {
+  ALL              // All users
+  COMMANDERS_PLUS  // COMMANDER, OFFICER, LOGISTICS, ADMIN
+  OFFICERS_PLUS    // OFFICER, LOGISTICS, ADMIN
+  ADMIN_ONLY       // ADMIN only
 }
 
 enum ShiftType {
@@ -208,16 +213,18 @@ model OTP {
 }
 
 model Message {
-  id          String          @id @default(uuid())
-  title       String
-  content     String
-  type        MessageType     @default(GENERAL)
-  priority    MessagePriority @default(MEDIUM)
-  isActive    Boolean         @default(true)
-  createdById String?
-  createdBy   User?           @relation("CreatedMessages", fields: [createdById], references: [id])
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  id                   String                @id @default(uuid())
+  title                String
+  content              String
+  type                 MessageType           @default(GENERAL)
+  priority             MessagePriority       @default(MEDIUM)
+  targetAudience       MessageTargetAudience @default(ALL)
+  requiresConfirmation Boolean               @default(false)
+  isActive             Boolean               @default(true)
+  createdById          String?
+  createdBy            User?                 @relation("CreatedMessages", fields: [createdById], references: [id])
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
 
   confirmations MessageConfirmation[]
 
@@ -522,6 +529,8 @@ model ShiftAssignment {
   arrivedAt       DateTime?             // When soldier confirmed arrival
   hasVehicle      Boolean               @default(false)  // Vehicle availability
   hasPhone        Boolean               @default(false)  // Phone availability
+  hasBattery      Boolean               @default(false)  // Battery/radio availability
+  missingItems    String?                                // Free text for missing items
 
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt

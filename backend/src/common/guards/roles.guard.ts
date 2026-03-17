@@ -3,6 +3,14 @@ import { Reflector } from '@nestjs/core';
 import { UserRole } from '@prisma/client';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 
+/**
+ * Role hierarchy and permissions:
+ * - ADMIN: Full system access (bypasses all role checks)
+ * - LOGISTICS: Manages shifts, zones, operational links
+ * - OFFICER: Manages their department, leave requests from department
+ * - COMMANDER: Like SOLDIER + receives command-level notifications
+ * - SOLDIER: Basic user access
+ */
 @Injectable()
 export class RolesGuard implements CanActivate {
   constructor(private reflector: Reflector) {}
@@ -36,5 +44,20 @@ export class RolesGuard implements CanActivate {
     }
 
     return true;
+  }
+
+  /**
+   * Helper to check if a role meets a minimum level
+   * Hierarchy: ADMIN > LOGISTICS = OFFICER > COMMANDER > SOLDIER
+   */
+  static isAtLeast(userRole: UserRole, minRole: UserRole): boolean {
+    const hierarchy: Record<UserRole, number> = {
+      ADMIN: 100,
+      LOGISTICS: 50,
+      OFFICER: 50,
+      COMMANDER: 20,
+      SOLDIER: 10,
+    };
+    return hierarchy[userRole] >= hierarchy[minRole];
   }
 }
