@@ -79,7 +79,9 @@ export default function LoginPage() {
         toast.success('התחברת בהצלחה!');
 
         // Check if user needs to set up passkey
-        if (!response.data.user.hasPasskey && webAuthnSupport?.isPlatformAuthenticatorAvailable) {
+        // Skip if user prefers password login (they explicitly chose to skip biometric)
+        const prefersPassword = localStorage.getItem(LOGIN_METHOD_PREF_KEY) === 'password';
+        if (!response.data.user.hasPasskey && webAuthnSupport?.isPlatformAuthenticatorAvailable && !prefersPassword) {
           router.push('/auth/passkey-setup');
         } else {
           router.push('/dashboard');
