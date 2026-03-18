@@ -159,7 +159,6 @@ export class WebAuthnService {
           userId,
           credentialId: credentialIdBase64url,
           publicKey: publicKeyBase64url,
-          publicKeyAlgorithm: credential.publicKeyAlgorithm,
           counter: BigInt(credential.counter),
           transports: response.response.transports || [],
           deviceType: credentialDeviceType,
@@ -270,7 +269,6 @@ export class WebAuthnService {
         credential: {
           id: storedCredential.credentialId, // base64url string
           publicKey: Buffer.from(storedCredential.publicKey, 'base64url'),
-          publicKeyAlgorithm: storedCredential.publicKeyAlgorithm,
           counter: Number(storedCredential.counter),
           transports: storedCredential.transports as AuthenticatorTransportFuture[],
         },
