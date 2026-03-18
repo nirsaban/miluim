@@ -238,6 +238,8 @@ export class WebAuthnService {
     // Find the credential by ID - response.id is already base64url encoded
     const credentialId = response.id;
 
+    this.logger.log(`Looking for credential ID: ${credentialId}`);
+
     const storedCredential = await this.prisma.webAuthnCredential.findUnique({
       where: { credentialId },
       include: {
@@ -248,6 +250,10 @@ export class WebAuthnService {
     });
 
     if (!storedCredential) {
+      // Log all stored credentials for debugging
+      const allCreds = await this.prisma.webAuthnCredential.findMany({ select: { credentialId: true } });
+      this.logger.error(`Credential not found. Looking for: ${credentialId}`);
+      this.logger.error(`Stored credentials: ${JSON.stringify(allCreds.map(c => c.credentialId))}`);
       throw new UnauthorizedException('מפתח גישה לא נמצא');
     }
 

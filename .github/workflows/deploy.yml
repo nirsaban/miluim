@@ -18,5 +18,5 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT || 22 }}
           script: |
-            cd ${{ secrets.PROJECT_PATH || '/opt/yogev-system/miluim' }}
+            cd ${{ secrets.PROJECT_PATH || '/miluim' }}
             ./scripts/deploy.sh --build
