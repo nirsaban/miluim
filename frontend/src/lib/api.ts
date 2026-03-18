@@ -44,10 +44,16 @@ api.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
     if (error.response?.status === 401) {
-      Cookies.remove('token', { path: '/' });
-      Cookies.remove('user', { path: '/' });
-      if (typeof window !== 'undefined') {
-        window.location.href = '/auth/login';
+      // Don't redirect if already on login/auth pages
+      const isAuthPage = typeof window !== 'undefined' &&
+        window.location.pathname.startsWith('/auth');
+
+      if (!isAuthPage) {
+        Cookies.remove('token', { path: '/' });
+        Cookies.remove('user', { path: '/' });
+        if (typeof window !== 'undefined') {
+          window.location.href = '/auth/login';
+        }
       }
     }
     return Promise.reject(error);
