@@ -21,7 +21,8 @@
       "Bash(mkdir:*)",
       "Bash(npx prisma migrate dev:*)",
       "Bash(grep:*)",
-      "Bash(npm view:*)"
+      "Bash(npm view:*)",
+      "Bash(npx prisma db push:*)"
     ]
   }
 }
