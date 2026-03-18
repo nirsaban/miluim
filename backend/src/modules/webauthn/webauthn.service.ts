@@ -150,8 +150,9 @@ export class WebAuthnService {
 
       const { credential, credentialDeviceType, credentialBackedUp } = verification.registrationInfo;
 
-      // Store the credential - credential.id is already a Uint8Array
-      const credentialIdBase64url = Buffer.from(credential.id).toString('base64url');
+      // Store the credential - credential.id is already a base64url string
+      // credential.publicKey is a Uint8Array that needs encoding
+      const credentialIdBase64url = credential.id; // Already base64url encoded
       const publicKeyBase64url = Buffer.from(credential.publicKey).toString('base64url');
 
       await this.prisma.webAuthnCredential.create({
