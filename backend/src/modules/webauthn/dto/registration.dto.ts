@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsArray, IsBoolean, ValidateNested } from 'class-validator';
+import { IsString, IsOptional, IsArray, IsNumber, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 
 // DTO for registration options request
@@ -22,7 +22,7 @@ class AuthenticatorAttestationResponseDto {
   transports?: string[];
 
   @IsOptional()
-  @IsString()
+  @IsNumber()
   publicKeyAlgorithm?: number;
 
   @IsOptional()
