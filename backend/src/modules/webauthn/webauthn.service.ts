@@ -38,7 +38,7 @@ export class WebAuthnService {
     // Configure relying party settings from environment
     this.rpName = this.configService.get('WEBAUTHN_RP_NAME', 'מערכת ניהול - פלוגת יוגב');
     this.rpId = this.configService.get('WEBAUTHN_RP_ID', 'localhost');
-    this.origin = this.configService.get('WEBAUTHN_ORIGIN', 'https://miltech.cloud');
+    this.origin = this.configService.get('WEBAUTHN_ORIGIN', 'localhost');
   }
 
   /**
