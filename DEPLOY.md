@@ -246,6 +246,86 @@ docker compose exec backend npx prisma migrate status
 docker compose exec backend npx prisma migrate reset
 ```
 
+## Database Migrations Guide
+
+### How Migrations Work
+
+Prisma migrations track database schema changes:
+
+1. **Schema changes** → Edit `prisma/schema.prisma`
+2. **Create migration** → `npx prisma migrate dev --name description`
+3. **Apply to production** → `npx prisma migrate deploy` (runs automatically on deploy)
+
+### Workflow for Schema Changes
+
+**Local Development:**
+```bash
+cd backend
+
+# 1. Make changes to prisma/schema.prisma
+
+# 2. Create a migration (this also applies it locally)
+npx prisma migrate dev --name add_new_feature
+
+# 3. Commit the migration files
+git add prisma/
+git commit -m "Add migration: add_new_feature"
+git push
+```
+
+**Production (Automatic):**
+- Migrations run automatically when the backend container starts
+- The `docker-entrypoint.sh` runs `npx prisma migrate deploy`
+
+**Production (Manual if needed):**
+```bash
+docker compose exec backend npx prisma migrate deploy
+```
+
+### Common Commands
+
+| Command | Description |
+|---------|-------------|
+| `npm run prisma:migrate` | Create new migration (dev) |
+| `npm run prisma:migrate:prod` | Apply migrations (prod) |
+| `npm run prisma:generate` | Regenerate Prisma client |
+| `npm run prisma:studio` | Open database GUI |
+| `npm run db:reset` | Reset DB and seed (dev only!) |
+| `npm run db:sync` | Force sync schema (dev only!) |
+
+### Fixing Migration Issues
+
+**If migrations are out of sync:**
+
+1. **On server, apply pending migrations:**
+   ```bash
+   docker compose exec backend npx prisma migrate deploy
+   ```
+
+2. **If that fails, sync schema directly:**
+   ```bash
+   docker compose exec backend npx prisma db push
+   ```
+
+3. **Nuclear option (loses data!):**
+   ```bash
+   docker compose exec backend npx prisma migrate reset --force
+   ```
+
+**If local dev is out of sync:**
+```bash
+cd backend
+npm run db:reset  # Resets and seeds
+```
+
+### Best Practices
+
+1. **Always create migrations locally first** - Test before pushing
+2. **Never edit existing migrations** - Create new ones instead
+3. **Use descriptive names** - `add_user_email` not `update`
+4. **Commit migration files** - They must be in git
+5. **Backup before major migrations** - Especially in production
+
 ## Data Persistence
 
 Data is stored in Docker volumes:
