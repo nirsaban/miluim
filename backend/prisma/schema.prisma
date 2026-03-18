@@ -569,9 +569,7 @@ model ShiftAssignment {
 
   // Active Shift Management fields
   arrivedAt       DateTime?             // When soldier confirmed arrival
-  hasVehicle      Boolean               @default(false)  // Vehicle availability
-  hasPhone        Boolean               @default(false)  // Phone availability
-  hasBattery      Boolean               @default(false)  // Battery/radio availability
+  batteryLevel    Int                   @default(0)      // Battery level percentage (0, 25, 50, 75, 100)
   missingItems    String?                                // Free text for missing items
 
   createdAt       DateTime              @default(now())

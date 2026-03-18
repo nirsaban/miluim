@@ -10,9 +10,10 @@ import {
   ChevronDown,
   ChevronUp,
   CheckCircle,
-  Car,
-  Smartphone,
   Battery,
+  BatteryLow,
+  BatteryMedium,
+  BatteryFull,
   UserCheck,
   AlertCircle,
 } from 'lucide-react';
@@ -93,9 +94,7 @@ interface MyTodayShift {
     };
   };
   arrivedAt: string | null;
-  hasVehicle: boolean;
-  hasPhone: boolean;
-  hasBattery: boolean;
+  batteryLevel: number;
   status: string;
   shiftOfficer: {
     id: string;
@@ -162,11 +161,9 @@ export default function ShiftsPage() {
 
   // Update status mutation
   const updateStatusMutation = useMutation({
-    mutationFn: async (data: { assignmentId: string; hasVehicle?: boolean; hasPhone?: boolean; hasBattery?: boolean }) => {
+    mutationFn: async (data: { assignmentId: string; batteryLevel: number }) => {
       const response = await api.patch(`/shift-assignments/active/${data.assignmentId}/status`, {
-        hasVehicle: data.hasVehicle,
-        hasPhone: data.hasPhone,
-        hasBattery: data.hasBattery,
+        batteryLevel: data.batteryLevel,
       });
       return response.data;
     },
@@ -298,59 +295,45 @@ export default function ShiftsPage() {
                     </div>
                   )}
 
-                  {/* Status Toggles - Show only if arrived */}
+                  {/* Battery Status - Show only if arrived */}
                   {myTodayShift.arrivedAt && (
                     <div className="mb-4 p-3 bg-white rounded-lg border border-green-200">
-                      <h4 className="font-medium text-gray-700 mb-3">סטטוס משאבים</h4>
-                      <div className="flex flex-wrap gap-3">
-                        <button
-                          onClick={() => updateStatusMutation.mutate({
-                            assignmentId: myTodayShift.id,
-                            hasVehicle: !myTodayShift.hasVehicle,
-                          })}
-                          disabled={updateStatusMutation.isPending}
-                          className={cn(
-                            'flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-colors',
-                            myTodayShift.hasVehicle
-                              ? 'bg-blue-100 border-blue-400 text-blue-700'
-                              : 'bg-gray-100 border-gray-300 text-gray-500'
-                          )}
-                        >
-                          <Car className="w-5 h-5" />
-                          <span>יש לי רכב</span>
-                        </button>
-                        <button
-                          onClick={() => updateStatusMutation.mutate({
-                            assignmentId: myTodayShift.id,
-                            hasPhone: !myTodayShift.hasPhone,
-                          })}
-                          disabled={updateStatusMutation.isPending}
-                          className={cn(
-                            'flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-colors',
-                            myTodayShift.hasPhone
-                              ? 'bg-purple-100 border-purple-400 text-purple-700'
-                              : 'bg-gray-100 border-gray-300 text-gray-500'
-                          )}
-                        >
-                          <Smartphone className="w-5 h-5" />
-                          <span>יש לי טלפון</span>
-                        </button>
-                        <button
-                          onClick={() => updateStatusMutation.mutate({
-                            assignmentId: myTodayShift.id,
-                            hasBattery: !myTodayShift.hasBattery,
-                          })}
-                          disabled={updateStatusMutation.isPending}
-                          className={cn(
-                            'flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-colors',
-                            myTodayShift.hasBattery
-                              ? 'bg-green-100 border-green-400 text-green-700'
-                              : 'bg-gray-100 border-gray-300 text-gray-500'
-                          )}
-                        >
-                          <Battery className="w-5 h-5" />
-                          <span>יש לי סוללה</span>
-                        </button>
+                      <h4 className="font-medium text-gray-700 mb-3 flex items-center gap-2">
+                        <Battery className="w-5 h-5" />
+                        מצב סוללה
+                      </h4>
+                      <div className="flex flex-wrap gap-2">
+                        {[25, 50, 75, 100].map((level) => {
+                          const isSelected = myTodayShift.batteryLevel === level;
+                          const getBatteryIcon = () => {
+                            if (level <= 25) return <BatteryLow className="w-5 h-5" />;
+                            if (level <= 50) return <BatteryMedium className="w-5 h-5" />;
+                            return <BatteryFull className="w-5 h-5" />;
+                          };
+                          const getColors = () => {
+                            if (level <= 25) return isSelected ? 'bg-red-100 border-red-400 text-red-700' : 'bg-gray-100 border-gray-300 text-gray-500 hover:bg-red-50';
+                            if (level <= 50) return isSelected ? 'bg-orange-100 border-orange-400 text-orange-700' : 'bg-gray-100 border-gray-300 text-gray-500 hover:bg-orange-50';
+                            if (level <= 75) return isSelected ? 'bg-yellow-100 border-yellow-400 text-yellow-700' : 'bg-gray-100 border-gray-300 text-gray-500 hover:bg-yellow-50';
+                            return isSelected ? 'bg-green-100 border-green-400 text-green-700' : 'bg-gray-100 border-gray-300 text-gray-500 hover:bg-green-50';
+                          };
+                          return (
+                            <button
+                              key={level}
+                              onClick={() => updateStatusMutation.mutate({
+                                assignmentId: myTodayShift.id,
+                                batteryLevel: level,
+                              })}
+                              disabled={updateStatusMutation.isPending}
+                              className={cn(
+                                'flex items-center gap-2 px-4 py-3 rounded-lg border-2 transition-colors flex-1 min-w-[70px] justify-center',
+                                getColors()
+                              )}
+                            >
+                              {getBatteryIcon()}
+                              <span className="font-medium">{level}%</span>
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   )}

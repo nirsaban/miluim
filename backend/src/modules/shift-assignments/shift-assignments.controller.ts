@@ -60,7 +60,7 @@ export class ShiftAssignmentsController {
   updateActiveStatus(
     @Param('id') id: string,
     @CurrentUser() user: any,
-    @Body() data: { hasVehicle?: boolean; hasPhone?: boolean; hasBattery?: boolean },
+    @Body() data: { batteryLevel?: number },
   ) {
     return this.shiftAssignmentsService.updateActiveStatus(id, user.id, data);
   }
@@ -74,7 +74,7 @@ export class ShiftAssignmentsController {
   updateEquipmentStatus(
     @Param('id') id: string,
     @CurrentUser() user: any,
-    @Body() data: { hasBattery?: boolean; missingItems?: string },
+    @Body() data: { batteryLevel?: number; missingItems?: string },
   ) {
     return this.shiftAssignmentsService.updateEquipmentStatus(id, user.id, data);
   }

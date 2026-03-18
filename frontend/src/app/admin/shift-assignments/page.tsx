@@ -12,7 +12,7 @@ import {
   DragStartEvent,
   DragEndEvent,
 } from '@dnd-kit/core';
-import { ChevronRight, ChevronLeft, Calendar, Users, AlertTriangle, Check, Send, FileText, X, StickyNote } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Calendar, Users, AlertTriangle, Check, Send, FileText, X, StickyNote, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { Card, CardHeader, CardContent } from '@/components/ui/Card';
@@ -164,6 +164,7 @@ export default function ShiftAssignmentsPage() {
   });
   const [activeSoldier, setActiveSoldier] = useState<AvailableSoldier | null>(null);
   const [editingAssignment, setEditingAssignment] = useState<ShiftAssignment | null>(null);
+  const [soldierSearch, setSoldierSearch] = useState('');
 
   // Persist selected zone to localStorage
   useEffect(() => {
@@ -377,6 +378,21 @@ export default function ShiftAssignmentsPage() {
     return map;
   }, [assignments]);
 
+  // Filter soldiers by search query (name or skills)
+  const filteredSoldiers = useMemo(() => {
+    if (!availableSoldiers) return [];
+    if (!soldierSearch.trim()) return availableSoldiers;
+
+    const searchLower = soldierSearch.toLowerCase().trim();
+    return availableSoldiers.filter((soldier) => {
+      // Search by name
+      if (soldier.fullName.toLowerCase().includes(searchLower)) return true;
+      // Search by skills
+      if (soldier.skills?.some((s) => s.skill?.displayName?.toLowerCase().includes(searchLower))) return true;
+      return false;
+    });
+  }, [availableSoldiers, soldierSearch]);
+
   const handleDragStart = (event: DragStartEvent) => {
     const soldier = availableSoldiers?.find((s) => s.id === event.active.id);
     if (soldier) {
@@ -589,10 +605,20 @@ export default function ShiftAssignmentsPage() {
                   <Users className="w-5 h-5" />
                   <span>חיילים זמינים</span>
                   <span className="text-sm text-gray-400">
-                    ({availableSoldiers?.length || 0})
+                    ({filteredSoldiers.length}{soldierSearch && availableSoldiers ? `/${availableSoldiers.length}` : ''})
                   </span>
                 </CardHeader>
                 <CardContent className="max-h-[calc(100vh-300px)] overflow-y-auto">
+                  {/* Search Input */}
+                  <div className="relative mb-3">
+                    <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                      value={soldierSearch}
+                      onChange={(e) => setSoldierSearch(e.target.value)}
+                      placeholder="חיפוש לפי שם או כישור..."
+                      className="pr-9 text-sm"
+                    />
+                  </div>
                   {soldiersLoading ? (
                     <div className="flex justify-center py-8">
                       <Spinner />
@@ -601,9 +627,13 @@ export default function ShiftAssignmentsPage() {
                     <p className="text-center text-gray-500 py-4 text-sm">
                       אין חיילים זמינים למשמרת זו
                     </p>
+                  ) : filteredSoldiers.length === 0 ? (
+                    <p className="text-center text-gray-500 py-4 text-sm">
+                      לא נמצאו חיילים מתאימים לחיפוש
+                    </p>
                   ) : (
                     <div className="space-y-2">
-                      {availableSoldiers?.map((soldier) => (
+                      {filteredSoldiers.map((soldier) => (
                         <SoldierCard
                           key={soldier.id}
                           soldier={soldier}

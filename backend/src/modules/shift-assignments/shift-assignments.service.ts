@@ -52,11 +52,26 @@ export class ShiftAssignmentsService {
   }
 
   async getAvailableSoldiers(date: Date, shiftTemplateId: string, taskId?: string) {
+    // Find the current active service cycle
+    const currentCycle = await this.prisma.reserveServiceCycle.findFirst({
+      where: { status: 'ACTIVE' },
+    });
+
     // Get all active soldiers with their skills
+    // Only include soldiers who confirmed arrival for the current service cycle
     const soldiers = await this.prisma.user.findMany({
       where: {
         isActive: true,
         role: { not: 'ADMIN' },
+        // Only include soldiers who have ARRIVED status in the current service cycle
+        ...(currentCycle && {
+          serviceAttendances: {
+            some: {
+              serviceCycleId: currentCycle.id,
+              attendanceStatus: 'ARRIVED',
+            },
+          },
+        }),
       },
       include: {
         skills: {
@@ -440,7 +455,7 @@ export class ShiftAssignmentsService {
         acc[shiftId] = {
           shiftTemplate: assignment.shiftTemplate,
           assignments: [],
-          stats: { total: 0, arrived: 0, pending: 0, withVehicle: 0, withPhone: 0 },
+          stats: { total: 0, arrived: 0, pending: 0 },
         };
       }
       acc[shiftId].assignments.push({
@@ -448,8 +463,7 @@ export class ShiftAssignmentsService {
         soldier: assignment.soldier,
         task: assignment.task,
         arrivedAt: assignment.arrivedAt,
-        hasVehicle: assignment.hasVehicle,
-        hasPhone: assignment.hasPhone,
+        batteryLevel: assignment.batteryLevel,
         status: assignment.status,
       });
       acc[shiftId].stats.total++;
@@ -458,8 +472,6 @@ export class ShiftAssignmentsService {
       } else {
         acc[shiftId].stats.pending++;
       }
-      if (assignment.hasVehicle) acc[shiftId].stats.withVehicle++;
-      if (assignment.hasPhone) acc[shiftId].stats.withPhone++;
       return acc;
     }, {} as Record<string, any>);
 
@@ -474,8 +486,6 @@ export class ShiftAssignmentsService {
         total: assignments.length,
         arrived: assignments.filter(a => a.arrivedAt).length,
         pending: assignments.filter(a => !a.arrivedAt).length,
-        withVehicle: assignments.filter(a => a.hasVehicle).length,
-        withPhone: assignments.filter(a => a.hasPhone).length,
       },
     };
   }
@@ -519,7 +529,7 @@ export class ShiftAssignmentsService {
   async updateActiveStatus(
     assignmentId: string,
     userId: string,
-    data: { hasVehicle?: boolean; hasPhone?: boolean; hasBattery?: boolean },
+    data: { batteryLevel?: number },
   ) {
     const assignment = await this.prisma.shiftAssignment.findUnique({
       where: { id: assignmentId },
@@ -536,9 +546,7 @@ export class ShiftAssignmentsService {
     return this.prisma.shiftAssignment.update({
       where: { id: assignmentId },
       data: {
-        hasVehicle: data.hasVehicle ?? assignment.hasVehicle,
-        hasPhone: data.hasPhone ?? assignment.hasPhone,
-        hasBattery: data.hasBattery ?? assignment.hasBattery,
+        batteryLevel: data.batteryLevel ?? assignment.batteryLevel,
       },
       include: {
         shiftTemplate: true,
@@ -606,7 +614,7 @@ export class ShiftAssignmentsService {
   async updateEquipmentStatus(
     assignmentId: string,
     userId: string,
-    data: { hasBattery?: boolean; missingItems?: string },
+    data: { batteryLevel?: number; missingItems?: string },
   ) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -636,7 +644,7 @@ export class ShiftAssignmentsService {
     return this.prisma.shiftAssignment.update({
       where: { id: assignmentId },
       data: {
-        hasBattery: data.hasBattery ?? assignment.hasBattery,
+        batteryLevel: data.batteryLevel ?? assignment.batteryLevel,
         missingItems: data.missingItems !== undefined ? data.missingItems : assignment.missingItems,
       },
       include: {
@@ -713,7 +721,7 @@ export class ShiftAssignmentsService {
         task: any;
         soldiers: any[];
       }>;
-      stats: { total: number; arrived: number; withVehicle: number; withPhone: number; withBattery: number };
+      stats: { total: number; arrived: number };
     }> = {};
 
     for (const assignment of assignments) {
@@ -724,7 +732,7 @@ export class ShiftAssignmentsService {
         shiftGroups[shiftId] = {
           shiftTemplate: assignment.shiftTemplate,
           tasks: {},
-          stats: { total: 0, arrived: 0, withVehicle: 0, withPhone: 0, withBattery: 0 },
+          stats: { total: 0, arrived: 0 },
         };
       }
 
@@ -739,18 +747,13 @@ export class ShiftAssignmentsService {
         id: assignment.id,
         soldier: assignment.soldier,
         arrivedAt: assignment.arrivedAt,
-        hasVehicle: assignment.hasVehicle,
-        hasPhone: assignment.hasPhone,
-        hasBattery: assignment.hasBattery,
+        batteryLevel: assignment.batteryLevel,
         missingItems: assignment.missingItems,
         status: assignment.status,
       });
 
       shiftGroups[shiftId].stats.total++;
       if (assignment.arrivedAt) shiftGroups[shiftId].stats.arrived++;
-      if (assignment.hasVehicle) shiftGroups[shiftId].stats.withVehicle++;
-      if (assignment.hasPhone) shiftGroups[shiftId].stats.withPhone++;
-      if (assignment.hasBattery) shiftGroups[shiftId].stats.withBattery++;
     }
 
     // Convert tasks from Record to array
@@ -780,9 +783,6 @@ export class ShiftAssignmentsService {
         total: assignments.length,
         arrived: assignments.filter(a => a.arrivedAt).length,
         pending: assignments.filter(a => !a.arrivedAt).length,
-        withVehicle: assignments.filter(a => a.hasVehicle).length,
-        withPhone: assignments.filter(a => a.hasPhone).length,
-        withBattery: assignments.filter(a => a.hasBattery).length,
       },
       missingItems: allMissingItems,
     };
@@ -848,8 +848,7 @@ export class ShiftAssignmentsService {
       shiftTemplate: assignment.shiftTemplate,
       task: assignment.task,
       arrivedAt: assignment.arrivedAt,
-      hasVehicle: assignment.hasVehicle,
-      hasPhone: assignment.hasPhone,
+      batteryLevel: assignment.batteryLevel,
       status: assignment.status,
       shiftOfficer: assignment.schedule?.shiftOfficer || null,
       teammates: teammates.map(t => ({
@@ -954,8 +953,7 @@ export class ShiftAssignmentsService {
         shiftTemplate: a.shiftTemplate,
         task: a.task,
         arrivedAt: a.arrivedAt,
-        hasVehicle: a.hasVehicle,
-        hasPhone: a.hasPhone,
+        batteryLevel: a.batteryLevel,
       })),
     };
   }

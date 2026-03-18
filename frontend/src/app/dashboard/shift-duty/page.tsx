@@ -9,9 +9,10 @@ import {
   Phone,
   CheckCircle,
   AlertCircle,
-  Car,
-  Smartphone,
   Battery,
+  BatteryLow,
+  BatteryMedium,
+  BatteryFull,
   AlertTriangle,
   ChevronDown,
   ChevronUp,
@@ -55,9 +56,7 @@ interface ShiftOverview {
           militaryRole?: string;
         };
         arrivedAt: string | null;
-        hasVehicle: boolean;
-        hasPhone: boolean;
-        hasBattery: boolean;
+        batteryLevel: number;
         missingItems: string | null;
         status: string;
       }>;
@@ -65,18 +64,12 @@ interface ShiftOverview {
     stats: {
       total: number;
       arrived: number;
-      withVehicle: number;
-      withPhone: number;
-      withBattery: number;
     };
   }>;
   totalStats: {
     total: number;
     arrived: number;
     pending: number;
-    withVehicle: number;
-    withPhone: number;
-    withBattery: number;
   };
   missingItems: Array<{
     soldier: string;
@@ -165,7 +158,7 @@ export default function ShiftDutyPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-3 gap-4 mb-6">
         <Card>
           <CardContent className="py-4 text-center">
             <Users className="w-8 h-8 mx-auto mb-2 text-military-600" />
@@ -185,23 +178,6 @@ export default function ShiftDutyPage() {
             <AlertCircle className="w-8 h-8 mx-auto mb-2 text-yellow-600" />
             <p className="text-2xl font-bold text-yellow-700">{overview.totalStats.pending}</p>
             <p className="text-sm text-gray-500">ממתינים</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="py-4 text-center">
-            <div className="flex justify-center gap-2 mb-2">
-              <Car className="w-6 h-6 text-blue-600" />
-              <Smartphone className="w-6 h-6 text-purple-600" />
-              <Battery className="w-6 h-6 text-green-600" />
-            </div>
-            <p className="text-sm">
-              <span className="text-blue-600">{overview.totalStats.withVehicle}</span>
-              {' / '}
-              <span className="text-purple-600">{overview.totalStats.withPhone}</span>
-              {' / '}
-              <span className="text-green-600">{overview.totalStats.withBattery}</span>
-            </p>
-            <p className="text-sm text-gray-500">רכב / טל / סוללה</p>
           </CardContent>
         </Card>
       </div>
@@ -325,42 +301,35 @@ export default function ShiftDutyPage() {
                               </div>
 
                               <div className="flex items-center gap-2">
-                                {/* Equipment indicators */}
-                                <div className="flex gap-1">
-                                  <span
+                                {/* Battery level indicator */}
+                                {soldierData.arrivedAt && (
+                                  <div
                                     className={cn(
-                                      'p-1 rounded',
-                                      soldierData.hasVehicle
-                                        ? 'bg-blue-100 text-blue-600'
-                                        : 'bg-gray-100 text-gray-400'
+                                      'flex items-center gap-1 px-2 py-1 rounded text-xs font-medium',
+                                      soldierData.batteryLevel === 0
+                                        ? 'bg-gray-100 text-gray-500'
+                                        : soldierData.batteryLevel <= 25
+                                        ? 'bg-red-100 text-red-700'
+                                        : soldierData.batteryLevel <= 50
+                                        ? 'bg-orange-100 text-orange-700'
+                                        : soldierData.batteryLevel <= 75
+                                        ? 'bg-yellow-100 text-yellow-700'
+                                        : 'bg-green-100 text-green-700'
                                     )}
-                                    title="רכב"
+                                    title={`סוללה: ${soldierData.batteryLevel}%`}
                                   >
-                                    <Car className="w-4 h-4" />
-                                  </span>
-                                  <span
-                                    className={cn(
-                                      'p-1 rounded',
-                                      soldierData.hasPhone
-                                        ? 'bg-purple-100 text-purple-600'
-                                        : 'bg-gray-100 text-gray-400'
+                                    {soldierData.batteryLevel === 0 ? (
+                                      <Battery className="w-4 h-4" />
+                                    ) : soldierData.batteryLevel <= 25 ? (
+                                      <BatteryLow className="w-4 h-4" />
+                                    ) : soldierData.batteryLevel <= 50 ? (
+                                      <BatteryMedium className="w-4 h-4" />
+                                    ) : (
+                                      <BatteryFull className="w-4 h-4" />
                                     )}
-                                    title="טלפון"
-                                  >
-                                    <Smartphone className="w-4 h-4" />
-                                  </span>
-                                  <span
-                                    className={cn(
-                                      'p-1 rounded',
-                                      soldierData.hasBattery
-                                        ? 'bg-green-100 text-green-600'
-                                        : 'bg-gray-100 text-gray-400'
-                                    )}
-                                    title="סוללה"
-                                  >
-                                    <Battery className="w-4 h-4" />
-                                  </span>
-                                </div>
+                                    <span>{soldierData.batteryLevel > 0 ? `${soldierData.batteryLevel}%` : '-'}</span>
+                                  </div>
+                                )}
 
                                 {/* WhatsApp link */}
                                 <a
