@@ -21,6 +21,8 @@ interface LoginForm {
   password: string;
 }
 
+const LOGIN_METHOD_PREF_KEY = 'miluim_login_method_pref';
+
 export default function LoginPage() {
   const router = useRouter();
   const { login, isAuthenticated, isHydrated } = useAuth();
@@ -28,6 +30,7 @@ export default function LoginPage() {
   const [isPasskeyLoading, setIsPasskeyLoading] = useState(false);
   const [webAuthnSupport, setWebAuthnSupport] = useState<WebAuthnSupport | null>(null);
   const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [prefChecked, setPrefChecked] = useState(false);
 
   const {
     register,
@@ -38,7 +41,7 @@ export default function LoginPage() {
 
   const personalId = watch('personalId');
 
-  // Check WebAuthn support on mount
+  // Check WebAuthn support and user preference on mount
   useEffect(() => {
     async function checkSupport() {
       try {
@@ -49,6 +52,13 @@ export default function LoginPage() {
       }
     }
     checkSupport();
+
+    // Check if user previously preferred password login
+    const pref = localStorage.getItem(LOGIN_METHOD_PREF_KEY);
+    if (pref === 'password') {
+      setShowPasswordForm(true);
+    }
+    setPrefChecked(true);
   }, []);
 
   // Redirect if already authenticated
@@ -95,6 +105,8 @@ export default function LoginPage() {
       const result = await authenticateWithPasskey();
 
       if (result.success) {
+        // Clear password preference on successful biometric login
+        localStorage.removeItem(LOGIN_METHOD_PREF_KEY);
         await login(result.user, result.token);
         toast.success('התחברת בהצלחה!');
         router.push('/dashboard');
@@ -110,8 +122,8 @@ export default function LoginPage() {
     }
   };
 
-  // Show loading state while checking hydration
-  if (!isHydrated) {
+  // Show loading state while checking hydration and preferences
+  if (!isHydrated || !prefChecked) {
     return (
       <AuthLayout>
         <div className="flex items-center justify-center py-8">
@@ -167,7 +179,11 @@ export default function LoginPage() {
 
           <button
             type="button"
-            onClick={() => setShowPasswordForm(true)}
+            onClick={() => {
+              setShowPasswordForm(true);
+              // Remember user's preference for password login
+              localStorage.setItem(LOGIN_METHOD_PREF_KEY, 'password');
+            }}
             className="w-full text-center text-military-700 hover:underline text-sm"
           >
             התחבר עם מספר אישי וסיסמה
@@ -208,7 +224,11 @@ export default function LoginPage() {
             <div className="mt-4">
               <button
                 type="button"
-                onClick={() => setShowPasswordForm(false)}
+                onClick={() => {
+                  setShowPasswordForm(false);
+                  // Clear password preference when user wants to try biometric
+                  localStorage.removeItem(LOGIN_METHOD_PREF_KEY);
+                }}
                 className="w-full text-center text-military-700 hover:underline text-sm flex items-center justify-center gap-1"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
