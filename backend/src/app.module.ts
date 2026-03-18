@@ -29,6 +29,7 @@ import { ServiceCyclesModule } from './modules/service-cycles/service-cycles.mod
 import { ServiceAttendanceModule } from './modules/service-attendance/service-attendance.module';
 import { ServiceChecklistModule } from './modules/service-checklist/service-checklist.module';
 import { PushModule } from './modules/push/push.module';
+import { WebAuthnModule } from './modules/webauthn/webauthn.module';
 
 @Module({
   imports: [
@@ -70,6 +71,7 @@ import { PushModule } from './modules/push/push.module';
     ServiceAttendanceModule,
     ServiceChecklistModule,
     PushModule,
+    WebAuthnModule,
   ],
 })
 export class AppModule {}

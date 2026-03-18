@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { User, Phone, MapPin, Briefcase, GraduationCap, Mail, Shield, Building2, Calendar, Save } from 'lucide-react';
+import { User, Phone, MapPin, Briefcase, GraduationCap, Mail, Shield, Building2, Calendar, Save, Fingerprint, Trash2, Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { UserLayout } from '@/components/layout/UserLayout';
 import { Card, CardHeader, CardContent } from '@/components/ui/Card';
@@ -12,6 +12,15 @@ import { Spinner } from '@/components/ui/Spinner';
 import api from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import { MILITARY_ROLE_LABELS, MilitaryRole } from '@/types';
+import {
+  checkWebAuthnSupport,
+  getPasskeyStatus,
+  registerPasskey,
+  deletePasskey,
+  getDeviceName,
+  type PasskeyStatus,
+  type WebAuthnSupport,
+} from '@/lib/webauthn';
 
 interface UserProfile {
   id: string;
@@ -42,6 +51,18 @@ export default function ProfilePage() {
     city: '',
     fieldOfStudy: '',
   });
+  const [webAuthnSupport, setWebAuthnSupport] = useState<WebAuthnSupport | null>(null);
+  const [isAddingPasskey, setIsAddingPasskey] = useState(false);
+  const [deletingCredentialId, setDeletingCredentialId] = useState<string | null>(null);
+
+  // Check WebAuthn support
+  useEffect(() => {
+    async function checkSupport() {
+      const support = await checkWebAuthnSupport();
+      setWebAuthnSupport(support);
+    }
+    checkSupport();
+  }, []);
 
   const { data: profile, isLoading } = useQuery<UserProfile>({
     queryKey: ['my-profile'],
@@ -50,6 +71,55 @@ export default function ProfilePage() {
       return response.data;
     },
   });
+
+  // Query passkey status
+  const { data: passkeyStatus, refetch: refetchPasskeys } = useQuery<PasskeyStatus>({
+    queryKey: ['passkey-status'],
+    queryFn: getPasskeyStatus,
+    enabled: webAuthnSupport?.isSupported ?? false,
+  });
+
+  const handleAddPasskey = async () => {
+    if (!webAuthnSupport?.isPlatformAuthenticatorAvailable) {
+      toast.error('המכשיר לא תומך בזיהוי ביומטרי');
+      return;
+    }
+
+    setIsAddingPasskey(true);
+    try {
+      const deviceName = getDeviceName();
+      const result = await registerPasskey(deviceName);
+      if (result.success) {
+        toast.success('מפתח גישה נוסף בהצלחה');
+        refetchPasskeys();
+      }
+    } catch (error: any) {
+      const message = error.response?.data?.message || error.message || 'שגיאה בהוספת מפתח גישה';
+      toast.error(message);
+    } finally {
+      setIsAddingPasskey(false);
+    }
+  };
+
+  const handleDeletePasskey = async (credentialId: string) => {
+    if (!confirm('האם אתה בטוח שברצונך למחוק את מפתח הגישה?')) {
+      return;
+    }
+
+    setDeletingCredentialId(credentialId);
+    try {
+      const result = await deletePasskey(credentialId);
+      if (result.success) {
+        toast.success('מפתח גישה נמחק');
+        refetchPasskeys();
+      }
+    } catch (error: any) {
+      const message = error.response?.data?.message || 'שגיאה במחיקת מפתח גישה';
+      toast.error(message);
+    } finally {
+      setDeletingCredentialId(null);
+    }
+  };
 
   useEffect(() => {
     if (profile) {
@@ -270,6 +340,91 @@ export default function ProfilePage() {
           </form>
         </CardContent>
       </Card>
+
+      {/* Passkey Management */}
+      {webAuthnSupport?.isSupported && (
+        <Card className="mt-6">
+          <CardHeader className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Fingerprint className="w-5 h-5 text-military-600" />
+              <span>זיהוי ביומטרי</span>
+            </div>
+            {webAuthnSupport?.isPlatformAuthenticatorAvailable && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleAddPasskey}
+                isLoading={isAddingPasskey}
+                disabled={isAddingPasskey}
+              >
+                <Plus className="w-4 h-4 ml-1" />
+                הוסף מכשיר
+              </Button>
+            )}
+          </CardHeader>
+          <CardContent>
+            {!webAuthnSupport?.isPlatformAuthenticatorAvailable ? (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-yellow-800">
+                המכשיר שלך לא תומך בזיהוי ביומטרי (Face ID / Touch ID / טביעת אצבע).
+              </div>
+            ) : passkeyStatus?.credentials && passkeyStatus.credentials.length > 0 ? (
+              <div className="space-y-3">
+                <p className="text-sm text-gray-600 mb-4">
+                  מכשירים רשומים לזיהוי ביומטרי. ניתן להתחבר עם כל אחד מהמכשירים האלו.
+                </p>
+                {passkeyStatus.credentials.map((credential) => (
+                  <div
+                    key={credential.id}
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-military-100 rounded-full flex items-center justify-center">
+                        <Fingerprint className="w-5 h-5 text-military-600" />
+                      </div>
+                      <div>
+                        <div className="font-medium">{credential.deviceName}</div>
+                        <div className="text-xs text-gray-500">
+                          נוסף: {formatDate(credential.createdAt)}
+                          {credential.lastUsedAt !== credential.createdAt && (
+                            <> | שימוש אחרון: {formatDate(credential.lastUsedAt)}</>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeletePasskey(credential.id)}
+                      isLoading={deletingCredentialId === credential.id}
+                      disabled={deletingCredentialId === credential.id}
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-6">
+                <Fingerprint className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-600 mb-4">
+                  לא הגדרת עדיין זיהוי ביומטרי.
+                  <br />
+                  הוסף מכשיר להתחברות מהירה ומאובטחת.
+                </p>
+                <Button
+                  onClick={handleAddPasskey}
+                  isLoading={isAddingPasskey}
+                  disabled={isAddingPasskey}
+                >
+                  <Plus className="w-4 h-4 ml-1" />
+                  הגדר זיהוי ביומטרי
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </UserLayout>
   );
 }

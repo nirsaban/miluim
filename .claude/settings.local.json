@@ -9,7 +9,16 @@
       "Bash(nc:*)",
       "Bash(npm run build:*)",
       "Bash(npx tsc:*)",
-      "Bash(NODE_TLS_REJECT_UNAUTHORIZED=0 npm run build:*)"
+      "Bash(NODE_TLS_REJECT_UNAUTHORIZED=0 npm run build:*)",
+      "Bash(cat:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(gh workflow:*)",
+      "Bash(gh run list:*)",
+      "Bash(npm install:*)",
+      "Bash(npx prisma generate:*)",
+      "Bash(mkdir:*)"
     ]
   }
 }

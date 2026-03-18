@@ -46,6 +46,7 @@ export interface User {
   birthDay?: string;
   isPreApproved?: boolean;
   isRegistered?: boolean;
+  hasPasskey?: boolean; // Whether user has enrolled a passkey
   createdAt: string;
 }
 

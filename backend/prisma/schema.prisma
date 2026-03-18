@@ -197,6 +197,9 @@ model User {
   completedChecklists     ServiceAdminChecklist[]  @relation("ChecklistCompleter")
   assignedVehicles        ServiceVehicle[]         @relation("VehicleDriver")
 
+  // WebAuthn/Passkey credentials
+  webAuthnCredentials     WebAuthnCredential[]
+
   @@map("users")
 }
 
@@ -210,6 +213,45 @@ model OTP {
 
   @@index([email, code])
   @@map("otps")
+}
+
+// WebAuthn Credentials for Passkey/Biometric Authentication
+model WebAuthnCredential {
+  id                  String    @id @default(uuid())
+  userId              String
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // WebAuthn credential data
+  credentialId        String    @unique // Base64URL encoded credential ID
+  publicKey           String    // Base64URL encoded public key
+  counter             BigInt    @default(0) // Signature counter for replay protection
+  transports          String[]  // Array of transport hints (usb, nfc, ble, internal, etc.)
+
+  // Device metadata
+  deviceType          String?   // "singleDevice" or "multiDevice"
+  backedUp            Boolean   @default(false) // Whether credential is backed up
+  deviceName          String?   // User-friendly device name
+
+  // Timestamps
+  createdAt           DateTime  @default(now())
+  lastUsedAt          DateTime  @default(now())
+
+  @@index([userId])
+  @@map("webauthn_credentials")
+}
+
+// Temporary challenge storage for WebAuthn ceremonies
+model WebAuthnChallenge {
+  id          String   @id @default(uuid())
+  challenge   String   @unique // Base64URL encoded challenge
+  userId      String?  // Optional - present for registration, may be null for auth discovery
+  type        String   // "registration" or "authentication"
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  @@index([challenge])
+  @@index([userId])
+  @@map("webauthn_challenges")
 }
 
 model Message {

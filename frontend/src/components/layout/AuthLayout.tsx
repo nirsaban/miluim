@@ -22,7 +22,7 @@ export function AuthLayout({ children }: AuthLayoutProps) {
         </div>
       </div>
       <div className="text-center py-4 text-military-300">
-        <p>פלוגת יוגב – ביחד מנצחים</p>
+        <p>מילטק - מילואים של העתיד</p>
       </div>
     </div>
   );

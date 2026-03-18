@@ -149,6 +149,9 @@ export class AuthService {
       where: { personalId: dto.personalId },
       include: {
         department: true,
+        webAuthnCredentials: {
+          select: { id: true },
+        },
       },
     });
 
@@ -195,6 +198,7 @@ export class AuthService {
         role: user.role,
         militaryRole: user.militaryRole,
         department: user.department,
+        hasPasskey: user.webAuthnCredentials.length > 0,
       },
     };
   }
