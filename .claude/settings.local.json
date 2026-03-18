@@ -18,7 +18,10 @@
       "Bash(gh run list:*)",
       "Bash(npm install:*)",
       "Bash(npx prisma generate:*)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(npx prisma migrate dev:*)",
+      "Bash(grep:*)",
+      "Bash(npm view:*)"
     ]
   }
 }
