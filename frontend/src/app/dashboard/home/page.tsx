@@ -1,7 +1,8 @@
 'use client';
 
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { MessageSquare, Bell, Calendar, MapPin, Building2, User, Phone, ChevronLeft, CheckCircle2, Image } from 'lucide-react';
+import { MessageSquare, Bell, Calendar, MapPin, Building2, User, Phone, ChevronLeft, CheckCircle2, Image, FlaskConical, RotateCcw, Copy, Check } from 'lucide-react';
 import { PushNotificationToggle } from '@/components/ui/PushNotificationToggle';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
@@ -13,6 +14,29 @@ import { useAuth } from '@/hooks/useAuth';
 import api from '@/lib/api';
 import { MILITARY_ROLE_LABELS, MilitaryRole, MessageTargetAudience, ShiftType, SHIFT_TYPE_LABELS } from '@/types';
 import { formatWhatsAppLink, formatDate } from '@/lib/utils';
+
+interface TestUser {
+  personalId: string;
+  fullName: string;
+  email: string;
+  role: string;
+  password: string;
+}
+
+interface TestSetupResult {
+  registeredUsers: number;
+  createdShifts: number;
+  createdLeaves: number;
+  createdMessages: number;
+  sampleUsers: TestUser[];
+}
+
+interface RollbackResult {
+  deletedShifts: number;
+  deletedLeaves: number;
+  deletedMessages: number;
+  resetUsers: number;
+}
 
 interface ShiftPost {
   id: string;
@@ -86,6 +110,11 @@ export default function HomePage() {
   const { user, isAuthenticated, isHydrated } = useAuth();
   const queryClient = useQueryClient();
 
+  // Test setup state (only for personalId 1234567)
+  const [testResults, setTestResults] = useState<TestSetupResult | null>(null);
+  const [rollbackResults, setRollbackResults] = useState<RollbackResult | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
   const { data: homeData, isLoading: homeLoading } = useQuery<HomeData>({
     queryKey: ['home-data'],
     queryFn: async () => {
@@ -118,6 +147,43 @@ export default function HomePage() {
       toast.error('שגיאה בשמירת אישור הקריאה');
     },
   });
+
+  // Test setup mutations (only for personalId 1234567)
+  const runTestSetupMutation = useMutation({
+    mutationFn: async () => {
+      const response = await api.post('/test-setup/run');
+      return response.data as TestSetupResult;
+    },
+    onSuccess: (data) => {
+      setTestResults(data);
+      setRollbackResults(null);
+      toast.success(`נוצרו ${data.registeredUsers} משתמשים, ${data.createdShifts} משמרות, ${data.createdLeaves} יציאות`);
+    },
+    onError: () => {
+      toast.error('שגיאה בהרצת הסקריפט');
+    },
+  });
+
+  const rollbackTestDataMutation = useMutation({
+    mutationFn: async () => {
+      const response = await api.post('/test-setup/rollback');
+      return response.data as RollbackResult;
+    },
+    onSuccess: (data) => {
+      setRollbackResults(data);
+      setTestResults(null);
+      toast.success(`נמחקו ${data.deletedShifts} משמרות, ${data.deletedLeaves} יציאות, ${data.resetUsers} משתמשים אופסו`);
+    },
+    onError: () => {
+      toast.error('שגיאה בביטול הנתונים');
+    },
+  });
+
+  const copyToClipboard = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
 
   // Use data from homeData instead of separate queries
   const notifications = homeData?.notifications || [];
@@ -439,6 +505,139 @@ export default function HomePage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Test Setup Section - Only for personalId 1234567 */}
+      {user?.personalId === '1234567' && (
+        <Card className="mt-4 border-purple-200 bg-purple-50/50">
+          <CardHeader className="flex items-center gap-2">
+            <FlaskConical className="w-5 h-5 text-purple-600" />
+            <span className="text-purple-800">כלי בדיקות (מפתחים)</span>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600">
+                כלי זה מאפשר להריץ סקריפט בדיקות שירשום את כל המשתמשים הלא רשומים עם נתוני בדיקה,
+                ויצור משמרות, יציאות והודעות לבדיקה.
+              </p>
+
+              <div className="flex gap-3">
+                <Button
+                  onClick={() => runTestSetupMutation.mutate()}
+                  isLoading={runTestSetupMutation.isPending}
+                  className="bg-purple-600 hover:bg-purple-700"
+                >
+                  <FlaskConical className="w-4 h-4 ml-2" />
+                  הרץ הגדרת בדיקה
+                </Button>
+                <Button
+                  onClick={() => rollbackTestDataMutation.mutate()}
+                  isLoading={rollbackTestDataMutation.isPending}
+                  variant="outline"
+                  className="border-red-300 text-red-600 hover:bg-red-50"
+                >
+                  <RotateCcw className="w-4 h-4 ml-2" />
+                  בטל נתוני בדיקה
+                </Button>
+              </div>
+
+              {/* Test Results */}
+              {testResults && (
+                <div className="bg-white rounded-lg p-4 border border-purple-200">
+                  <h4 className="font-bold text-purple-800 mb-3">תוצאות הרצה</h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                    <div className="bg-purple-50 p-2 rounded text-center">
+                      <div className="text-2xl font-bold text-purple-600">{testResults.registeredUsers}</div>
+                      <div className="text-xs text-gray-600">משתמשים נרשמו</div>
+                    </div>
+                    <div className="bg-purple-50 p-2 rounded text-center">
+                      <div className="text-2xl font-bold text-purple-600">{testResults.createdShifts}</div>
+                      <div className="text-xs text-gray-600">משמרות נוצרו</div>
+                    </div>
+                    <div className="bg-purple-50 p-2 rounded text-center">
+                      <div className="text-2xl font-bold text-purple-600">{testResults.createdLeaves}</div>
+                      <div className="text-xs text-gray-600">יציאות נוצרו</div>
+                    </div>
+                    <div className="bg-purple-50 p-2 rounded text-center">
+                      <div className="text-2xl font-bold text-purple-600">{testResults.createdMessages}</div>
+                      <div className="text-xs text-gray-600">הודעות נוצרו</div>
+                    </div>
+                  </div>
+
+                  {testResults.sampleUsers.length > 0 && (
+                    <>
+                      <h5 className="font-medium text-gray-700 mb-2">משתמשי בדיקה לדוגמה:</h5>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-purple-200">
+                              <th className="text-right py-2 px-2">שם</th>
+                              <th className="text-right py-2 px-2">תפקיד</th>
+                              <th className="text-right py-2 px-2">מ.א.</th>
+                              <th className="text-right py-2 px-2">סיסמה</th>
+                              <th className="py-2 px-2"></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {testResults.sampleUsers.map((testUser) => (
+                              <tr key={testUser.personalId} className="border-b border-gray-100">
+                                <td className="py-2 px-2">{testUser.fullName}</td>
+                                <td className="py-2 px-2">{testUser.role}</td>
+                                <td className="py-2 px-2 font-mono text-xs">{testUser.personalId}</td>
+                                <td className="py-2 px-2 font-mono text-xs">{testUser.password}</td>
+                                <td className="py-2 px-2">
+                                  <button
+                                    onClick={() => copyToClipboard(
+                                      `מ.א.: ${testUser.personalId}\nסיסמה: ${testUser.password}`,
+                                      testUser.personalId
+                                    )}
+                                    className="p-1 hover:bg-gray-100 rounded"
+                                    title="העתק פרטי התחברות"
+                                  >
+                                    {copiedId === testUser.personalId ? (
+                                      <Check className="w-4 h-4 text-green-500" />
+                                    ) : (
+                                      <Copy className="w-4 h-4 text-gray-400" />
+                                    )}
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* Rollback Results */}
+              {rollbackResults && (
+                <div className="bg-white rounded-lg p-4 border border-green-200">
+                  <h4 className="font-bold text-green-800 mb-3">תוצאות ביטול</h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="bg-green-50 p-2 rounded text-center">
+                      <div className="text-2xl font-bold text-green-600">{rollbackResults.deletedShifts}</div>
+                      <div className="text-xs text-gray-600">משמרות נמחקו</div>
+                    </div>
+                    <div className="bg-green-50 p-2 rounded text-center">
+                      <div className="text-2xl font-bold text-green-600">{rollbackResults.deletedLeaves}</div>
+                      <div className="text-xs text-gray-600">יציאות נמחקו</div>
+                    </div>
+                    <div className="bg-green-50 p-2 rounded text-center">
+                      <div className="text-2xl font-bold text-green-600">{rollbackResults.deletedMessages}</div>
+                      <div className="text-xs text-gray-600">הודעות נמחקו</div>
+                    </div>
+                    <div className="bg-green-50 p-2 rounded text-center">
+                      <div className="text-2xl font-bold text-green-600">{rollbackResults.resetUsers}</div>
+                      <div className="text-xs text-gray-600">משתמשים אופסו</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </UserLayout>
   );
 }

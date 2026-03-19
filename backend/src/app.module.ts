@@ -30,6 +30,7 @@ import { ServiceAttendanceModule } from './modules/service-attendance/service-at
 import { ServiceChecklistModule } from './modules/service-checklist/service-checklist.module';
 import { PushModule } from './modules/push/push.module';
 import { WebAuthnModule } from './modules/webauthn/webauthn.module';
+import { TestSetupModule } from './modules/test-setup/test-setup.module';
 
 @Module({
   imports: [
@@ -72,6 +73,7 @@ import { WebAuthnModule } from './modules/webauthn/webauthn.module';
     ServiceChecklistModule,
     PushModule,
     WebAuthnModule,
+    TestSetupModule,
   ],
 })
 export class AppModule {}
