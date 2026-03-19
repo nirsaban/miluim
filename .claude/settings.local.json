@@ -22,7 +22,9 @@
       "Bash(npx prisma migrate dev:*)",
       "Bash(grep:*)",
       "Bash(npm view:*)",
-      "Bash(npx prisma db push:*)"
+      "Bash(npx prisma db push:*)",
+      "Bash(open http://localhost:3000)",
+      "Bash(git checkout:*)"
     ]
   }
 }

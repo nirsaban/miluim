@@ -101,10 +101,12 @@ export default function AdminCurrentServicePage() {
     return (
       <AdminLayout>
         <Card>
-          <CardContent className="py-12 text-center">
-            <Calendar className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+          <CardContent className="py-16 text-center">
+            <div className="w-20 h-20 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <Calendar className="w-10 h-10 text-gray-400" />
+            </div>
             <h2 className="text-xl font-bold text-gray-700 mb-2">אין סבב מילואים פעיל</h2>
-            <p className="text-gray-500 mb-4">צור והפעל סבב מילואים כדי לראות את הדשבורד</p>
+            <p className="text-gray-500 mb-6">צור והפעל סבב מילואים כדי לראות את הדשבורד</p>
             <Link href="/admin/service-cycles">
               <Button>נהל סבבי מילואים</Button>
             </Link>
@@ -120,97 +122,116 @@ export default function AdminCurrentServicePage() {
     <AdminLayout>
       {/* Header */}
       <div className="mb-6">
-        <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-2xl font-bold text-military-700">{cycle.name}</h1>
-            <div className="flex items-center gap-4 mt-2 text-gray-600">
-              <span className="flex items-center gap-1">
-                <Calendar className="w-4 h-4" />
-                {new Date(cycle.startDate).toLocaleDateString('he-IL')}
-                {cycle.endDate && <> - {new Date(cycle.endDate).toLocaleDateString('he-IL')}</>}
-              </span>
-              {cycle.location && (
+        <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+          <div className="flex items-start gap-3">
+            <div className="w-12 h-12 bg-military-100 rounded-xl flex items-center justify-center">
+              <Shield className="w-6 h-6 text-military-600" />
+            </div>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-military-700">{cycle.name}</h1>
+              <div className="flex flex-wrap items-center gap-3 mt-1 text-sm text-gray-600">
                 <span className="flex items-center gap-1">
-                  <MapPin className="w-4 h-4" />
-                  {cycle.location}
+                  <Calendar className="w-4 h-4" />
+                  {new Date(cycle.startDate).toLocaleDateString('he-IL')}
+                  {cycle.endDate && <> - {new Date(cycle.endDate).toLocaleDateString('he-IL')}</>}
                 </span>
-              )}
+                {cycle.location && (
+                  <span className="flex items-center gap-1">
+                    <MapPin className="w-4 h-4" />
+                    {cycle.location}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
-          <div className="flex gap-2">
-            <Link href="/admin/current-service/checklist">
-              <Button variant="secondary" className="flex items-center gap-2">
+          <div className="flex gap-2 w-full sm:w-auto">
+            <Link href="/admin/current-service/checklist" className="flex-1 sm:flex-none">
+              <Button variant="secondary" className="flex items-center justify-center gap-2 w-full">
                 <ClipboardList className="w-4 h-4" />
                 צ׳קליסט
               </Button>
             </Link>
-            <Link href="/admin/service-cycles">
-              <Button variant="secondary">נהל סבבים</Button>
+            <Link href="/admin/service-cycles" className="flex-1 sm:flex-none">
+              <Button variant="secondary" className="w-full">נהל סבבים</Button>
             </Link>
           </div>
         </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-6">
-        <Card>
-          <CardContent className="py-4 text-center">
-            <Users className="w-8 h-8 text-blue-500 mx-auto mb-2" />
-            <div className="text-2xl font-bold">{stats.totalSoldiers}</div>
-            <div className="text-sm text-gray-500">סה״כ חיילים</div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 mb-6">
+        <Card className="hover:shadow-card-hover">
+          <CardContent className="py-4 px-3 text-center">
+            <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center mx-auto mb-2">
+              <Users className="w-5 h-5 text-blue-600" />
+            </div>
+            <div className="text-xl sm:text-2xl font-bold">{stats.totalSoldiers}</div>
+            <div className="text-xs sm:text-sm text-gray-500">סה״כ חיילים</div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="py-4 text-center">
-            <UserCheck className="w-8 h-8 text-green-500 mx-auto mb-2" />
-            <div className="text-2xl font-bold text-green-600">{stats.arrived}</div>
-            <div className="text-sm text-gray-500">הגיעו</div>
+        <Card className="hover:shadow-card-hover">
+          <CardContent className="py-4 px-3 text-center">
+            <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center mx-auto mb-2">
+              <UserCheck className="w-5 h-5 text-green-600" />
+            </div>
+            <div className="text-xl sm:text-2xl font-bold text-green-600">{stats.arrived}</div>
+            <div className="text-xs sm:text-sm text-gray-500">הגיעו</div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="py-4 text-center">
-            <UserX className="w-8 h-8 text-red-500 mx-auto mb-2" />
-            <div className="text-2xl font-bold text-red-600">{stats.notComing}</div>
-            <div className="text-sm text-gray-500">לא מגיעים</div>
+        <Card className="hover:shadow-card-hover">
+          <CardContent className="py-4 px-3 text-center">
+            <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center mx-auto mb-2">
+              <UserX className="w-5 h-5 text-red-600" />
+            </div>
+            <div className="text-xl sm:text-2xl font-bold text-red-600">{stats.notComing}</div>
+            <div className="text-xs sm:text-sm text-gray-500">לא מגיעים</div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="py-4 text-center">
-            <Clock className="w-8 h-8 text-yellow-500 mx-auto mb-2" />
-            <div className="text-2xl font-bold text-yellow-600">{stats.pending}</div>
-            <div className="text-sm text-gray-500">ממתינים</div>
+        <Card className="hover:shadow-card-hover">
+          <CardContent className="py-4 px-3 text-center">
+            <div className="w-10 h-10 bg-yellow-100 rounded-xl flex items-center justify-center mx-auto mb-2">
+              <Clock className="w-5 h-5 text-yellow-600" />
+            </div>
+            <div className="text-xl sm:text-2xl font-bold text-yellow-600">{stats.pending}</div>
+            <div className="text-xs sm:text-sm text-gray-500">ממתינים</div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="py-4 text-center">
-            <Shield className="w-8 h-8 text-purple-500 mx-auto mb-2" />
-            <div className="text-2xl font-bold">{stats.withGunAssigned}</div>
-            <div className="text-sm text-gray-500">עם נשק</div>
+        <Card className="hover:shadow-card-hover">
+          <CardContent className="py-4 px-3 text-center">
+            <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center mx-auto mb-2">
+              <Shield className="w-5 h-5 text-purple-600" />
+            </div>
+            <div className="text-xl sm:text-2xl font-bold">{stats.withGunAssigned}</div>
+            <div className="text-xs sm:text-sm text-gray-500">עם נשק</div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="py-4 text-center">
-            <Hotel className="w-8 h-8 text-indigo-500 mx-auto mb-2" />
-            <div className="text-2xl font-bold">{stats.withRoomAssigned}</div>
-            <div className="text-sm text-gray-500">עם חדר</div>
+        <Card className="hover:shadow-card-hover">
+          <CardContent className="py-4 px-3 text-center">
+            <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center mx-auto mb-2">
+              <Hotel className="w-5 h-5 text-indigo-600" />
+            </div>
+            <div className="text-xl sm:text-2xl font-bold">{stats.withRoomAssigned}</div>
+            <div className="text-xs sm:text-sm text-gray-500">עם חדר</div>
           </CardContent>
         </Card>
       </div>
 
       {/* Checklist Progress & Reasons */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-6">
         {/* Checklist Progress */}
         <Card>
           <CardHeader className="flex items-center gap-2">
-            <CheckCircle className="w-5 h-5 text-green-500" />
-            <span>התקדמות צ׳קליסט</span>
+            <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+              <CheckCircle className="w-4 h-4 text-green-600" />
+            </div>
+            <span className="font-semibold">התקדמות צ׳קליסט</span>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 mb-3">
               <div className="flex-1">
-                <div className="h-4 bg-gray-200 rounded-full overflow-hidden">
+                <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-green-500 transition-all"
+                    className="h-full bg-gradient-to-l from-green-400 to-green-500 transition-all duration-500"
                     style={{
                       width: `${
                         checklistStats.total > 0
@@ -221,15 +242,15 @@ export default function AdminCurrentServicePage() {
                   />
                 </div>
               </div>
-              <div className="text-sm font-medium">
+              <div className="text-sm font-bold text-gray-700">
                 {checklistStats.completed}/{checklistStats.total}
               </div>
             </div>
             <Link
               href="/admin/current-service/checklist"
-              className="text-military-600 text-sm hover:underline mt-2 inline-block"
+              className="text-military-600 text-sm font-medium hover:text-military-700 transition-colors"
             >
-              צפה בצ׳קליסט המלא
+              צפה בצ׳קליסט המלא ←
             </Link>
           </CardContent>
         </Card>
@@ -237,23 +258,25 @@ export default function AdminCurrentServicePage() {
         {/* Reasons Summary */}
         <Card>
           <CardHeader className="flex items-center gap-2">
-            <AlertTriangle className="w-5 h-5 text-orange-500" />
-            <span>סיבות אי-הגעה</span>
+            <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
+              <AlertTriangle className="w-4 h-4 text-orange-600" />
+            </div>
+            <span className="font-semibold">סיבות אי-הגעה</span>
           </CardHeader>
           <CardContent>
             {Object.keys(reasonsGrouped).length > 0 ? (
-              <div className="space-y-2">
+              <div className="space-y-2.5">
                 {Object.entries(reasonsGrouped).map(([reason, count]) => (
                   <div key={reason} className="flex justify-between items-center">
                     <span className="text-sm text-gray-700 truncate">{reason}</span>
-                    <span className="bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full">
+                    <span className="bg-red-100 text-red-700 text-xs font-medium px-2.5 py-1 rounded-full">
                       {count}
                     </span>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-gray-500 text-sm">אין סיבות אי-הגעה</p>
+              <p className="text-gray-500 text-sm text-center py-4">אין סיבות אי-הגעה</p>
             )}
           </CardContent>
         </Card>
@@ -261,26 +284,28 @@ export default function AdminCurrentServicePage() {
 
       {/* Attendance Table */}
       <Card>
-        <CardHeader className="flex items-center justify-between">
+        <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <span className="flex items-center gap-2">
-            <Users className="w-5 h-5" />
-            רשימת חיילים
+            <div className="w-8 h-8 bg-military-100 rounded-lg flex items-center justify-center">
+              <Users className="w-4 h-4 text-military-600" />
+            </div>
+            <span className="font-semibold">רשימת חיילים</span>
           </span>
-          <div className="flex gap-2">
-            <div className="relative">
+          <div className="flex gap-2 w-full sm:w-auto">
+            <div className="relative flex-1 sm:flex-none">
               <Search className="w-4 h-4 absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
                 placeholder="חיפוש..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pr-9 pl-3 py-2 border rounded-lg text-sm w-48"
+                className="w-full sm:w-48 pr-9 pl-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-military-500 focus:border-transparent transition-all"
               />
             </div>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as ServiceAttendanceStatus | '')}
-              className="border rounded-lg px-3 py-2 text-sm"
+              className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-military-500 focus:border-transparent transition-all"
             >
               <option value="">כל הסטטוסים</option>
               {Object.entries(SERVICE_ATTENDANCE_STATUS_LABELS).map(([value, label]) => (
@@ -291,34 +316,37 @@ export default function AdminCurrentServicePage() {
             </select>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0 sm:p-4">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-right py-3 px-2">שם מלא</th>
-                  <th className="text-right py-3 px-2">מ.א</th>
-                  <th className="text-right py-3 px-2">תפקיד</th>
-                  <th className="text-right py-3 px-2">מחלקה</th>
-                  <th className="text-right py-3 px-2">סטטוס</th>
-                  <th className="text-right py-3 px-2">סיבה</th>
-                  <th className="text-right py-3 px-2">נשק</th>
-                  <th className="text-right py-3 px-2">חדר</th>
-                  <th className="text-right py-3 px-2">פעולות</th>
+              <thead className="bg-gray-50/80">
+                <tr className="border-b border-gray-100">
+                  <th className="text-right py-3 px-3 font-semibold text-gray-700">שם מלא</th>
+                  <th className="text-right py-3 px-3 font-semibold text-gray-700 hidden md:table-cell">מ.א</th>
+                  <th className="text-right py-3 px-3 font-semibold text-gray-700 hidden lg:table-cell">תפקיד</th>
+                  <th className="text-right py-3 px-3 font-semibold text-gray-700 hidden lg:table-cell">מחלקה</th>
+                  <th className="text-right py-3 px-3 font-semibold text-gray-700">סטטוס</th>
+                  <th className="text-right py-3 px-3 font-semibold text-gray-700 hidden md:table-cell">סיבה</th>
+                  <th className="text-right py-3 px-3 font-semibold text-gray-700 hidden lg:table-cell">נשק</th>
+                  <th className="text-right py-3 px-3 font-semibold text-gray-700 hidden lg:table-cell">חדר</th>
+                  <th className="text-right py-3 px-3 font-semibold text-gray-700">פעולות</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-gray-100">
                 {filteredAttendances?.map((attendance) => (
-                  <tr key={attendance.id} className="border-b hover:bg-gray-50">
-                    <td className="py-3 px-2 font-medium">{attendance.user?.fullName}</td>
-                    <td className="py-3 px-2">{attendance.user?.personalId}</td>
-                    <td className="py-3 px-2">
+                  <tr key={attendance.id} className="hover:bg-gray-50/50 transition-colors">
+                    <td className="py-3 px-3">
+                      <span className="font-medium text-gray-900">{attendance.user?.fullName}</span>
+                      <span className="text-gray-500 text-xs block md:hidden">{attendance.user?.personalId}</span>
+                    </td>
+                    <td className="py-3 px-3 text-gray-600 hidden md:table-cell">{attendance.user?.personalId}</td>
+                    <td className="py-3 px-3 text-gray-600 hidden lg:table-cell">
                       {attendance.user?.militaryRole
                         ? MILITARY_ROLE_LABELS[attendance.user.militaryRole as MilitaryRole]
                         : '-'}
                     </td>
-                    <td className="py-3 px-2">{attendance.user?.department?.name || '-'}</td>
-                    <td className="py-3 px-2">
+                    <td className="py-3 px-3 text-gray-600 hidden lg:table-cell">{attendance.user?.department?.name || '-'}</td>
+                    <td className="py-3 px-3">
                       <select
                         value={attendance.attendanceStatus}
                         onChange={(e) =>
@@ -327,12 +355,12 @@ export default function AdminCurrentServicePage() {
                             data: { attendanceStatus: e.target.value },
                           })
                         }
-                        className={`text-xs px-2 py-1 rounded border ${
+                        className={`text-xs px-2.5 py-1.5 rounded-lg border font-medium transition-colors ${
                           attendance.attendanceStatus === 'ARRIVED'
-                            ? 'bg-green-100 border-green-300'
+                            ? 'bg-green-100 border-green-200 text-green-700'
                             : attendance.attendanceStatus === 'NOT_COMING'
-                              ? 'bg-red-100 border-red-300'
-                              : 'bg-gray-100 border-gray-300'
+                              ? 'bg-red-100 border-red-200 text-red-700'
+                              : 'bg-gray-100 border-gray-200 text-gray-700'
                         }`}
                       >
                         {Object.entries(SERVICE_ATTENDANCE_STATUS_LABELS).map(([value, label]) => (
@@ -342,10 +370,10 @@ export default function AdminCurrentServicePage() {
                         ))}
                       </select>
                     </td>
-                    <td className="py-3 px-2 max-w-32 truncate" title={attendance.cannotAttendReason || ''}>
+                    <td className="py-3 px-3 max-w-32 truncate text-gray-600 hidden md:table-cell" title={attendance.cannotAttendReason || ''}>
                       {attendance.cannotAttendReason || '-'}
                     </td>
-                    <td className="py-3 px-2">
+                    <td className="py-3 px-3 hidden lg:table-cell">
                       <input
                         type="text"
                         value={attendance.onboardGunNumber || ''}
@@ -355,11 +383,11 @@ export default function AdminCurrentServicePage() {
                             data: { onboardGunNumber: e.target.value || null },
                           })
                         }
-                        className="w-20 px-2 py-1 border rounded text-xs"
+                        className="w-20 px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-military-500 focus:border-transparent"
                         placeholder="מספר"
                       />
                     </td>
-                    <td className="py-3 px-2">
+                    <td className="py-3 px-3 hidden lg:table-cell">
                       <input
                         type="text"
                         value={attendance.hotelRoomNumber || ''}
@@ -369,14 +397,14 @@ export default function AdminCurrentServicePage() {
                             data: { hotelRoomNumber: e.target.value || null },
                           })
                         }
-                        className="w-16 px-2 py-1 border rounded text-xs"
+                        className="w-16 px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-military-500 focus:border-transparent"
                         placeholder="חדר"
                       />
                     </td>
-                    <td className="py-3 px-2">
+                    <td className="py-3 px-3">
                       <a
                         href={`tel:${attendance.user?.phone}`}
-                        className="text-military-600 hover:underline text-xs"
+                        className="inline-flex items-center gap-1 px-3 py-1.5 bg-military-50 text-military-700 rounded-lg text-xs font-medium hover:bg-military-100 transition-colors"
                       >
                         התקשר
                       </a>
@@ -386,7 +414,7 @@ export default function AdminCurrentServicePage() {
               </tbody>
             </table>
             {filteredAttendances?.length === 0 && (
-              <div className="text-center py-8 text-gray-500">לא נמצאו תוצאות</div>
+              <div className="text-center py-12 text-gray-500">לא נמצאו תוצאות</div>
             )}
           </div>
         </CardContent>

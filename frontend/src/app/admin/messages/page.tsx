@@ -202,9 +202,17 @@ export default function AdminMessagesPage() {
 
   return (
     <AdminLayout>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-military-700">ניהול הודעות</h1>
-        <Button onClick={() => openModal()}>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-military-100 rounded-xl flex items-center justify-center">
+            <Plus className="w-5 h-5 sm:w-6 sm:h-6 text-military-600" />
+          </div>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-military-700">ניהול הודעות</h1>
+            <p className="text-sm text-gray-500 hidden sm:block">צפה וערוך הודעות מערכת</p>
+          </div>
+        </div>
+        <Button onClick={() => openModal()} className="w-full sm:w-auto">
           <Plus className="w-4 h-4 ml-2" />
           הוסף הודעה
         </Button>
@@ -213,87 +221,105 @@ export default function AdminMessagesPage() {
       <Card>
         <CardContent className="p-0">
           {isLoading ? (
-            <div className="flex justify-center py-8">
+            <div className="flex justify-center py-12">
               <Spinner size="lg" />
             </div>
           ) : messages && messages.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-50 border-b">
+                <thead className="bg-gray-50/80 border-b border-gray-100">
                   <tr>
-                    <th className="text-right px-4 py-3 text-sm font-medium text-gray-700">
+                    <th className="text-right px-4 py-3.5 text-sm font-semibold text-gray-700">
                       כותרת
                     </th>
-                    <th className="text-right px-4 py-3 text-sm font-medium text-gray-700">
+                    <th className="text-right px-4 py-3.5 text-sm font-semibold text-gray-700 hidden md:table-cell">
                       סוג
                     </th>
-                    <th className="text-right px-4 py-3 text-sm font-medium text-gray-700">
+                    <th className="text-right px-4 py-3.5 text-sm font-semibold text-gray-700 hidden sm:table-cell">
                       עדיפות
                     </th>
-                    <th className="text-right px-4 py-3 text-sm font-medium text-gray-700">
+                    <th className="text-right px-4 py-3.5 text-sm font-semibold text-gray-700 hidden lg:table-cell">
                       קהל יעד
                     </th>
-                    <th className="text-right px-4 py-3 text-sm font-medium text-gray-700">
+                    <th className="text-right px-4 py-3.5 text-sm font-semibold text-gray-700 hidden md:table-cell">
                       אישורים
                     </th>
-                    <th className="text-right px-4 py-3 text-sm font-medium text-gray-700">
+                    <th className="text-right px-4 py-3.5 text-sm font-semibold text-gray-700 hidden lg:table-cell">
                       תאריך
                     </th>
-                    <th className="text-right px-4 py-3 text-sm font-medium text-gray-700">
+                    <th className="text-right px-4 py-3.5 text-sm font-semibold text-gray-700">
                       פעולות
                     </th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-gray-100">
                   {messages.map((message) => (
-                    <tr key={message.id} className="border-b hover:bg-gray-50">
-                      <td className="px-4 py-3">
-                        <p className="font-medium">{message.title}</p>
+                    <tr key={message.id} className="hover:bg-gray-50/50 transition-colors">
+                      <td className="px-4 py-3.5">
+                        <p className="font-medium text-gray-900">{message.title}</p>
                         <p className="text-sm text-gray-500 truncate max-w-xs">
                           {message.content}
                         </p>
+                        <div className="flex flex-wrap gap-1 mt-1 sm:hidden">
+                          <Badge variant="info" className="text-xs">
+                            {MESSAGE_TYPE_LABELS[message.type]}
+                          </Badge>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-xs ${getPriorityColor(message.priority)}`}
+                          >
+                            {PRIORITY_LABELS[message.priority]}
+                          </span>
+                        </div>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3.5 hidden md:table-cell">
                         <Badge variant="info">
                           {MESSAGE_TYPE_LABELS[message.type]}
                         </Badge>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3.5 hidden sm:table-cell">
                         <span
-                          className={`px-2 py-1 rounded-full text-xs ${getPriorityColor(
+                          className={`px-2.5 py-1 rounded-full text-xs font-medium ${getPriorityColor(
                             message.priority
                           )}`}
                         >
                           {PRIORITY_LABELS[message.priority]}
                         </span>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3.5 hidden lg:table-cell">
                         <div className="flex flex-col gap-1">
                           <Badge variant={message.targetAudience === 'ALL' ? 'default' : 'warning'}>
                             {MESSAGE_TARGET_LABELS[message.targetAudience] || 'כולם'}
                           </Badge>
                           {message.requiresConfirmation && (
-                            <span className="text-xs text-orange-600">דורש אישור</span>
+                            <span className="text-xs text-orange-600 font-medium">דורש אישור</span>
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3.5 hidden md:table-cell">
                         <button
                           onClick={() => openAnalyticsModal(message.id)}
-                          className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 hover:underline"
+                          className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 transition-colors"
                         >
                           <BarChart2 className="w-4 h-4" />
-                          צפה באישורים
+                          <span className="hover:underline">צפה באישורים</span>
                         </button>
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">
+                      <td className="px-4 py-3.5 text-sm text-gray-500 hidden lg:table-cell">
                         {formatDateTime(message.createdAt)}
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="flex gap-2">
+                      <td className="px-4 py-3.5">
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => openAnalyticsModal(message.id)}
+                            className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors md:hidden"
+                            title="צפה באישורים"
+                          >
+                            <BarChart2 className="w-4 h-4" />
+                          </button>
                           <button
                             onClick={() => openModal(message)}
-                            className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="ערוך"
                           >
                             <Edit2 className="w-4 h-4" />
                           </button>
@@ -303,7 +329,8 @@ export default function AdminMessagesPage() {
                                 deleteMutation.mutate(message.id);
                               }
                             }}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded transition-colors"
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="מחק"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -315,7 +342,16 @@ export default function AdminMessagesPage() {
               </table>
             </div>
           ) : (
-            <p className="text-center text-gray-500 py-8">אין הודעות</p>
+            <div className="text-center py-12">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Plus className="w-8 h-8 text-gray-400" />
+              </div>
+              <p className="text-gray-500 mb-4">אין הודעות</p>
+              <Button onClick={() => openModal()} variant="secondary" size="sm">
+                <Plus className="w-4 h-4 ml-1" />
+                הוסף הודעה ראשונה
+              </Button>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -422,46 +458,46 @@ export default function AdminMessagesPage() {
         size="lg"
       >
         {isLoadingAnalytics ? (
-          <div className="flex justify-center py-8">
+          <div className="flex justify-center py-12">
             <Spinner size="lg" />
           </div>
         ) : analytics ? (
-          <div className="space-y-4">
+          <div className="space-y-5">
             {/* Stats Summary */}
-            <div className="grid grid-cols-3 gap-4">
-              <div className="bg-gray-50 rounded-lg p-4 text-center">
-                <p className="text-2xl font-bold text-gray-900">{analytics.totalUsers}</p>
-                <p className="text-sm text-gray-600">סה״כ משתמשים</p>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-gray-50 rounded-xl p-4 text-center">
+                <p className="text-2xl sm:text-3xl font-bold text-gray-900">{analytics.totalUsers}</p>
+                <p className="text-xs sm:text-sm text-gray-600 mt-1">סה״כ משתמשים</p>
               </div>
-              <div className="bg-green-50 rounded-lg p-4 text-center">
-                <p className="text-2xl font-bold text-green-700">{analytics.confirmedCount}</p>
-                <p className="text-sm text-green-600">אישרו קריאה</p>
+              <div className="bg-green-50 rounded-xl p-4 text-center">
+                <p className="text-2xl sm:text-3xl font-bold text-green-700">{analytics.confirmedCount}</p>
+                <p className="text-xs sm:text-sm text-green-600 mt-1">אישרו קריאה</p>
               </div>
-              <div className="bg-red-50 rounded-lg p-4 text-center">
-                <p className="text-2xl font-bold text-red-700">{analytics.notConfirmedCount}</p>
-                <p className="text-sm text-red-600">לא אישרו</p>
+              <div className="bg-red-50 rounded-xl p-4 text-center">
+                <p className="text-2xl sm:text-3xl font-bold text-red-700">{analytics.notConfirmedCount}</p>
+                <p className="text-xs sm:text-sm text-red-600 mt-1">לא אישרו</p>
               </div>
             </div>
 
             {/* Progress Bar */}
-            <div className="bg-gray-200 rounded-full h-4 overflow-hidden">
+            <div className="bg-gray-100 rounded-full h-3 overflow-hidden">
               <div
-                className="bg-green-500 h-full transition-all"
+                className="bg-gradient-to-l from-green-400 to-green-500 h-full transition-all duration-500"
                 style={{ width: `${analytics.confirmationRate}%` }}
               />
             </div>
-            <p className="text-center text-sm text-gray-600">
+            <p className="text-center text-sm font-medium text-gray-600">
               {analytics.confirmationRate}% אישרו קריאה
             </p>
 
             {/* Tab Buttons */}
-            <div className="flex border-b">
+            <div className="flex gap-2 p-1 bg-gray-100 rounded-xl">
               <button
                 onClick={() => setAnalyticsTab('confirmed')}
-                className={`flex-1 py-2 text-center border-b-2 transition-colors ${
+                className={`flex-1 py-2.5 text-center rounded-lg transition-all duration-200 text-sm font-medium ${
                   analyticsTab === 'confirmed'
-                    ? 'border-green-500 text-green-700'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                    ? 'bg-white text-green-700 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
                 <CheckCircle className="w-4 h-4 inline ml-1" />
@@ -469,10 +505,10 @@ export default function AdminMessagesPage() {
               </button>
               <button
                 onClick={() => setAnalyticsTab('notConfirmed')}
-                className={`flex-1 py-2 text-center border-b-2 transition-colors ${
+                className={`flex-1 py-2.5 text-center rounded-lg transition-all duration-200 text-sm font-medium ${
                   analyticsTab === 'notConfirmed'
-                    ? 'border-red-500 text-red-700'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                    ? 'bg-white text-red-700 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
                 <XCircle className="w-4 h-4 inline ml-1" />
@@ -481,33 +517,33 @@ export default function AdminMessagesPage() {
             </div>
 
             {/* Users List */}
-            <div className="max-h-64 overflow-y-auto">
+            <div className="max-h-64 overflow-y-auto rounded-xl border border-gray-100">
               {analyticsTab === 'confirmed' ? (
                 analytics.confirmedUsers.length > 0 ? (
-                  <ul className="divide-y">
+                  <ul className="divide-y divide-gray-100">
                     {analytics.confirmedUsers.map((confirmation) => (
-                      <li key={confirmation.user.id} className="py-2 flex items-center justify-between">
+                      <li key={confirmation.user.id} className="py-3 px-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
                         <div>
-                          <p className="font-medium">{confirmation.user.fullName}</p>
+                          <p className="font-medium text-gray-900">{confirmation.user.fullName}</p>
                           <p className="text-sm text-gray-500">
                             {confirmation.user.department?.name || 'ללא מחלקה'}
                           </p>
                         </div>
-                        <p className="text-xs text-gray-400">
+                        <p className="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded-lg">
                           {formatDateTime(confirmation.confirmedAt)}
                         </p>
                       </li>
                     ))}
                   </ul>
                 ) : (
-                  <p className="text-center text-gray-500 py-4">אין משתמשים שאישרו</p>
+                  <p className="text-center text-gray-500 py-8">אין משתמשים שאישרו</p>
                 )
               ) : (
                 analytics.notConfirmedUsers.length > 0 ? (
-                  <ul className="divide-y">
+                  <ul className="divide-y divide-gray-100">
                     {analytics.notConfirmedUsers.map((user) => (
-                      <li key={user.id} className="py-2">
-                        <p className="font-medium">{user.fullName}</p>
+                      <li key={user.id} className="py-3 px-4 hover:bg-gray-50 transition-colors">
+                        <p className="font-medium text-gray-900">{user.fullName}</p>
                         <p className="text-sm text-gray-500">
                           {user.department?.name || 'ללא מחלקה'}
                         </p>
@@ -515,7 +551,7 @@ export default function AdminMessagesPage() {
                     ))}
                   </ul>
                 ) : (
-                  <p className="text-center text-gray-500 py-4">כל המשתמשים אישרו</p>
+                  <p className="text-center text-gray-500 py-8">כל המשתמשים אישרו</p>
                 )
               )}
             </div>
@@ -525,7 +561,7 @@ export default function AdminMessagesPage() {
             </Button>
           </div>
         ) : (
-          <p className="text-center text-gray-500 py-8">לא נמצאו נתונים</p>
+          <p className="text-center text-gray-500 py-12">לא נמצאו נתונים</p>
         )}
       </Modal>
     </AdminLayout>

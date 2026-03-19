@@ -126,60 +126,76 @@ export default function HomePage() {
   return (
     <UserLayout>
       {/* Welcome Section */}
-      <div className="mb-6">
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 bg-military-700 rounded-full flex items-center justify-center shadow-md">
-            <span className="text-white font-bold text-xl">
+      <div className="mb-5 sm:mb-6">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-military-600 to-military-800 rounded-2xl flex items-center justify-center shadow-md">
+            <span className="text-white font-bold text-lg sm:text-xl">
               {user?.fullName?.charAt(0) || 'י'}
             </span>
           </div>
           <div>
-            <h1 className="text-xl font-bold text-military-700">
+            <h1 className="text-lg sm:text-xl font-bold text-military-700">
               ברוך שובך, {user?.fullName}
             </h1>
-            <p className="text-sm text-gray-600">מערכת פלוגת יוגב</p>
+            <p className="text-xs sm:text-sm text-gray-500">מערכת פלוגת יוגב</p>
           </div>
         </div>
       </div>
 
       {/* User Info Card */}
       <Card className="mb-4">
-        <CardContent className="py-4">
+        <CardContent className="py-3 sm:py-4">
           {homeLoading ? (
             <div className="flex justify-center py-4">
               <Spinner />
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div className="flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-gray-400" />
-                <span className="text-gray-600">אזור פעילות:</span>
-                <span className="font-medium">{homeData?.user?.activeZone?.name || 'לא מוגדר'}</span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-sm">
+              <div className="flex items-center gap-2.5 p-2.5 bg-gray-50 rounded-xl">
+                <div className="p-2 bg-military-100 rounded-lg">
+                  <MapPin className="w-4 h-4 text-military-600" />
+                </div>
+                <div>
+                  <span className="text-gray-500 text-xs block">אזור פעילות</span>
+                  <span className="font-medium text-gray-900">{homeData?.user?.activeZone?.name || 'לא מוגדר'}</span>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Building2 className="w-4 h-4 text-gray-400" />
-                <span className="text-gray-600">מחלקה:</span>
-                <span className="font-medium">{homeData?.user?.department?.name || user?.department?.name || 'לא מוגדר'}</span>
+              <div className="flex items-center gap-2.5 p-2.5 bg-gray-50 rounded-xl">
+                <div className="p-2 bg-military-100 rounded-lg">
+                  <Building2 className="w-4 h-4 text-military-600" />
+                </div>
+                <div>
+                  <span className="text-gray-500 text-xs block">מחלקה</span>
+                  <span className="font-medium text-gray-900">{homeData?.user?.department?.name || user?.department?.name || 'לא מוגדר'}</span>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <User className="w-4 h-4 text-gray-400" />
-                <span className="text-gray-600">תפקיד:</span>
-                <span className="font-medium">
-                  {user?.militaryRole ? MILITARY_ROLE_LABELS[user.militaryRole] : 'לא מוגדר'}
-                </span>
+              <div className="flex items-center gap-2.5 p-2.5 bg-gray-50 rounded-xl">
+                <div className="p-2 bg-military-100 rounded-lg">
+                  <User className="w-4 h-4 text-military-600" />
+                </div>
+                <div>
+                  <span className="text-gray-500 text-xs block">תפקיד</span>
+                  <span className="font-medium text-gray-900">
+                    {user?.militaryRole ? MILITARY_ROLE_LABELS[user.militaryRole] : 'לא מוגדר'}
+                  </span>
+                </div>
               </div>
               {homeData?.user?.commander && (
-                <div className="flex items-center gap-2">
-                  <Phone className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-600">מפקד:</span>
-                  <a
-                    href={formatWhatsAppLink(homeData.user.commander.phone)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-medium text-green-600 hover:underline"
-                  >
-                    {homeData.user.commander.fullName}
-                  </a>
+                <div className="flex items-center gap-2.5 p-2.5 bg-green-50 rounded-xl">
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <Phone className="w-4 h-4 text-green-600" />
+                  </div>
+                  <div>
+                    <span className="text-gray-500 text-xs block">מפקד</span>
+                    <a
+                      href={formatWhatsAppLink(homeData.user.commander.phone)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium text-green-600 hover:underline"
+                    >
+                      {homeData.user.commander.fullName}
+                    </a>
+                  </div>
                 </div>
               )}
             </div>

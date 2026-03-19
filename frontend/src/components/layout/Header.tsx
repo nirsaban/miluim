@@ -19,14 +19,14 @@ export function Header() {
   };
 
   return (
-    <header className="bg-military-700 text-white shadow-lg">
+    <header className="bg-military-700 text-white shadow-lg sticky top-0 z-50">
       <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
-          <Link href="/dashboard" className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center">
-              <span className="text-military-700 font-bold text-lg">י</span>
+        <div className="flex items-center justify-between h-14 sm:h-16">
+          <Link href="/dashboard" className="flex items-center gap-2 sm:gap-3">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 bg-white rounded-full flex items-center justify-center shadow-sm">
+              <span className="text-military-700 font-bold text-base sm:text-lg">י</span>
             </div>
-            <span className="text-xl font-bold hidden sm:block">מערכת ניהול - פלוגת יוגב</span>
+            <span className="text-lg sm:text-xl font-bold hidden sm:block">מערכת ניהול - פלוגת יוגב</span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-6">

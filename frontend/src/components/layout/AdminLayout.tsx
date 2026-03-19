@@ -154,14 +154,16 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-100">
+    <div className="min-h-screen flex flex-col bg-gray-50">
       <Header />
       <div className="flex-1 flex">
         {/* Desktop Sidebar */}
-        <aside className="w-64 bg-white shadow-md hidden lg:block overflow-y-auto">
-          <div className="p-4 border-b">
+        <aside className="w-64 bg-white shadow-card hidden lg:block overflow-y-auto border-l border-gray-100">
+          <div className="p-4 border-b border-gray-100">
             <h2 className="font-bold text-military-700 flex items-center gap-2">
-              <LayoutDashboard className="w-5 h-5" />
+              <div className="w-8 h-8 bg-military-100 rounded-lg flex items-center justify-center">
+                <LayoutDashboard className="w-4 h-4 text-military-600" />
+              </div>
               פאנל ניהול
             </h2>
           </div>
@@ -172,28 +174,33 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               const hasActiveItem = section.items.some((item) => pathname === item.href);
 
               return (
-                <div key={section.id} className="mb-1">
+                <div key={section.id} className="mb-1.5">
                   <button
                     onClick={() => toggleSection(section.id)}
                     className={cn(
-                      'w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors text-sm font-medium',
+                      'w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-200 text-sm font-medium',
                       hasActiveItem
-                        ? 'bg-military-50 text-military-700'
-                        : 'text-gray-700 hover:bg-gray-100'
+                        ? 'bg-military-50 text-military-700 shadow-sm'
+                        : 'text-gray-700 hover:bg-gray-50'
                     )}
                   >
-                    <div className="flex items-center gap-2">
-                      <SectionIcon className="w-5 h-5" />
+                    <div className="flex items-center gap-2.5">
+                      <div className={cn(
+                        'w-7 h-7 rounded-lg flex items-center justify-center transition-colors',
+                        hasActiveItem ? 'bg-military-100' : 'bg-gray-100'
+                      )}>
+                        <SectionIcon className="w-4 h-4" />
+                      </div>
                       {section.label}
                     </div>
                     {isExpanded ? (
-                      <ChevronDown className="w-4 h-4" />
+                      <ChevronDown className="w-4 h-4 transition-transform" />
                     ) : (
-                      <ChevronLeft className="w-4 h-4" />
+                      <ChevronLeft className="w-4 h-4 transition-transform" />
                     )}
                   </button>
                   {isExpanded && (
-                    <ul className="mt-1 mr-4 space-y-0.5">
+                    <ul className="mt-1.5 mr-5 space-y-1 border-r-2 border-gray-100 pr-2">
                       {section.items.map((item) => {
                         const Icon = item.icon;
                         const isActive = pathname === item.href;
@@ -202,9 +209,9 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                             <Link
                               href={item.href}
                               className={cn(
-                                'flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm',
+                                'flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 text-sm',
                                 isActive
-                                  ? 'bg-military-700 text-white'
+                                  ? 'bg-military-700 text-white shadow-sm'
                                   : 'text-gray-600 hover:bg-military-50 hover:text-military-700'
                               )}
                             >
@@ -220,10 +227,10 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               );
             })}
           </nav>
-          <div className="p-4 border-t mt-auto">
+          <div className="p-4 border-t border-gray-100 mt-auto">
             <Link
               href="/dashboard"
-              className="flex items-center gap-2 text-gray-600 hover:text-military-700 transition-colors text-sm"
+              className="flex items-center gap-2 text-gray-500 hover:text-military-700 transition-colors text-sm px-3 py-2 rounded-lg hover:bg-gray-50"
             >
               <LayoutDashboard className="w-4 h-4" />
               חזרה לדף הראשי
@@ -231,11 +238,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           </div>
         </aside>
 
-        <main className="flex-1 p-6 overflow-auto">
+        <main className="flex-1 p-4 sm:p-6 overflow-auto">
           {/* Mobile Navigation */}
-          <div className="lg:hidden mb-4">
+          <div className="lg:hidden mb-4 bg-white rounded-2xl shadow-card p-3">
             {/* Section tabs */}
-            <div className="flex gap-2 overflow-x-auto pb-2 mb-2">
+            <div className="flex gap-2 overflow-x-auto pb-2 mb-2 scrollbar-hide">
               {adminMenuSections.map((section) => {
                 const SectionIcon = section.icon;
                 const hasActiveItem = section.items.some((item) => pathname === item.href);
@@ -249,12 +256,12 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                       setExpandedSections([section.id]);
                     }}
                     className={cn(
-                      'flex items-center gap-2 px-4 py-2 rounded-lg whitespace-nowrap transition-colors',
+                      'flex items-center gap-2 px-4 py-2.5 rounded-xl whitespace-nowrap transition-all duration-200 text-sm font-medium min-h-[44px]',
                       isExpanded
-                        ? 'bg-military-700 text-white'
+                        ? 'bg-military-700 text-white shadow-sm'
                         : hasActiveItem
                           ? 'bg-military-100 text-military-700'
-                          : 'bg-white text-gray-700'
+                          : 'bg-gray-100 text-gray-700'
                     )}
                   >
                     <SectionIcon className="w-4 h-4" />
@@ -264,7 +271,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               })}
             </div>
             {/* Sub-items for selected section */}
-            <div className="flex gap-2 overflow-x-auto pb-2">
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
               {adminMenuSections
                 .filter((section) => expandedSections.includes(section.id))
                 .flatMap((section) =>
@@ -276,13 +283,13 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                         key={item.href}
                         href={item.href}
                         className={cn(
-                          'flex items-center gap-2 px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors text-sm',
+                          'flex items-center gap-2 px-3 py-2 rounded-lg whitespace-nowrap transition-all duration-200 text-sm min-h-[40px]',
                           isActive
-                            ? 'bg-military-600 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            ? 'bg-military-600 text-white shadow-sm'
+                            : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
                         )}
                       >
-                        <Icon className="w-3 h-3" />
+                        <Icon className="w-3.5 h-3.5" />
                         {item.label}
                       </Link>
                     );
