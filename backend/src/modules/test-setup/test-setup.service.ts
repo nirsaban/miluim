@@ -5,7 +5,7 @@ import * as bcrypt from 'bcrypt';
 const TEST_PASSWORD = 'Test1234!';
 const ALLOWED_PERSONAL_ID = '1234567';
 
-interface TestUser {
+export interface TestUser {
   personalId: string;
   fullName: string;
   email: string;
