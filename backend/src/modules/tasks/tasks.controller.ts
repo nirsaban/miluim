@@ -55,6 +55,7 @@ export class TasksController {
       zoneId: string;
       name: string;
       description?: string;
+      requiredPeopleCount?: number;
       requirements?: TaskRequirementInput[];
     },
   ) {
@@ -66,7 +67,7 @@ export class TasksController {
   @Roles('ADMIN')
   update(
     @Param('id') id: string,
-    @Body() data: { name?: string; description?: string; isActive?: boolean; zoneId?: string },
+    @Body() data: { name?: string; description?: string; isActive?: boolean; zoneId?: string; requiredPeopleCount?: number },
   ) {
     return this.tasksService.update(id, data);
   }

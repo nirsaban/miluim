@@ -28,7 +28,7 @@ export default function AdminTasksPage() {
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingRequirementsId, setEditingRequirementsId] = useState<string | null>(null);
-  const [formData, setFormData] = useState({ name: '', description: '', zoneId: '' });
+  const [formData, setFormData] = useState({ name: '', description: '', zoneId: '', requiredPeopleCount: 1 });
   const [requirements, setRequirements] = useState<RequirementInput[]>([]);
 
   useEffect(() => {
@@ -66,7 +66,7 @@ export default function AdminTasksPage() {
     : tasks;
 
   const createMutation = useMutation({
-    mutationFn: async (data: { name: string; description?: string; zoneId: string; requirements?: RequirementInput[] }) => {
+    mutationFn: async (data: { name: string; description?: string; zoneId: string; requiredPeopleCount?: number; requirements?: RequirementInput[] }) => {
       const response = await api.post('/tasks', data);
       return response.data;
     },
@@ -75,7 +75,7 @@ export default function AdminTasksPage() {
       queryClient.invalidateQueries({ queryKey: ['zones-admin'] });
       toast.success('משימה נוספה בהצלחה');
       setIsAdding(false);
-      setFormData({ name: '', description: '', zoneId: '' });
+      setFormData({ name: '', description: '', zoneId: '', requiredPeopleCount: 1 });
       setRequirements([]);
     },
     onError: () => {
@@ -123,6 +123,7 @@ export default function AdminTasksPage() {
       name: formData.name,
       description: formData.description || undefined,
       zoneId: formData.zoneId,
+      requiredPeopleCount: formData.requiredPeopleCount || 1,
       requirements: requirements.filter((r) => r.skillId && r.quantity > 0),
     });
   };
@@ -137,6 +138,7 @@ export default function AdminTasksPage() {
       data: {
         name: formData.name,
         description: formData.description || undefined,
+        requiredPeopleCount: formData.requiredPeopleCount,
       },
     });
   };
@@ -154,6 +156,7 @@ export default function AdminTasksPage() {
       name: task.name,
       description: task.description || '',
       zoneId: task.zoneId,
+      requiredPeopleCount: task.requiredPeopleCount || 1,
     });
   };
 
@@ -252,6 +255,16 @@ export default function AdminTasksPage() {
                       onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                       className="flex-1"
                     />
+                    <div className="flex items-center gap-1">
+                      <span className="text-sm text-gray-600 whitespace-nowrap">מס׳ אנשים:</span>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={formData.requiredPeopleCount}
+                        onChange={(e) => setFormData({ ...formData, requiredPeopleCount: parseInt(e.target.value) || 1 })}
+                        className="w-16"
+                      />
+                    </div>
                   </div>
 
                   <div className="border-t pt-3">
@@ -296,7 +309,7 @@ export default function AdminTasksPage() {
                       variant="secondary"
                       onClick={() => {
                         setIsAdding(false);
-                        setFormData({ name: '', description: '', zoneId: '' });
+                        setFormData({ name: '', description: '', zoneId: '', requiredPeopleCount: 1 });
                         setRequirements([]);
                       }}
                     >
@@ -333,6 +346,16 @@ export default function AdminTasksPage() {
                         onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                         className="flex-1"
                       />
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-gray-500">אנשים:</span>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={formData.requiredPeopleCount}
+                          onChange={(e) => setFormData({ ...formData, requiredPeopleCount: parseInt(e.target.value) || 1 })}
+                          className="w-16"
+                        />
+                      </div>
                       <Button
                         size="sm"
                         onClick={() => handleUpdate(task.id)}
@@ -345,7 +368,7 @@ export default function AdminTasksPage() {
                         variant="secondary"
                         onClick={() => {
                           setEditingId(null);
-                          setFormData({ name: '', description: '', zoneId: '' });
+                          setFormData({ name: '', description: '', zoneId: '', requiredPeopleCount: 1 });
                         }}
                       >
                         <X className="w-4 h-4" />
@@ -413,6 +436,9 @@ export default function AdminTasksPage() {
                           <span className="font-medium">{task.name}</span>
                           <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
                             {task.zone?.name}
+                          </span>
+                          <span className="text-xs text-military-600 bg-military-100 px-2 py-0.5 rounded">
+                            {task.requiredPeopleCount || 1} אנשים
                           </span>
                         </div>
                         {task.description && (

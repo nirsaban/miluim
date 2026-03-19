@@ -97,6 +97,21 @@ export class ShiftSchedulesService {
     });
   }
 
+  async findByDate(date: Date, zoneId?: string) {
+    return this.prisma.shiftSchedule.findFirst({
+      where: {
+        date,
+        zoneId: zoneId || null,
+      },
+      include: {
+        zone: true,
+        shiftOfficer: {
+          select: { id: true, fullName: true, phone: true },
+        },
+      },
+    });
+  }
+
   async getScheduleStatus(date: Date, zoneId?: string) {
     const schedule = await this.prisma.shiftSchedule.findFirst({
       where: {

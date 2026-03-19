@@ -12,7 +12,7 @@ import {
   DragStartEvent,
   DragEndEvent,
 } from '@dnd-kit/core';
-import { ChevronRight, ChevronLeft, Calendar, Users, AlertTriangle, Check, Send, FileText, X, StickyNote, Search } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Calendar, Users, AlertTriangle, Check, Send, FileText, X, StickyNote, Search, Shield } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { Card, CardHeader, CardContent } from '@/components/ui/Card';
@@ -23,7 +23,19 @@ import { Spinner } from '@/components/ui/Spinner';
 import { SoldierCard } from '@/components/shifts/SoldierCard';
 import { TaskDropZone } from '@/components/shifts/TaskDropZone';
 import api from '@/lib/api';
-import { ShiftTemplate, ShiftAssignment, Zone, Task, AvailableSoldier, ScheduleStatus, PublishResult } from '@/types';
+import { ShiftTemplate, ShiftAssignment, Zone, Task, AvailableSoldier, ScheduleStatus, PublishResult, User } from '@/types';
+
+interface ShiftScheduleWithOfficer {
+  id: string;
+  date: string;
+  zoneId?: string;
+  shiftOfficerId?: string;
+  shiftOfficer?: {
+    id: string;
+    fullName: string;
+    phone: string;
+  };
+}
 
 // Edit Assignment Modal Component
 interface EditAssignmentModalProps {
@@ -265,6 +277,61 @@ export default function ShiftAssignmentsPage() {
     enabled: !!selectedZoneId,
   });
 
+  // Fetch schedule with shift officer info
+  const { data: scheduleWithOfficer } = useQuery<ShiftScheduleWithOfficer | null>({
+    queryKey: ['schedule-officer', selectedDate, selectedZoneId],
+    queryFn: async () => {
+      const response = await api.get('/shift-schedules/by-date', {
+        params: {
+          date: selectedDate,
+          zoneId: selectedZoneId || undefined,
+        },
+      });
+      return response.data;
+    },
+    enabled: !!selectedZoneId,
+  });
+
+  // Fetch potential shift officers (users with OFFICER+ role)
+  const { data: potentialOfficers } = useQuery<User[]>({
+    queryKey: ['potential-officers'],
+    queryFn: async () => {
+      const response = await api.get('/users/admin/soldiers');
+      // Filter to users who can be shift officers (OFFICER, LOGISTICS, ADMIN)
+      return response.data.filter((u: User) =>
+        ['OFFICER', 'LOGISTICS', 'ADMIN'].includes(u.role)
+      );
+    },
+  });
+
+  const assignOfficerMutation = useMutation({
+    mutationFn: async (officerId: string) => {
+      if (!scheduleWithOfficer?.id) {
+        // Create schedule first if it doesn't exist
+        const createResponse = await api.post('/shift-schedules', {
+          date: selectedDate,
+          zoneId: selectedZoneId || undefined,
+        });
+        const scheduleId = createResponse.data.id;
+        const response = await api.patch(`/shift-assignments/schedule/${scheduleId}/officer`, {
+          officerId,
+        });
+        return response.data;
+      }
+      const response = await api.patch(`/shift-assignments/schedule/${scheduleWithOfficer.id}/officer`, {
+        officerId,
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['schedule-officer'] });
+      toast.success('קצין תורן עודכן בהצלחה');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'שגיאה בעדכון קצין תורן');
+    },
+  });
+
   const publishMutation = useMutation({
     mutationFn: async (shiftTemplateId?: string) => {
       const params: { date: string; zoneId?: string; shiftTemplateId?: string } = {
@@ -495,6 +562,32 @@ export default function ShiftAssignmentsPage() {
           >
             היום
           </Button>
+
+          {/* Shift Officer Selector */}
+          {selectedZoneId && (
+            <div className="flex items-center gap-2 border-r pr-4 mr-2">
+              <Shield className="w-4 h-4 text-military-600" />
+              <span className="text-sm text-gray-600">קצין תורן:</span>
+              <Select
+                value={scheduleWithOfficer?.shiftOfficerId || ''}
+                onChange={(e) => {
+                  if (e.target.value) {
+                    assignOfficerMutation.mutate(e.target.value);
+                  }
+                }}
+                options={[
+                  { value: '', label: 'בחר קצין תורן' },
+                  ...(potentialOfficers?.map((u) => ({ value: u.id, label: u.fullName })) || []),
+                ]}
+                className="w-48"
+              />
+              {scheduleWithOfficer?.shiftOfficer && (
+                <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded">
+                  {scheduleWithOfficer.shiftOfficer.fullName}
+                </span>
+              )}
+            </div>
+          )}
 
           {/* Spacer */}
           <div className="flex-1" />

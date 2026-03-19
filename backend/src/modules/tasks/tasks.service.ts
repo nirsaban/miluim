@@ -57,6 +57,7 @@ export class TasksService {
     zoneId: string;
     name: string;
     description?: string;
+    requiredPeopleCount?: number;
     requirements?: TaskRequirementInput[];
   }) {
     // Verify zone exists
@@ -74,6 +75,7 @@ export class TasksService {
         zoneId: data.zoneId,
         name: data.name,
         description: data.description,
+        requiredPeopleCount: data.requiredPeopleCount || 1,
         requirements: data.requirements?.length
           ? {
               create: data.requirements.map((req) => ({
@@ -87,7 +89,7 @@ export class TasksService {
     });
   }
 
-  async update(id: string, data: { name?: string; description?: string; isActive?: boolean; zoneId?: string }) {
+  async update(id: string, data: { name?: string; description?: string; isActive?: boolean; zoneId?: string; requiredPeopleCount?: number }) {
     const task = await this.prisma.task.findUnique({ where: { id } });
 
     if (!task) {
@@ -110,6 +112,7 @@ export class TasksService {
         ...(data.description !== undefined && { description: data.description }),
         ...(data.isActive !== undefined && { isActive: data.isActive }),
         ...(data.zoneId && { zoneId: data.zoneId }),
+        ...(data.requiredPeopleCount !== undefined && { requiredPeopleCount: data.requiredPeopleCount }),
       },
       include: this.includeRequirements,
     });

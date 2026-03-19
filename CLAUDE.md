@@ -117,3 +117,4 @@ Located at `backend/prisma/schema.prisma` - defines all models, enums, and relat
 - OTP codes logged to console when Gmail not configured
 - Uploads stored in `backend/uploads/`
 - PostgreSQL runs on port 5433 (not default 5432)
+# the database schemas is locate in @backend/prisma/schema.prisma

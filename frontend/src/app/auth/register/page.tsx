@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
@@ -8,6 +8,8 @@ import toast from 'react-hot-toast';
 import { AuthLayout } from '@/components/layout/AuthLayout';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
+import { Select } from '@/components/ui/Select';
+import { MultiSelect } from '@/components/ui/MultiSelect';
 import api from '@/lib/api';
 
 interface RegisterForm {
@@ -22,6 +24,18 @@ interface RegisterForm {
   dailyJob?: string;
   fieldOfStudy?: string;
   birthDay?: string;
+}
+
+interface Skill {
+  id: string;
+  name: string;
+  displayName: string;
+}
+
+interface Department {
+  id: string;
+  name: string;
+  code: string;
 }
 
 interface PreApprovedData {
@@ -51,6 +65,27 @@ export default function RegisterPage() {
   const [isChecking, setIsChecking] = useState(false);
   const [preApprovedData, setPreApprovedData] = useState<PreApprovedData | null>(null);
   const [showOptional, setShowOptional] = useState(false);
+  const [skills, setSkills] = useState<Skill[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>([]);
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>('');
+
+  // Fetch skills and departments on mount
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [skillsRes, departmentsRes] = await Promise.all([
+          api.get('/skills'),
+          api.get('/users/departments/list'),
+        ]);
+        setSkills(skillsRes.data);
+        setDepartments(departmentsRes.data);
+      } catch (error) {
+        console.error('Error fetching skills/departments:', error);
+      }
+    };
+    fetchData();
+  }, []);
 
   const {
     register,
@@ -94,7 +129,11 @@ export default function RegisterPage() {
     setIsLoading(true);
     try {
       const { confirmPassword, ...registerData } = data;
-      const response = await api.post('/auth/register', registerData);
+      const response = await api.post('/auth/register', {
+        ...registerData,
+        skillIds: selectedSkillIds.length > 0 ? selectedSkillIds : undefined,
+        departmentId: selectedDepartmentId || undefined,
+      });
 
       if (response.data.success) {
         toast.success('ההרשמה הושלמה בהצלחה!');
@@ -247,6 +286,30 @@ export default function RegisterPage() {
                 },
               })}
             />
+
+            {/* Department Selection */}
+            <div>
+              <Select
+                label="מחלקה"
+                value={selectedDepartmentId}
+                onChange={(e) => setSelectedDepartmentId(e.target.value)}
+                options={departments.map((d) => ({ value: d.id, label: d.name }))}
+                placeholder="בחר מחלקה"
+              />
+            </div>
+
+            {/* Skills Selection */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                כישורים
+              </label>
+              <MultiSelect
+                options={skills.map((s) => ({ value: s.id, label: s.displayName }))}
+                value={selectedSkillIds}
+                onChange={setSelectedSkillIds}
+                placeholder="בחר כישורים..."
+              />
+            </div>
 
             {/* Optional fields toggle */}
             <div className="pt-2">

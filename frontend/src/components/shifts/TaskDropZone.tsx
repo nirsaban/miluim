@@ -25,15 +25,18 @@ export function TaskDropZone({
     id: `${task.id}::${shiftTemplateId}`,
   });
 
-  const checkRequirementsFulfilled = () => {
+  // Primary check: People count
+  const requiredPeopleCount = task.requiredPeopleCount || 1;
+  const assignedCount = assignments.length;
+  const peopleCountFulfilled = assignedCount >= requiredPeopleCount;
+
+  // Secondary: Skill requirements (informational only)
+  const checkSkillRequirements = () => {
     if (!task.requirements || task.requirements.length === 0) return null;
 
     const fulfillment = task.requirements.map((req) => {
-      // Check both explicit skills AND role (role acts as implicit skill)
       const assignedWithSkill = assignments.filter((a) => {
-        // Check if soldier has the skill explicitly
         const hasExplicitSkill = a.soldier.skills?.some((s) => s.skillId === req.skillId);
-        // Check if soldier's role matches the skill name (e.g., COMMANDER role = COMMANDER skill)
         const roleMatchesSkill = a.soldier.role === req.skill.name;
         return hasExplicitSkill || roleMatchesSkill;
       }).length;
@@ -44,11 +47,10 @@ export function TaskDropZone({
       };
     });
 
-    const allFulfilled = fulfillment.every((f) => f.fulfilled);
-    return { fulfillment, allFulfilled };
+    return fulfillment;
   };
 
-  const requirementsStatus = checkRequirementsFulfilled();
+  const skillRequirements = checkSkillRequirements();
 
   return (
     <div
@@ -76,40 +78,35 @@ export function TaskDropZone({
           </div>
         </div>
         <div className="flex items-center gap-4">
-          {/* Requirements Status */}
-          {requirementsStatus && (
-            <div className="flex items-center gap-2">
-              {requirementsStatus.allFulfilled ? (
-                <span className="flex items-center gap-1 text-sm text-green-600 bg-green-50 px-2 py-1 rounded">
-                  <Check className="w-4 h-4" />
-                  דרישות מולאו
-                </span>
-              ) : (
-                <span className="flex items-center gap-1 text-sm text-amber-600 bg-amber-50 px-2 py-1 rounded">
-                  <AlertTriangle className="w-4 h-4" />
-                  חסרים חיילים
-                </span>
-              )}
-            </div>
-          )}
-          <div className="flex items-center gap-1 text-gray-500">
-            <Users className="w-4 h-4" />
-            <span className="text-sm">{assignments.length}</span>
+          {/* People Count Status */}
+          <div className="flex items-center gap-2">
+            {peopleCountFulfilled ? (
+              <span className="flex items-center gap-1 text-sm text-green-600 bg-green-50 px-2 py-1 rounded">
+                <Check className="w-4 h-4" />
+                {assignedCount}/{requiredPeopleCount} אנשים
+              </span>
+            ) : (
+              <span className="flex items-center gap-1 text-sm text-amber-600 bg-amber-50 px-2 py-1 rounded">
+                <AlertTriangle className="w-4 h-4" />
+                {assignedCount}/{requiredPeopleCount} אנשים
+              </span>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Requirements */}
-      {task.requirements && task.requirements.length > 0 && (
+      {/* Skill Requirements (informational) */}
+      {skillRequirements && skillRequirements.length > 0 && (
         <div className="px-4 py-2 bg-gray-50 border-b flex flex-wrap gap-2">
-          {requirementsStatus?.fulfillment.map((req) => (
+          <span className="text-xs text-gray-500 ml-2">כישורים:</span>
+          {skillRequirements.map((req) => (
             <span
               key={req.skillId}
               className={`
                 inline-flex items-center gap-1 px-2 py-1 text-xs rounded
                 ${req.fulfilled
-                  ? 'bg-green-100 text-green-700'
-                  : 'bg-amber-100 text-amber-700'
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'bg-gray-100 text-gray-600'
                 }
               `}
             >

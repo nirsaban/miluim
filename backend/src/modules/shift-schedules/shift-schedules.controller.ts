@@ -41,6 +41,17 @@ export class ShiftSchedulesController {
     );
   }
 
+  @Get('by-date')
+  getByDate(
+    @Query('date') date: string,
+    @Query('zoneId') zoneId?: string,
+  ) {
+    return this.shiftSchedulesService.findByDate(
+      new Date(date),
+      zoneId && zoneId !== 'undefined' ? zoneId : undefined,
+    );
+  }
+
   @Get('current')
   findOrCreate(
     @Query('date') date: string,

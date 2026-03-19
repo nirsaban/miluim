@@ -51,6 +51,12 @@ export class LeaveRequestsController {
     return this.leaveRequestsService.cancelRequest(id, req.user.id);
   }
 
+  // Soldier can confirm their own return from leave
+  @Patch('my/:id/return')
+  confirmMyReturn(@Request() req: any, @Param('id') id: string) {
+    return this.leaveRequestsService.confirmSoldierReturn(id, req.user.id);
+  }
+
   // OFFICER endpoints (manages leave from their department, ADMIN has full access)
   @Get('dashboard')
   @UseGuards(RolesGuard)

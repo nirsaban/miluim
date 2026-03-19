@@ -122,6 +122,7 @@ export class AuthService {
         birthDay: dto.birthDay ? new Date(dto.birthDay) : null,
         isRegistered: true,
         armyNumber: dto.personalId, // Keep for backward compatibility
+        departmentId: dto.departmentId || existingUser.departmentId,
         skills: dto.skillIds?.length
           ? {
               create: dto.skillIds.map((skillId) => ({

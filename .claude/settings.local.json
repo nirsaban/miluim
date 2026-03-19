@@ -24,7 +24,11 @@
       "Bash(npm view:*)",
       "Bash(npx prisma db push:*)",
       "Bash(open http://localhost:3000)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(npx prisma migrate:*)",
+      "Bash(docker exec:*)",
+      "Bash(docker restart:*)",
+      "Bash(docker ps:*)"
     ]
   }
 }

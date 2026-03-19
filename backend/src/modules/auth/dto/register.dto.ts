@@ -46,6 +46,10 @@ export class RegisterDto {
   skillIds?: string[];
 
   @IsOptional()
+  @IsUUID('4')
+  departmentId?: string;
+
+  @IsOptional()
   @IsString()
   dailyJob?: string;
 

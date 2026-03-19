@@ -29,6 +29,12 @@ export class UsersController {
     return this.usersService.getRoles();
   }
 
+  @Public()
+  @Get('departments/list')
+  getPublicDepartments() {
+    return this.usersService.getDepartments();
+  }
+
   @Get('me')
   getProfile(@CurrentUser() user: any) {
     return this.usersService.findOne(user.id);

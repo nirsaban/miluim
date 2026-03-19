@@ -395,6 +395,36 @@ export class LeaveRequestsService {
     });
   }
 
+  // Allow soldier to confirm their own return from leave
+  async confirmSoldierReturn(id: string, soldierId: string) {
+    const request = await this.prisma.leaveRequest.findUnique({
+      where: { id },
+    });
+
+    if (!request) {
+      throw new NotFoundException('בקשה לא נמצאה');
+    }
+
+    // Verify the leave request belongs to this soldier
+    if (request.soldierId !== soldierId) {
+      throw new ForbiddenException('אין לך הרשאה לעדכן בקשה זו');
+    }
+
+    // Only allow confirming return for APPROVED or ACTIVE leave requests
+    if (!['APPROVED', 'ACTIVE'].includes(request.status)) {
+      throw new BadRequestException('ניתן לאשר חזרה רק ליציאות מאושרות או פעילות');
+    }
+
+    return this.prisma.leaveRequest.update({
+      where: { id },
+      data: {
+        status: 'RETURNED',
+        actualReturn: new Date(),
+      },
+      include: this.includeRelations,
+    });
+  }
+
   async findAll(
     params: {
       status?: LeaveStatus;

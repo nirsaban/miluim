@@ -57,12 +57,26 @@ export class ShiftAssignmentsService {
       where: { status: 'ACTIVE' },
     });
 
+    // Get soldiers with active/approved leave that overlaps with this date
+    const soldiersOnLeave = await this.prisma.leaveRequest.findMany({
+      where: {
+        status: { in: ['APPROVED', 'ACTIVE'] },
+        exitTime: { lte: date },
+        expectedReturn: { gte: date },
+      },
+      select: { soldierId: true },
+    });
+    const soldiersOnLeaveIds = soldiersOnLeave.map((l) => l.soldierId);
+
     // Get all active soldiers with their skills
     // Only include soldiers who confirmed arrival for the current service cycle
+    // Exclude soldiers who are on leave for this date
     const soldiers = await this.prisma.user.findMany({
       where: {
         isActive: true,
         role: { not: 'ADMIN' },
+        // Exclude soldiers with active leave on this date
+        id: { notIn: soldiersOnLeaveIds.length > 0 ? soldiersOnLeaveIds : ['no-exclude'] },
         // Only include soldiers who have ARRIVED status in the current service cycle
         ...(currentCycle && {
           serviceAttendances: {

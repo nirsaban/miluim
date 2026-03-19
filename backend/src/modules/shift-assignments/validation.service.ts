@@ -149,7 +149,9 @@ export class ValidationService {
         shiftTemplateId: string;
         shiftName: string;
         isValid: boolean;
-        requirements: {
+        requiredPeopleCount: number;
+        assignedCount: number;
+        skillRequirements: {
           skillId: string;
           skillName: string;
           required: number;
@@ -208,8 +210,13 @@ export class ValidationService {
           (a) => a.taskId === task.id && a.shiftTemplateId === shift.id,
         );
 
-        const requirements = task.requirements.map((req) => {
-          // Check both explicit skills AND role (role acts as implicit skill)
+        // Primary validation: Check people count
+        const requiredPeopleCount = task.requiredPeopleCount || 1;
+        const assignedCount = shiftAssignments.length;
+        const peopleCountFulfilled = assignedCount >= requiredPeopleCount;
+
+        // Secondary: Skill requirements (informational/suggestions only)
+        const skillRequirements = task.requirements.map((req) => {
           const assignedWithSkill = shiftAssignments.filter((a) => {
             const hasExplicitSkill = a.soldier.skills.some((s) => s.skillId === req.skillId);
             const roleMatchesSkill = a.soldier.role === req.skill.name;
@@ -225,7 +232,8 @@ export class ValidationService {
           };
         });
 
-        const isValid = requirements.every((r) => r.fulfilled);
+        // Task is valid if people count is fulfilled
+        const isValid = peopleCountFulfilled;
         if (isValid) fulfilledCount++;
         if (!isValid) warningCount++;
 
@@ -233,7 +241,9 @@ export class ValidationService {
           shiftTemplateId: shift.id,
           shiftName: shift.displayName,
           isValid,
-          requirements,
+          requiredPeopleCount,
+          assignedCount,
+          skillRequirements,
         });
       }
 

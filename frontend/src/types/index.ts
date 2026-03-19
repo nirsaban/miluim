@@ -316,6 +316,7 @@ export interface Task {
   zone?: Zone;
   name: string;
   description?: string;
+  requiredPeopleCount: number;
   isActive: boolean;
   requirements?: TaskRequirement[];
   createdAt: string;

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { FileText, Send, Clock, Home, LogOut, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { FileText, Send, Clock, Home, LogOut, CheckCircle, XCircle, AlertCircle, CornerDownLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { UserLayout } from '@/components/layout/UserLayout';
 import { Card, CardHeader, CardContent } from '@/components/ui/Card';
@@ -110,6 +110,21 @@ export default function RequestsPage() {
     },
     onError: (error: any) => {
       const message = error.response?.data?.message || 'שגיאה בשליחת הבקשה';
+      toast.error(message);
+    },
+  });
+
+  const confirmReturnMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await api.patch(`/leave-requests/my/${id}/return`);
+      return response.data;
+    },
+    onSuccess: () => {
+      toast.success('החזרה אושרה בהצלחה');
+      queryClient.invalidateQueries({ queryKey: ['my-leave-requests'] });
+    },
+    onError: (error: any) => {
+      const message = error.response?.data?.message || 'שגיאה באישור החזרה';
       toast.error(message);
     },
   });
@@ -251,6 +266,7 @@ export default function RequestsPage() {
                 const StatusIcon = statusConfig[request.status]?.icon || AlertCircle;
                 const statusColor = statusConfig[request.status]?.color || 'text-gray-500';
                 const statusLabel = statusConfig[request.status]?.label || request.status;
+                const canConfirmReturn = ['APPROVED', 'ACTIVE'].includes(request.status);
 
                 return (
                   <div
@@ -266,9 +282,27 @@ export default function RequestsPage() {
                         {formatDateTime(request.exitTime)} - {formatDateTime(request.expectedReturn)}
                       </div>
                     </div>
-                    <div className={cn('flex items-center gap-1', statusColor)}>
-                      <StatusIcon className="w-5 h-5" />
-                      <span className="text-sm font-medium">{statusLabel}</span>
+                    <div className="flex items-center gap-3">
+                      {canConfirmReturn && (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => {
+                            if (confirm('האם אתה בטוח שחזרת?')) {
+                              confirmReturnMutation.mutate(request.id);
+                            }
+                          }}
+                          isLoading={confirmReturnMutation.isPending}
+                          className="text-green-600 hover:bg-green-50"
+                        >
+                          <CornerDownLeft className="w-4 h-4 ml-1" />
+                          חזרתי
+                        </Button>
+                      )}
+                      <div className={cn('flex items-center gap-1', statusColor)}>
+                        <StatusIcon className="w-5 h-5" />
+                        <span className="text-sm font-medium">{statusLabel}</span>
+                      </div>
                     </div>
                   </div>
                 );
