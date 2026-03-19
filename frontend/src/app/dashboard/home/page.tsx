@@ -20,21 +20,32 @@ interface TestUser {
   fullName: string;
   email: string;
   role: string;
+  scenario: string;
   password: string;
 }
 
 interface TestSetupResult {
   registeredUsers: number;
   createdShifts: number;
+  createdWorkloadShifts: number;
   createdLeaves: number;
   createdMessages: number;
+  shiftOfficer: { fullName: string; personalId: string } | null;
+  todayShiftsSummary: {
+    morning: number;
+    afternoon: number;
+    night: number;
+    total: number;
+  };
   sampleUsers: TestUser[];
 }
 
 interface RollbackResult {
   deletedShifts: number;
+  deletedSchedules: number;
   deletedLeaves: number;
   deletedMessages: number;
+  deletedServiceCycles: number;
   resetUsers: number;
 }
 
@@ -542,70 +553,113 @@ export default function HomePage() {
 
               {/* Test Results */}
               {testResults && (
-                <div className="bg-white rounded-lg p-4 border border-purple-200">
-                  <h4 className="font-bold text-purple-800 mb-3">תוצאות הרצה</h4>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-                    <div className="bg-purple-50 p-2 rounded text-center">
-                      <div className="text-2xl font-bold text-purple-600">{testResults.registeredUsers}</div>
-                      <div className="text-xs text-gray-600">משתמשים נרשמו</div>
+                <div className="bg-white rounded-lg p-4 border border-purple-200 space-y-4">
+                  <h4 className="font-bold text-purple-800">תוצאות הרצה</h4>
+
+                  {/* Shift Officer */}
+                  {testResults.shiftOfficer && (
+                    <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                      <div className="flex items-center gap-2 text-blue-800">
+                        <span className="font-medium">קצין תורן היום:</span>
+                        <span>{testResults.shiftOfficer.fullName}</span>
+                        <span className="text-xs text-blue-600">(מ.א. {testResults.shiftOfficer.personalId})</span>
+                      </div>
                     </div>
-                    <div className="bg-purple-50 p-2 rounded text-center">
-                      <div className="text-2xl font-bold text-purple-600">{testResults.createdShifts}</div>
-                      <div className="text-xs text-gray-600">משמרות נוצרו</div>
-                    </div>
-                    <div className="bg-purple-50 p-2 rounded text-center">
-                      <div className="text-2xl font-bold text-purple-600">{testResults.createdLeaves}</div>
-                      <div className="text-xs text-gray-600">יציאות נוצרו</div>
-                    </div>
-                    <div className="bg-purple-50 p-2 rounded text-center">
-                      <div className="text-2xl font-bold text-purple-600">{testResults.createdMessages}</div>
-                      <div className="text-xs text-gray-600">הודעות נוצרו</div>
+                  )}
+
+                  {/* Today's Shifts Summary */}
+                  <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+                    <h5 className="font-medium text-yellow-800 mb-2">משמרות היום:</h5>
+                    <div className="grid grid-cols-4 gap-2 text-center text-sm">
+                      <div>
+                        <div className="text-lg font-bold text-yellow-600">{testResults.todayShiftsSummary.morning}</div>
+                        <div className="text-xs">בוקר</div>
+                      </div>
+                      <div>
+                        <div className="text-lg font-bold text-blue-600">{testResults.todayShiftsSummary.afternoon}</div>
+                        <div className="text-xs">צהריים</div>
+                      </div>
+                      <div>
+                        <div className="text-lg font-bold text-purple-600">{testResults.todayShiftsSummary.night}</div>
+                        <div className="text-xs">לילה</div>
+                      </div>
+                      <div>
+                        <div className="text-lg font-bold text-gray-800">{testResults.todayShiftsSummary.total}</div>
+                        <div className="text-xs">סה״כ</div>
+                      </div>
                     </div>
                   </div>
 
+                  {/* Stats Grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                    <div className="bg-purple-50 p-2 rounded text-center">
+                      <div className="text-xl font-bold text-purple-600">{testResults.registeredUsers}</div>
+                      <div className="text-xs text-gray-600">משתמשים נרשמו</div>
+                    </div>
+                    <div className="bg-purple-50 p-2 rounded text-center">
+                      <div className="text-xl font-bold text-purple-600">{testResults.createdShifts}</div>
+                      <div className="text-xs text-gray-600">משמרות היום</div>
+                    </div>
+                    <div className="bg-purple-50 p-2 rounded text-center">
+                      <div className="text-xl font-bold text-purple-600">{testResults.createdWorkloadShifts}</div>
+                      <div className="text-xs text-gray-600">עומסים (7 ימים)</div>
+                    </div>
+                    <div className="bg-purple-50 p-2 rounded text-center">
+                      <div className="text-xl font-bold text-purple-600">{testResults.createdLeaves}</div>
+                      <div className="text-xs text-gray-600">יציאות</div>
+                    </div>
+                    <div className="bg-purple-50 p-2 rounded text-center">
+                      <div className="text-xl font-bold text-purple-600">{testResults.createdMessages}</div>
+                      <div className="text-xs text-gray-600">הודעות</div>
+                    </div>
+                  </div>
+
+                  {/* Sample Users with Scenarios */}
                   {testResults.sampleUsers.length > 0 && (
-                    <>
-                      <h5 className="font-medium text-gray-700 mb-2">משתמשי בדיקה לדוגמה:</h5>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className="border-b border-purple-200">
-                              <th className="text-right py-2 px-2">שם</th>
-                              <th className="text-right py-2 px-2">תפקיד</th>
-                              <th className="text-right py-2 px-2">מ.א.</th>
-                              <th className="text-right py-2 px-2">סיסמה</th>
-                              <th className="py-2 px-2"></th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {testResults.sampleUsers.map((testUser) => (
-                              <tr key={testUser.personalId} className="border-b border-gray-100">
-                                <td className="py-2 px-2">{testUser.fullName}</td>
-                                <td className="py-2 px-2">{testUser.role}</td>
-                                <td className="py-2 px-2 font-mono text-xs">{testUser.personalId}</td>
-                                <td className="py-2 px-2 font-mono text-xs">{testUser.password}</td>
-                                <td className="py-2 px-2">
-                                  <button
-                                    onClick={() => copyToClipboard(
-                                      `מ.א.: ${testUser.personalId}\nסיסמה: ${testUser.password}`,
-                                      testUser.personalId
-                                    )}
-                                    className="p-1 hover:bg-gray-100 rounded"
-                                    title="העתק פרטי התחברות"
-                                  >
-                                    {copiedId === testUser.personalId ? (
-                                      <Check className="w-4 h-4 text-green-500" />
-                                    ) : (
-                                      <Copy className="w-4 h-4 text-gray-400" />
-                                    )}
-                                  </button>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                    <div>
+                      <h5 className="font-medium text-gray-700 mb-2">5 משתמשי בדיקה עם תרחישים:</h5>
+                      <div className="space-y-2">
+                        {testResults.sampleUsers.map((testUser, index) => (
+                          <div
+                            key={testUser.personalId}
+                            className={`p-3 rounded-lg border ${
+                              index === 0 ? 'bg-blue-50 border-blue-200' :
+                              index === 1 ? 'bg-green-50 border-green-200' :
+                              index === 2 ? 'bg-orange-50 border-orange-200' :
+                              index === 3 ? 'bg-yellow-50 border-yellow-200' :
+                              'bg-purple-50 border-purple-200'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium">{testUser.fullName}</span>
+                                  <span className="text-xs px-2 py-0.5 bg-white rounded">{testUser.role}</span>
+                                </div>
+                                <div className="text-sm text-gray-600 mt-1">{testUser.scenario}</div>
+                                <div className="text-xs text-gray-500 mt-1 font-mono">
+                                  מ.א.: {testUser.personalId} | סיסמה: {testUser.password}
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => copyToClipboard(
+                                  `מ.א.: ${testUser.personalId}\nסיסמה: ${testUser.password}`,
+                                  testUser.personalId
+                                )}
+                                className="p-2 hover:bg-white rounded-lg"
+                                title="העתק פרטי התחברות"
+                              >
+                                {copiedId === testUser.personalId ? (
+                                  <Check className="w-5 h-5 text-green-500" />
+                                ) : (
+                                  <Copy className="w-5 h-5 text-gray-400" />
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    </>
+                    </div>
                   )}
                 </div>
               )}
@@ -614,10 +668,14 @@ export default function HomePage() {
               {rollbackResults && (
                 <div className="bg-white rounded-lg p-4 border border-green-200">
                   <h4 className="font-bold text-green-800 mb-3">תוצאות ביטול</h4>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     <div className="bg-green-50 p-2 rounded text-center">
                       <div className="text-2xl font-bold text-green-600">{rollbackResults.deletedShifts}</div>
                       <div className="text-xs text-gray-600">משמרות נמחקו</div>
+                    </div>
+                    <div className="bg-green-50 p-2 rounded text-center">
+                      <div className="text-2xl font-bold text-green-600">{rollbackResults.deletedSchedules}</div>
+                      <div className="text-xs text-gray-600">סידורים נמחקו</div>
                     </div>
                     <div className="bg-green-50 p-2 rounded text-center">
                       <div className="text-2xl font-bold text-green-600">{rollbackResults.deletedLeaves}</div>
@@ -626,6 +684,10 @@ export default function HomePage() {
                     <div className="bg-green-50 p-2 rounded text-center">
                       <div className="text-2xl font-bold text-green-600">{rollbackResults.deletedMessages}</div>
                       <div className="text-xs text-gray-600">הודעות נמחקו</div>
+                    </div>
+                    <div className="bg-green-50 p-2 rounded text-center">
+                      <div className="text-2xl font-bold text-green-600">{rollbackResults.deletedServiceCycles}</div>
+                      <div className="text-xs text-gray-600">סבבים נמחקו</div>
                     </div>
                     <div className="bg-green-50 p-2 rounded text-center">
                       <div className="text-2xl font-bold text-green-600">{rollbackResults.resetUsers}</div>
