@@ -88,6 +88,7 @@ const adminMenuSections: MenuSection[] = [
     label: 'בקשות',
     icon: FileText,
     items: [
+      { href: '/admin/status', label: 'בקשות יציאה', icon: UserCheck },
       { href: '/admin/forms', label: 'טפסים ובקשות', icon: FileText },
       { href: '/admin/leave-categories', label: 'קטגוריות יציאה', icon: Tags },
     ],
