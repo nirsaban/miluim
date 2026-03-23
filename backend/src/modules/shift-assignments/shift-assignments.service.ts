@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { ShiftAssignmentStatus } from '@prisma/client';
+import { ShiftAssignmentStatus, FormType } from '@prisma/client';
 
 @Injectable()
 export class ShiftAssignmentsService {
@@ -1228,5 +1228,296 @@ export class ShiftAssignmentsService {
       recentShifts,
       monthlyTrend,
     };
+  }
+
+  // ============================================================
+  // CURRENT SHIFT MANAGEMENT (based on time, not full day)
+  // ============================================================
+
+  /**
+   * Get the current active shift template based on current time
+   */
+  async getCurrentShiftTemplate() {
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    const currentTimeMinutes = currentHour * 60 + currentMinute;
+
+    const templates = await this.prisma.shiftTemplate.findMany({
+      where: { isActive: true },
+      orderBy: { sortOrder: 'asc' },
+    });
+
+    // Find the shift that the current time falls within
+    for (const template of templates) {
+      const [startH, startM] = template.startTime.split(':').map(Number);
+      const [endH, endM] = template.endTime.split(':').map(Number);
+      const startMinutes = startH * 60 + startM;
+      let endMinutes = endH * 60 + endM;
+
+      // Handle overnight shifts (e.g., 22:00 - 06:00)
+      if (endMinutes < startMinutes) {
+        // If current time is after start OR before end, it's in this shift
+        if (currentTimeMinutes >= startMinutes || currentTimeMinutes < endMinutes) {
+          return template;
+        }
+      } else {
+        // Normal shift
+        if (currentTimeMinutes >= startMinutes && currentTimeMinutes < endMinutes) {
+          return template;
+        }
+      }
+    }
+
+    // If no exact match, return the next upcoming shift
+    return templates[0] || null;
+  }
+
+  /**
+   * Get current shift overview focusing only on the active shift (not full day)
+   */
+  async getCurrentShiftOnlyOverview(userId: string) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Check if user is shift officer today
+    const schedule = await this.prisma.shiftSchedule.findFirst({
+      where: {
+        date: today,
+        shiftOfficerId: userId,
+      },
+      include: {
+        zone: true,
+        shiftOfficer: {
+          select: {
+            id: true,
+            fullName: true,
+            phone: true,
+          },
+        },
+      },
+    });
+
+    if (!schedule) {
+      return null;
+    }
+
+    // Get current shift template
+    const currentTemplate = await this.getCurrentShiftTemplate();
+    if (!currentTemplate) {
+      return null;
+    }
+
+    // Build where clause
+    const whereClause: any = {
+      date: today,
+      shiftTemplateId: currentTemplate.id,
+    };
+    if (schedule.zoneId) {
+      whereClause.task = { zoneId: schedule.zoneId };
+    }
+
+    // Get assignments only for the current shift
+    const assignments = await this.prisma.shiftAssignment.findMany({
+      where: whereClause,
+      include: {
+        shiftTemplate: true,
+        task: {
+          include: { zone: true },
+        },
+        soldier: {
+          select: {
+            id: true,
+            fullName: true,
+            phone: true,
+            militaryRole: true,
+            role: true,
+          },
+        },
+      },
+      orderBy: [{ task: { name: 'asc' } }, { soldier: { fullName: 'asc' } }],
+    });
+
+    // Group by task
+    const taskGroups: Record<string, {
+      task: any;
+      soldiers: any[];
+      commanderCount: number;
+    }> = {};
+
+    for (const assignment of assignments) {
+      const taskId = assignment.taskId;
+
+      if (!taskGroups[taskId]) {
+        taskGroups[taskId] = {
+          task: assignment.task,
+          soldiers: [],
+          commanderCount: 0,
+        };
+      }
+
+      const isCommander = assignment.soldier.role === 'COMMANDER' ||
+                         assignment.soldier.militaryRole === 'SQUAD_COMMANDER' ||
+                         assignment.soldier.militaryRole === 'DUTY_OFFICER';
+
+      taskGroups[taskId].soldiers.push({
+        id: assignment.id,
+        soldier: assignment.soldier,
+        arrivedAt: assignment.arrivedAt,
+        batteryLevel: assignment.batteryLevel,
+        missingItems: assignment.missingItems,
+        status: assignment.status,
+        isCommander,
+      });
+
+      if (isCommander) {
+        taskGroups[taskId].commanderCount++;
+      }
+    }
+
+    // Get shift submissions (SHIFT_REQUEST forms from today)
+    const submissions = await this.prisma.formSubmission.findMany({
+      where: {
+        type: FormType.SHIFT_REQUEST,
+        createdAt: {
+          gte: today,
+        },
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            fullName: true,
+            phone: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return {
+      date: today,
+      schedule: {
+        id: schedule.id,
+        zone: schedule.zone,
+        shiftOfficer: schedule.shiftOfficer,
+      },
+      currentShift: {
+        shiftTemplate: currentTemplate,
+        tasks: Object.values(taskGroups),
+        stats: {
+          total: assignments.length,
+          arrived: assignments.filter(a => a.arrivedAt).length,
+          pending: assignments.filter(a => !a.arrivedAt).length,
+          totalTasks: Object.keys(taskGroups).length,
+        },
+      },
+      submissions: submissions.map(s => ({
+        id: s.id,
+        user: s.user,
+        category: (s.content as any)?.category || 'other',
+        message: (s.content as any)?.message || '',
+        shiftName: (s.content as any)?.shiftName || '',
+        taskName: (s.content as any)?.taskName || '',
+        status: s.status,
+        createdAt: s.createdAt,
+      })),
+    };
+  }
+
+  /**
+   * Get all commanders in the current shift with task info
+   */
+  async getCurrentShiftCommanders(userId: string) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Check if user is shift officer today
+    const schedule = await this.prisma.shiftSchedule.findFirst({
+      where: {
+        date: today,
+        shiftOfficerId: userId,
+      },
+    });
+
+    if (!schedule) {
+      return [];
+    }
+
+    // Get current shift template
+    const currentTemplate = await this.getCurrentShiftTemplate();
+    if (!currentTemplate) {
+      return [];
+    }
+
+    // Build where clause for commanders only
+    const whereClause: any = {
+      date: today,
+      shiftTemplateId: currentTemplate.id,
+      soldier: {
+        OR: [
+          { role: 'COMMANDER' },
+          { militaryRole: 'SQUAD_COMMANDER' },
+          { militaryRole: 'DUTY_OFFICER' },
+        ],
+      },
+    };
+    if (schedule.zoneId) {
+      whereClause.task = { zoneId: schedule.zoneId };
+    }
+
+    const commanderAssignments = await this.prisma.shiftAssignment.findMany({
+      where: whereClause,
+      include: {
+        task: {
+          include: { zone: true },
+        },
+        soldier: {
+          select: {
+            id: true,
+            fullName: true,
+            phone: true,
+            militaryRole: true,
+          },
+        },
+      },
+      orderBy: { task: { name: 'asc' } },
+    });
+
+    return commanderAssignments.map(a => ({
+      id: a.id,
+      soldier: a.soldier,
+      task: a.task,
+      arrivedAt: a.arrivedAt,
+      batteryLevel: a.batteryLevel,
+    }));
+  }
+
+  /**
+   * Update submission status (confirm receipt by shift officer)
+   */
+  async confirmSubmissionReceipt(submissionId: string, userId: string) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Verify user is shift officer
+    const schedule = await this.prisma.shiftSchedule.findFirst({
+      where: {
+        date: today,
+        shiftOfficerId: userId,
+      },
+    });
+
+    if (!schedule) {
+      throw new BadRequestException('רק קצין תורן יכול לאשר קבלת בקשות');
+    }
+
+    return this.prisma.formSubmission.update({
+      where: { id: submissionId },
+      data: {
+        status: 'APPROVED',
+        adminComment: `אושר ע"י קצין תורן`,
+      },
+    });
   }
 }

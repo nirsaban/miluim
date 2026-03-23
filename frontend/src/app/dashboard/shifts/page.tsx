@@ -165,6 +165,17 @@ export default function ShiftsPage() {
     },
   });
 
+  // Get today's shift schedule for shift officer info
+  const { data: todaySchedule } = useQuery<{
+    shiftOfficer: { id: string; fullName: string; phone: string } | null;
+  } | null>({
+    queryKey: ['today-schedule'],
+    queryFn: async () => {
+      const response = await api.get('/shift-assignments/active/today');
+      return response.data?.schedule || null;
+    },
+  });
+
   // Confirm arrival mutation
   const confirmArrivalMutation = useMutation({
     mutationFn: async (assignmentId: string) => {
@@ -531,10 +542,27 @@ export default function ShiftsPage() {
 
           {/* All Shifts for Today */}
           <Card className="mb-6">
-            <CardHeader className="flex items-center gap-2 bg-military-50">
-              <Calendar className="w-5 h-5 text-military-600" />
-              <span className="font-bold">כל המשמרות להיום</span>
-              <span className="text-sm text-gray-500">({todayShifts?.length || 0} שיבוצים)</span>
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-military-50">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-military-600" />
+                <span className="font-bold">כל המשמרות להיום</span>
+                <span className="text-sm text-gray-500">({todayShifts?.length || 0} שיבוצים)</span>
+              </div>
+              {todaySchedule?.shiftOfficer && (
+                <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-military-200">
+                  <UserCheck className="w-4 h-4 text-military-600" />
+                  <span className="text-sm font-medium">קצין תורן:</span>
+                  <span className="text-sm">{todaySchedule.shiftOfficer.fullName}</span>
+                  <a
+                    href={formatWhatsAppLink(todaySchedule.shiftOfficer.phone)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-green-600 hover:text-green-700 p-1"
+                  >
+                    <Phone className="w-4 h-4" />
+                  </a>
+                </div>
+              )}
             </CardHeader>
             <CardContent>
               {sortedTemplates.length > 0 ? (

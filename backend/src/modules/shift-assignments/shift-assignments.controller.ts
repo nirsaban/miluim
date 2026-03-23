@@ -84,6 +84,21 @@ export class ShiftAssignmentsController {
     return this.shiftAssignmentsService.getCurrentShiftOverview(user.id);
   }
 
+  @Get('active/current-shift-only')
+  getCurrentShiftOnlyOverview(@CurrentUser() user: any) {
+    return this.shiftAssignmentsService.getCurrentShiftOnlyOverview(user.id);
+  }
+
+  @Get('active/current-commanders')
+  getCurrentShiftCommanders(@CurrentUser() user: any) {
+    return this.shiftAssignmentsService.getCurrentShiftCommanders(user.id);
+  }
+
+  @Post('active/submission/:id/confirm')
+  confirmSubmissionReceipt(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.shiftAssignmentsService.confirmSubmissionReceipt(id, user.id);
+  }
+
   @Patch('schedule/:id/officer')
   @UseGuards(RolesGuard)
   @Roles('LOGISTICS')
