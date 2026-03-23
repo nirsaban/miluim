@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { MessageSquare, Bell, Calendar, MapPin, Building2, User, Phone, ChevronLeft, CheckCircle2, Image, FlaskConical, RotateCcw, Copy, Check, BellRing, Timer } from 'lucide-react';
+import { MessageSquare, Bell, Calendar, MapPin, Building2, User, Phone, ChevronLeft, ChevronRight, CheckCircle2, Image, FlaskConical, RotateCcw, Copy, Check, BellRing, Timer, AlertCircle, Info, Megaphone } from 'lucide-react';
 import { PushNotificationToggle } from '@/components/ui/PushNotificationToggle';
 import { PWAInstallPrompt, usePWAInstall } from '@/components/ui/PWAInstallPrompt';
 import Link from 'next/link';
@@ -16,7 +16,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import api from '@/lib/api';
 import { MILITARY_ROLE_LABELS, MilitaryRole, MessageTargetAudience, ShiftType, SHIFT_TYPE_LABELS, ReserveServiceCycle, ServiceAttendance } from '@/types';
-import { formatWhatsAppLink, formatDate } from '@/lib/utils';
+import { formatWhatsAppLink, formatDate, cn } from '@/lib/utils';
 
 interface TestUser {
   personalId: string;
@@ -132,6 +132,62 @@ function calculateDaysSinceStart(startDate: string): number {
   const diffTime = today.getTime() - start.getTime();
   const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
   return diffDays + 1; // +1 to count the first day
+}
+
+// Inline Carousel Component for Messages
+interface CarouselMessage {
+  id: string;
+  title: string;
+  content: string;
+  priority?: string;
+  type?: string;
+  createdAt: string;
+  requiresConfirmation?: boolean;
+  isConfirmed?: boolean;
+}
+
+function useCarousel(itemCount: number, autoSlideInterval = 5000) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+
+  const goToNext = useCallback(() => {
+    if (itemCount > 1) {
+      setCurrentIndex((prev) => (prev + 1) % itemCount);
+    }
+  }, [itemCount]);
+
+  const goToPrev = useCallback(() => {
+    if (itemCount > 1) {
+      setCurrentIndex((prev) => (prev - 1 + itemCount) % itemCount);
+    }
+  }, [itemCount]);
+
+  const goToIndex = useCallback((index: number) => {
+    setCurrentIndex(index);
+  }, []);
+
+  // Auto-slide effect
+  useEffect(() => {
+    if (isPaused || itemCount <= 1) return;
+
+    const timer = setInterval(goToNext, autoSlideInterval);
+    return () => clearInterval(timer);
+  }, [autoSlideInterval, goToNext, isPaused, itemCount]);
+
+  // Reset index if items change
+  useEffect(() => {
+    if (currentIndex >= itemCount && itemCount > 0) {
+      setCurrentIndex(0);
+    }
+  }, [itemCount, currentIndex]);
+
+  return {
+    currentIndex,
+    goToNext,
+    goToPrev,
+    goToIndex,
+    setIsPaused,
+  };
 }
 
 export default function HomePage() {
@@ -285,9 +341,17 @@ export default function HomePage() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  // Use data from homeData instead of separate queries
-  const notifications = homeData?.notifications || [];
-  const messages = homeData?.messages || [];
+  // Use data from homeData - sort DESC by createdAt
+  const notifications = [...(homeData?.notifications || [])].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+  const messages = [...(homeData?.messages || [])].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+
+  // Carousel hooks for messages
+  const messagesCarousel = useCarousel(messages.length, 6000);
+  const notificationsCarousel = useCarousel(notifications.length, 5000);
 
   // Calculate days in service
   const daysInService = currentCycle?.status === 'ACTIVE' && myAttendance?.attendanceStatus === 'ARRIVED'
@@ -334,24 +398,43 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Welcome Section */}
+      {/* Welcome Section - Improved Structure */}
       <div className="mb-5 sm:mb-6">
-        <div className="flex items-center gap-3 sm:gap-4">
-          <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-military-600 to-military-800 rounded-2xl flex items-center justify-center shadow-md">
-            <span className="text-white font-bold text-lg sm:text-xl">
-              {user?.fullName?.charAt(0) || 'י'}
-            </span>
-          </div>
-          <div>
-            <h1 className="text-lg sm:text-xl font-bold text-military-700">
-              ברוך שובך, {user?.fullName}
-            </h1>
-            <p className="text-xs sm:text-sm text-gray-500">מערכת פלוגת יוגב</p>
+        <div className="bg-gradient-to-l from-military-50 via-white to-white rounded-2xl p-4 sm:p-5 border border-military-100 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-military-600 to-military-800 rounded-2xl flex items-center justify-center shadow-lg">
+                <span className="text-white font-bold text-xl sm:text-2xl">
+                  {user?.fullName?.charAt(0) || 'י'}
+                </span>
+              </div>
+              <div>
+                <h1 className="text-lg sm:text-xl font-bold text-military-700">
+                  ברוך שובך, {user?.fullName?.split(' ')[0]}
+                </h1>
+                <p className="text-sm text-gray-500">
+                  {user?.militaryRole ? MILITARY_ROLE_LABELS[user.militaryRole] : 'מערכת יוגב'}
+                </p>
+                {currentCycle?.status === 'ACTIVE' && myAttendance?.attendanceStatus === 'ARRIVED' && (
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                    <span className="text-xs text-green-600 font-medium">במילואים</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            {/* Day Counter Badge */}
+            {daysInService !== null && (
+              <div className="text-center bg-military-600 text-white px-4 py-2 rounded-xl shadow-md">
+                <div className="text-2xl sm:text-3xl font-bold">{daysInService}</div>
+                <div className="text-xs opacity-90">ימים</div>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* User Info Card */}
+      {/* User Info Card - Compact */}
       <Card className="mb-4">
         <CardContent className="py-3 sm:py-4">
           {homeLoading ? (
@@ -359,94 +442,78 @@ export default function HomePage() {
               <Spinner />
             </div>
           ) : (
-            <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-sm">
-              <div className="flex items-center gap-2.5 p-2.5 bg-gray-50 rounded-xl">
-                <div className="p-2 bg-military-100 rounded-lg">
-                  <MapPin className="w-4 h-4 text-military-600" />
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
+              <div className="flex items-center gap-2 p-2.5 bg-gray-50 rounded-xl">
+                <div className="p-1.5 bg-military-100 rounded-lg">
+                  <MapPin className="w-3.5 h-3.5 text-military-600" />
                 </div>
-                <div>
-                  <span className="text-gray-500 text-xs block">אזור פעילות</span>
-                  <span className="font-medium text-gray-900">{homeData?.user?.activeZone?.name || 'לא מוגדר'}</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2.5 p-2.5 bg-gray-50 rounded-xl">
-                <div className="p-2 bg-military-100 rounded-lg">
-                  <Building2 className="w-4 h-4 text-military-600" />
-                </div>
-                <div>
-                  <span className="text-gray-500 text-xs block">מחלקה</span>
-                  <span className="font-medium text-gray-900">{homeData?.user?.department?.name || user?.department?.name || 'לא מוגדר'}</span>
+                <div className="min-w-0">
+                  <span className="text-gray-400 text-[10px] block">אזור</span>
+                  <span className="font-medium text-gray-900 text-xs truncate block">{homeData?.user?.activeZone?.name || 'לא מוגדר'}</span>
                 </div>
               </div>
-              <div className="flex items-center gap-2.5 p-2.5 bg-gray-50 rounded-xl">
-                <div className="p-2 bg-military-100 rounded-lg">
-                  <User className="w-4 h-4 text-military-600" />
+              <div className="flex items-center gap-2 p-2.5 bg-gray-50 rounded-xl">
+                <div className="p-1.5 bg-military-100 rounded-lg">
+                  <Building2 className="w-3.5 h-3.5 text-military-600" />
                 </div>
-                <div>
-                  <span className="text-gray-500 text-xs block">תפקיד</span>
-                  <span className="font-medium text-gray-900">
-                    {user?.militaryRole ? MILITARY_ROLE_LABELS[user.militaryRole] : 'לא מוגדר'}
-                  </span>
+                <div className="min-w-0">
+                  <span className="text-gray-400 text-[10px] block">מחלקה</span>
+                  <span className="font-medium text-gray-900 text-xs truncate block">{homeData?.user?.department?.name || user?.department?.name || 'לא מוגדר'}</span>
                 </div>
               </div>
               {homeData?.user?.commander && (
-                <div className="flex items-center gap-2.5 p-2.5 bg-green-50 rounded-xl">
-                  <div className="p-2 bg-green-100 rounded-lg">
-                    <Phone className="w-4 h-4 text-green-600" />
+                <div className="flex items-center gap-2 p-2.5 bg-green-50 rounded-xl col-span-2 sm:col-span-2">
+                  <div className="p-1.5 bg-green-100 rounded-lg">
+                    <Phone className="w-3.5 h-3.5 text-green-600" />
                   </div>
-                  <div>
-                    <span className="text-gray-500 text-xs block">מפקד</span>
+                  <div className="min-w-0">
+                    <span className="text-gray-400 text-[10px] block">מפקד</span>
                     <a
                       href={formatWhatsAppLink(homeData.user.commander.phone)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="font-medium text-green-600 hover:underline"
+                      className="font-medium text-green-600 hover:underline text-xs truncate block"
                     >
                       {homeData.user.commander.fullName}
                     </a>
                   </div>
                 </div>
               )}
-            </div>
-
-            {/* Days in Service Counter */}
-            {daysInService !== null && (
-              <div className="mt-3 p-3 bg-gradient-to-r from-military-100 to-military-50 rounded-xl border border-military-200">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Timer className="w-5 h-5 text-military-600" />
-                    <span className="text-sm font-medium text-military-700">ימים בסבב:</span>
+              {/* Service cycle info when active */}
+              {currentCycle?.status === 'ACTIVE' && (
+                <div className={cn(
+                  "flex items-center gap-2 p-2.5 rounded-xl",
+                  homeData?.user?.commander ? "col-span-2 sm:col-span-4" : "col-span-2",
+                  "bg-military-50 border border-military-100"
+                )}>
+                  <div className="p-1.5 bg-military-100 rounded-lg">
+                    <Timer className="w-3.5 h-3.5 text-military-600" />
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-2xl font-bold text-military-700">{daysInService}</span>
-                    <span className="text-sm text-military-600">ימים</span>
+                  <div className="min-w-0 flex-1">
+                    <span className="text-gray-400 text-[10px] block">סבב נוכחי</span>
+                    <span className="font-medium text-military-700 text-xs truncate block">{currentCycle.name}</span>
                   </div>
                 </div>
-                {currentCycle && (
-                  <p className="text-xs text-gray-500 mt-1">
-                    {currentCycle.name} • התחלה: {new Date(currentCycle.startDate).toLocaleDateString('he-IL')}
-                  </p>
-                )}
-              </div>
-            )}
-            </>
+              )}
+            </div>
           )}
         </CardContent>
       </Card>
 
-      {/* My Shifts Summary */}
-      <Card className="mb-4">
-        <CardHeader className="flex items-center justify-between">
+      {/* My Shifts Summary - Improved Visibility */}
+      <Card className="mb-4 border-military-200 shadow-card">
+        <CardHeader className="flex items-center justify-between bg-gradient-to-l from-military-50 to-transparent">
           <div className="flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-military-600" />
-            <span>המשמרות שלי</span>
+            <div className="p-1.5 bg-military-100 rounded-lg">
+              <Calendar className="w-5 h-5 text-military-600" />
+            </div>
+            <span className="font-bold text-military-800">המשמרות שלי</span>
           </div>
           <Link
             href="/dashboard/shifts"
-            className="text-sm text-military-600 hover:text-military-700 flex items-center gap-1"
+            className="text-sm text-military-600 hover:text-military-700 flex items-center gap-1 px-3 py-1.5 rounded-lg hover:bg-military-100 transition-colors"
           >
-            משמרות
+            לוח משמרות
             <ChevronLeft className="w-4 h-4" />
           </Link>
         </CardHeader>
@@ -456,65 +523,85 @@ export default function HomePage() {
               <Spinner />
             </div>
           ) : homeData?.currentShift || homeData?.nextShift ? (
-            <div className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* Current Shift */}
               {homeData?.currentShift && (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="px-2 py-0.5 bg-green-500 text-white text-xs rounded">משמרת נוכחית</span>
+                <div className="bg-gradient-to-br from-green-50 to-green-100/50 border-2 border-green-300 rounded-xl p-4 shadow-sm">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="px-3 py-1 bg-green-500 text-white text-xs font-bold rounded-full shadow-sm">
+                      משמרת נוכחית
+                    </span>
+                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
                   </div>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-bold text-green-700">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-bold text-lg text-green-800">
                       {homeData.currentShift.shiftTemplate.displayName}
                     </span>
-                    <span className="text-sm text-gray-600">
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-green-700 bg-green-100/50 rounded-lg px-3 py-2">
+                    <Timer className="w-4 h-4" />
+                    <span className="font-medium">
                       {homeData.currentShift.shiftTemplate.startTime} - {homeData.currentShift.shiftTemplate.endTime}
                     </span>
                   </div>
                   {homeData.currentShift.task && (
-                    <p className="text-sm text-gray-600">
-                      משימה: {homeData.currentShift.task.name}
-                      {homeData.currentShift.task.zone && ` • ${homeData.currentShift.task.zone.name}`}
-                    </p>
+                    <div className="mt-2 text-sm text-green-700">
+                      <span className="font-medium">משימה:</span> {homeData.currentShift.task.name}
+                      {homeData.currentShift.task.zone && (
+                        <span className="text-green-600"> • {homeData.currentShift.task.zone.name}</span>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
 
               {/* Next Shift */}
               {homeData?.nextShift && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="px-2 py-0.5 bg-blue-500 text-white text-xs rounded">משמרת הבאה</span>
+                <div className={cn(
+                  "bg-gradient-to-br from-blue-50 to-blue-100/50 border-2 border-blue-300 rounded-xl p-4 shadow-sm",
+                  !homeData?.currentShift && "sm:col-span-2"
+                )}>
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="px-3 py-1 bg-blue-500 text-white text-xs font-bold rounded-full shadow-sm">
+                      משמרת הבאה
+                    </span>
                     {homeData.nextShift.date && (
-                      <span className="text-xs text-gray-500">
-                        {new Date(homeData.nextShift.date).toLocaleDateString('he-IL')}
+                      <span className="text-xs text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">
+                        {new Date(homeData.nextShift.date).toLocaleDateString('he-IL', { weekday: 'short', day: 'numeric', month: 'short' })}
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-bold text-blue-700">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-bold text-lg text-blue-800">
                       {homeData.nextShift.shiftTemplate.displayName}
                     </span>
-                    <span className="text-sm text-gray-600">
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-blue-700 bg-blue-100/50 rounded-lg px-3 py-2">
+                    <Timer className="w-4 h-4" />
+                    <span className="font-medium">
                       {homeData.nextShift.shiftTemplate.startTime} - {homeData.nextShift.shiftTemplate.endTime}
                     </span>
                   </div>
                   {homeData.nextShift.task && (
-                    <p className="text-sm text-gray-600">
-                      משימה: {homeData.nextShift.task.name}
-                      {homeData.nextShift.task.zone && ` • ${homeData.nextShift.task.zone.name}`}
-                    </p>
+                    <div className="mt-2 text-sm text-blue-700">
+                      <span className="font-medium">משימה:</span> {homeData.nextShift.task.name}
+                      {homeData.nextShift.task.zone && (
+                        <span className="text-blue-600"> • {homeData.nextShift.task.zone.name}</span>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
             </div>
           ) : (
-            <div className="text-center py-6">
-              <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500 mb-3">לא משובץ למשמרות כרגע</p>
+            <div className="text-center py-8 bg-gradient-to-br from-gray-50 to-gray-100/50 rounded-xl">
+              <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Calendar className="w-8 h-8 text-gray-400" />
+              </div>
+              <p className="text-gray-600 font-medium mb-4">לא משובץ למשמרות כרגע</p>
               <Link
                 href="/dashboard/shifts"
-                className="inline-flex items-center gap-1 text-military-600 hover:text-military-700 font-medium"
+                className="inline-flex items-center gap-1 text-military-600 hover:text-military-700 font-medium bg-military-100 px-4 py-2 rounded-lg hover:bg-military-200 transition-colors"
               >
                 צפייה בלוח המשמרות
                 <ChevronLeft className="w-4 h-4" />
@@ -575,19 +662,24 @@ export default function HomePage() {
         </Card>
       )}
 
-      {/* System Notifications */}
+      {/* System Notifications - Carousel */}
       <Card className="mb-4">
         <CardHeader className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Bell className="w-5 h-5 text-red-500" />
             <span>התראות מערכת</span>
             {notifications.length > 0 && (
-              <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
+              <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full animate-pulse">
                 {notifications.length}
               </span>
             )}
           </div>
-          <PushNotificationToggle />
+          <div className="flex items-center gap-2">
+            {notifications.length > 1 && (
+              <span className="text-xs text-gray-400">{notificationsCarousel.currentIndex + 1}/{notifications.length}</span>
+            )}
+            <PushNotificationToggle />
+          </div>
         </CardHeader>
         <CardContent>
           {homeLoading ? (
@@ -597,26 +689,102 @@ export default function HomePage() {
           ) : notifications.length === 0 ? (
             <p className="text-center text-gray-500 py-4">אין התראות חדשות</p>
           ) : (
-            <div className="space-y-3">
-              {notifications.slice(0, 3).map((notification) => (
+            <div
+              className="relative"
+              onMouseEnter={() => notificationsCarousel.setIsPaused(true)}
+              onMouseLeave={() => notificationsCarousel.setIsPaused(false)}
+            >
+              {/* Carousel Container */}
+              <div className="overflow-hidden rounded-xl">
                 <div
-                  key={notification.id}
-                  className="p-3 rounded-lg border-r-4 bg-blue-50 border-blue-500"
+                  className="flex transition-transform duration-300 ease-in-out"
+                  style={{ transform: `translateX(${notificationsCarousel.currentIndex * 100}%)` }}
                 >
-                  <h4 className="font-medium text-sm">{notification.title}</h4>
-                  <p className="text-xs text-gray-600 mt-1">{notification.content}</p>
+                  {notifications.map((notification, index) => (
+                    <div
+                      key={notification.id}
+                      className="w-full flex-shrink-0"
+                      style={{ marginRight: index === notifications.length - 1 ? 0 : '-100%' }}
+                    >
+                      <div className="p-4 rounded-xl border-r-4 bg-gradient-to-l from-blue-50 to-white border-blue-500 min-h-[80px]">
+                        <div className="flex items-start gap-3">
+                          <div className="p-2 bg-blue-100 rounded-lg flex-shrink-0">
+                            <Bell className="w-4 h-4 text-blue-600" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-bold text-sm text-gray-900">{notification.title}</h4>
+                            <p className="text-sm text-gray-600 mt-1 line-clamp-2">{notification.content}</p>
+                            <p className="text-xs text-gray-400 mt-2">
+                              {formatDate(notification.createdAt, 'dd/MM/yyyy HH:mm')}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              </div>
+
+              {/* Navigation Arrows */}
+              {notifications.length > 1 && (
+                <>
+                  <button
+                    onClick={notificationsCarousel.goToNext}
+                    className="absolute top-1/2 right-0 -translate-y-1/2 -translate-x-1 w-8 h-8 bg-white/90 shadow-md rounded-full flex items-center justify-center hover:bg-white transition-colors"
+                    aria-label="התראה הבאה"
+                  >
+                    <ChevronRight className="w-5 h-5 text-gray-600" />
+                  </button>
+                  <button
+                    onClick={notificationsCarousel.goToPrev}
+                    className="absolute top-1/2 left-0 -translate-y-1/2 translate-x-1 w-8 h-8 bg-white/90 shadow-md rounded-full flex items-center justify-center hover:bg-white transition-colors"
+                    aria-label="התראה קודמת"
+                  >
+                    <ChevronLeft className="w-5 h-5 text-gray-600" />
+                  </button>
+                </>
+              )}
+
+              {/* Dots Indicator */}
+              {notifications.length > 1 && (
+                <div className="flex items-center justify-center gap-1.5 mt-3">
+                  {notifications.map((_, index) => (
+                    <button
+                      key={index}
+                      onClick={() => notificationsCarousel.goToIndex(index)}
+                      className={cn(
+                        "w-2 h-2 rounded-full transition-all",
+                        index === notificationsCarousel.currentIndex
+                          ? "bg-blue-500 w-4"
+                          : "bg-gray-300 hover:bg-gray-400"
+                      )}
+                      aria-label={`עבור להתראה ${index + 1}`}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Daily Messages */}
-      <Card>
-        <CardHeader className="flex items-center gap-2">
-          <MessageSquare className="w-5 h-5 text-blue-500" />
-          <span>הודעות יומיות</span>
+      {/* Daily Messages - Carousel */}
+      <Card className="mb-4">
+        <CardHeader className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Megaphone className="w-5 h-5 text-military-600" />
+            <span>הודעות יומיות</span>
+            {messages.length > 0 && (
+              <span className="bg-military-100 text-military-700 text-xs px-2 py-0.5 rounded-full">
+                {messages.length}
+              </span>
+            )}
+          </div>
+          {messages.length > 1 && (
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-gray-400">{messagesCarousel.currentIndex + 1}/{messages.length}</span>
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           {homeLoading ? (
@@ -626,47 +794,114 @@ export default function HomePage() {
           ) : messages.length === 0 ? (
             <p className="text-center text-gray-500 py-4">אין הודעות חדשות</p>
           ) : (
-            <div className="space-y-3">
-              {messages.slice(0, 5).map((message) => (
+            <div
+              className="relative"
+              onMouseEnter={() => messagesCarousel.setIsPaused(true)}
+              onMouseLeave={() => messagesCarousel.setIsPaused(false)}
+            >
+              {/* Carousel Container */}
+              <div className="overflow-hidden rounded-xl">
                 <div
-                  key={message.id}
-                  className={`p-3 rounded-lg border-r-4 ${
-                    message.priority === 'CRITICAL'
-                      ? 'bg-red-50 border-red-500'
-                      : message.priority === 'HIGH'
-                        ? 'bg-orange-50 border-orange-500'
-                        : 'bg-gray-50 border-gray-300'
-                  }`}
+                  className="flex transition-transform duration-300 ease-in-out"
+                  style={{ transform: `translateX(${messagesCarousel.currentIndex * 100}%)` }}
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1">
-                      <h4 className="font-medium text-sm">{message.title}</h4>
-                      <p className="text-xs text-gray-600 mt-1 line-clamp-2">{message.content}</p>
-                    </div>
-                    {message.requiresConfirmation && (
-                      <div className="flex-shrink-0">
-                        {message.isConfirmed ? (
-                          <span className="inline-flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-1 rounded">
-                            <CheckCircle2 className="w-3 h-3" />
-                            אושר
-                          </span>
-                        ) : (
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => confirmMessageMutation.mutate(message.id)}
-                            isLoading={confirmMessageMutation.isPending}
-                            className="text-xs"
-                          >
-                            <CheckCircle2 className="w-3 h-3 ml-1" />
-                            אשר קריאה
-                          </Button>
+                  {messages.map((message, index) => (
+                    <div
+                      key={message.id}
+                      className="w-full flex-shrink-0"
+                      style={{ marginRight: index === messages.length - 1 ? 0 : '-100%' }}
+                    >
+                      <div
+                        className={cn(
+                          "p-4 rounded-xl border-r-4 min-h-[100px]",
+                          message.priority === 'CRITICAL'
+                            ? 'bg-red-50 border-red-500'
+                            : message.priority === 'HIGH'
+                              ? 'bg-orange-50 border-orange-500'
+                              : 'bg-military-50 border-military-400'
                         )}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              {message.priority === 'CRITICAL' && (
+                                <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+                              )}
+                              {message.priority === 'HIGH' && (
+                                <Info className="w-4 h-4 text-orange-500 flex-shrink-0" />
+                              )}
+                              <h4 className="font-bold text-sm text-gray-900 truncate">{message.title}</h4>
+                            </div>
+                            <p className="text-sm text-gray-700 line-clamp-3">{message.content}</p>
+                            <p className="text-xs text-gray-400 mt-2">
+                              {formatDate(message.createdAt, 'dd/MM/yyyy HH:mm')}
+                            </p>
+                          </div>
+                          {message.requiresConfirmation && (
+                            <div className="flex-shrink-0">
+                              {message.isConfirmed ? (
+                                <span className="inline-flex items-center gap-1 text-xs text-green-600 bg-green-100 px-2.5 py-1.5 rounded-lg">
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                  אושר
+                                </span>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  onClick={() => confirmMessageMutation.mutate(message.id)}
+                                  isLoading={confirmMessageMutation.isPending}
+                                  className="text-xs"
+                                >
+                                  <CheckCircle2 className="w-3.5 h-3.5 ml-1" />
+                                  אשר קריאה
+                                </Button>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              </div>
+
+              {/* Navigation Arrows */}
+              {messages.length > 1 && (
+                <>
+                  <button
+                    onClick={messagesCarousel.goToNext}
+                    className="absolute top-1/2 right-0 -translate-y-1/2 -translate-x-1 w-8 h-8 bg-white/90 shadow-md rounded-full flex items-center justify-center hover:bg-white transition-colors"
+                    aria-label="הודעה הבאה"
+                  >
+                    <ChevronRight className="w-5 h-5 text-gray-600" />
+                  </button>
+                  <button
+                    onClick={messagesCarousel.goToPrev}
+                    className="absolute top-1/2 left-0 -translate-y-1/2 translate-x-1 w-8 h-8 bg-white/90 shadow-md rounded-full flex items-center justify-center hover:bg-white transition-colors"
+                    aria-label="הודעה קודמת"
+                  >
+                    <ChevronLeft className="w-5 h-5 text-gray-600" />
+                  </button>
+                </>
+              )}
+
+              {/* Dots Indicator */}
+              {messages.length > 1 && (
+                <div className="flex items-center justify-center gap-1.5 mt-3">
+                  {messages.map((_, index) => (
+                    <button
+                      key={index}
+                      onClick={() => messagesCarousel.goToIndex(index)}
+                      className={cn(
+                        "w-2 h-2 rounded-full transition-all",
+                        index === messagesCarousel.currentIndex
+                          ? "bg-military-600 w-4"
+                          : "bg-gray-300 hover:bg-gray-400"
+                      )}
+                      aria-label={`עבור להודעה ${index + 1}`}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </CardContent>

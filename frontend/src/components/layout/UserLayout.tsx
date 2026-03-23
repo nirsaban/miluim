@@ -19,7 +19,6 @@ import {
   Building2,
   UserCheck,
   BarChart3,
-  ChevronDown,
   Settings,
   MoreHorizontal,
   X,
@@ -39,6 +38,7 @@ interface NavItem {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   roles?: UserRole[];
+  dividerAfter?: boolean; // Add divider after this item
 }
 
 interface NavSection {
@@ -50,9 +50,25 @@ interface NavSection {
 }
 
 // ============================================
-// Navigation Configuration
+// Navigation Configuration - Flat Structure for Desktop
 // ============================================
 
+// Flat navigation items for desktop sidebar (no grouping)
+const flatNavItems: NavItem[] = [
+  { href: '/dashboard/home', label: 'בית', icon: Home },
+  { href: '/dashboard/current-service', label: 'מילואים נוכחיים', icon: ClipboardCheck },
+  { href: '/dashboard/operational', label: 'מידע מבצעי', icon: Shield, dividerAfter: true },
+  { href: '/dashboard/shifts', label: 'משמרות', icon: Calendar },
+  { href: '/dashboard/workloads', label: 'עומסים', icon: BarChart3, dividerAfter: true },
+  { href: '/dashboard/shift-duty', label: 'ניהול משמרת', icon: UserCheck, roles: ['OFFICER', 'LOGISTICS', 'ADMIN'] },
+  { href: '/dashboard/department', label: 'מחלקה', icon: Building2, roles: ['OFFICER', 'ADMIN'], dividerAfter: true },
+  { href: '/dashboard/friends', label: 'חברים', icon: Users },
+  { href: '/dashboard/social', label: 'פעילות חברתית', icon: Heart, dividerAfter: true },
+  { href: '/dashboard/requests', label: 'בקשות וטפסים', icon: FileText },
+  { href: '/dashboard/profile', label: 'פרופיל', icon: User },
+];
+
+// Grouped sections still used for mobile "more" menu organization
 const navSections: NavSection[] = [
   {
     id: 'main',
@@ -125,6 +141,13 @@ const mobileNavConfig = {
 // Helper Functions
 // ============================================
 
+function filterFlatNavItems(items: NavItem[], userRole: UserRole): NavItem[] {
+  return items.filter((item) => {
+    if (!item.roles) return true;
+    return item.roles.includes(userRole);
+  });
+}
+
 function filterNavSections(sections: NavSection[], userRole: UserRole): NavSection[] {
   return sections
     .filter((section) => {
@@ -148,97 +171,6 @@ function getAllNavItems(sections: NavSection[]): NavItem[] {
 function isPathInSection(pathname: string, section: NavSection): boolean {
   return section.items.some(
     (item) => pathname === item.href || pathname.startsWith(item.href + '/')
-  );
-}
-
-// ============================================
-// Desktop Sidebar Section Component
-// ============================================
-
-interface DesktopNavSectionProps {
-  section: NavSection;
-  pathname: string;
-  isExpanded: boolean;
-  onToggle: () => void;
-}
-
-function DesktopNavSection({ section, pathname, isExpanded, onToggle }: DesktopNavSectionProps) {
-  const isActive = isPathInSection(pathname, section);
-  const SectionIcon = section.icon;
-
-  // For single-item sections, render as direct link
-  if (section.items.length === 1) {
-    const item = section.items[0];
-    const Icon = item.icon;
-    const isItemActive = pathname === item.href || pathname.startsWith(item.href + '/');
-
-    return (
-      <li>
-        <Link
-          href={item.href}
-          className={cn(
-            'flex items-center gap-3 px-4 py-3 rounded-lg transition-colors',
-            isItemActive
-              ? 'bg-military-700 text-white'
-              : 'text-gray-700 hover:bg-military-50'
-          )}
-        >
-          <Icon className="w-5 h-5" />
-          {item.label}
-        </Link>
-      </li>
-    );
-  }
-
-  return (
-    <li>
-      <button
-        onClick={onToggle}
-        className={cn(
-          'w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors',
-          isActive
-            ? 'bg-military-50 text-military-700'
-            : 'text-gray-700 hover:bg-gray-50'
-        )}
-      >
-        <div className="flex items-center gap-3">
-          <SectionIcon className="w-5 h-5" />
-          <span className="font-medium">{section.label}</span>
-        </div>
-        <ChevronDown
-          className={cn(
-            'w-4 h-4 transition-transform',
-            isExpanded && 'rotate-180'
-          )}
-        />
-      </button>
-
-      {isExpanded && (
-        <ul className="mt-1 mr-4 space-y-1">
-          {section.items.map((item) => {
-            const Icon = item.icon;
-            const isItemActive = pathname === item.href || pathname.startsWith(item.href + '/');
-
-            return (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  className={cn(
-                    'flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors text-sm',
-                    isItemActive
-                      ? 'bg-military-700 text-white'
-                      : 'text-gray-600 hover:bg-military-50'
-                  )}
-                >
-                  <Icon className="w-4 h-4" />
-                  {item.label}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </li>
   );
 }
 
@@ -321,33 +253,12 @@ export function UserLayout({ children }: UserLayoutProps) {
   // State for mobile "More" menu
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
 
-  // State for desktop collapsible sections (auto-expand active section)
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(() => {
-    const initial = new Set<string>();
-    // Auto-expand sections that contain the current path
-    navSections.forEach((section) => {
-      if (isPathInSection(pathname, section)) {
-        initial.add(section.id);
-      }
-    });
-    return initial;
-  });
-
   useEffect(() => {
     if (isHydrated && !isAuthenticated) {
       // Use replace to prevent back button issues
       router.replace('/auth/login');
     }
   }, [isAuthenticated, isHydrated, router]);
-
-  // Auto-expand section when pathname changes
-  useEffect(() => {
-    navSections.forEach((section) => {
-      if (isPathInSection(pathname, section)) {
-        setExpandedSections((prev) => new Set(prev).add(section.id));
-      }
-    });
-  }, [pathname]);
 
   if (!isHydrated || !isAuthenticated || !user) {
     return <PageLoader />;
@@ -366,18 +277,6 @@ export function UserLayout({ children }: UserLayoutProps) {
       !primaryHrefs.includes(item.href) &&
       (pathname === item.href || pathname.startsWith(item.href + '/'))
   );
-
-  const toggleSection = (sectionId: string) => {
-    setExpandedSections((prev) => {
-      const next = new Set(prev);
-      if (next.has(sectionId)) {
-        next.delete(sectionId);
-      } else {
-        next.add(sectionId);
-      }
-      return next;
-    });
-  };
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-100">
@@ -436,19 +335,35 @@ export function UserLayout({ children }: UserLayoutProps) {
         primaryHrefs={primaryHrefs}
       />
 
-      {/* Side Navigation - Desktop with Collapsible Sections */}
+      {/* Side Navigation - Desktop with Flat Items */}
       <aside className="hidden lg:block fixed right-0 top-16 bottom-0 w-60 bg-white border-l border-gray-200 overflow-y-auto">
         <nav className="p-4">
-          <ul className="space-y-2">
-            {filteredSections.map((section) => (
-              <DesktopNavSection
-                key={section.id}
-                section={section}
-                pathname={pathname}
-                isExpanded={expandedSections.has(section.id)}
-                onToggle={() => toggleSection(section.id)}
-              />
-            ))}
+          <ul className="space-y-1">
+            {filterFlatNavItems(flatNavItems, user.role).map((item, index, arr) => {
+              const Icon = item.icon;
+              const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+              const showDivider = item.dividerAfter && index < arr.length - 1;
+
+              return (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
+                    className={cn(
+                      'flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors',
+                      isActive
+                        ? 'bg-military-700 text-white shadow-sm'
+                        : 'text-gray-700 hover:bg-military-50 hover:text-military-700'
+                    )}
+                  >
+                    <Icon className="w-5 h-5" />
+                    <span className="font-medium">{item.label}</span>
+                  </Link>
+                  {showDivider && (
+                    <div className="my-2 mx-4 border-t border-gray-200" />
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </nav>
       </aside>
