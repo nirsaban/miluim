@@ -387,16 +387,17 @@ export class UsersService {
   private mapMilitaryRoleToLegacyRole(militaryRole: MilitaryRole): UserRole {
     // Permission mapping:
     // ADMIN: Full access (PLATOON_COMMANDER, SERGEANT_MAJOR, OPERATIONS_SGT)
-    // OFFICER: Shifts, Users, Skills management (OPERATIONS_NCO)
-    // COMMANDER: Forms/Requests, Messages management (DUTY_OFFICER)
-    // SOLDIER: No admin access (SQUAD_COMMANDER, FIGHTER)
+    // LOGISTICS: Limited admin - shifts, skills, operational links (OPERATIONS_NCO)
+    // OFFICER: Department-scoped - leave approval, department view (DUTY_OFFICER)
+    // COMMANDER: Receives commander notifications (SQUAD_COMMANDER)
+    // SOLDIER: Basic access (FIGHTER)
     const mapping: Record<MilitaryRole, UserRole> = {
       PLATOON_COMMANDER: UserRole.ADMIN,
       SERGEANT_MAJOR: UserRole.ADMIN,
       OPERATIONS_SGT: UserRole.ADMIN,
-      OPERATIONS_NCO: UserRole.OFFICER,
-      DUTY_OFFICER: UserRole.COMMANDER,
-      SQUAD_COMMANDER: UserRole.SOLDIER,
+      OPERATIONS_NCO: UserRole.LOGISTICS,
+      DUTY_OFFICER: UserRole.OFFICER,
+      SQUAD_COMMANDER: UserRole.COMMANDER,
       FIGHTER: UserRole.SOLDIER,
     };
 

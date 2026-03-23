@@ -25,9 +25,19 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UserRole, MessageType, MessagePriority, MessageTargetAudience, ShiftType, FormStatus, SoldierStatusType } from '@prisma/client';
 
+/**
+ * Admin Controller
+ *
+ * Role-based access:
+ * - ADMIN: Full access to all endpoints
+ * - LOGISTICS: Shifts only (via separate endpoints, not messages/forms/soldiers)
+ * - OFFICER: Forms and department-scoped access only
+ *
+ * Note: DUTY_OFFICER (MilitaryRole) with OFFICER role has department-scoped access
+ * but should NOT access this controller's messages endpoints.
+ */
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRole.ADMIN, UserRole.OFFICER)
 export class AdminController {
   constructor(
     private readonly adminService: AdminService,
@@ -38,18 +48,22 @@ export class AdminController {
   ) {}
 
   @Get('dashboard')
+  @Roles(UserRole.ADMIN, UserRole.OFFICER, UserRole.LOGISTICS)
   getDashboardStats() {
     return this.adminService.getDashboardStats();
   }
 
-  // Messages
+  // Messages - ADMIN only (not LOGISTICS or DUTY_OFFICER)
   @Get('messages')
+  @Roles(UserRole.ADMIN)
   getAllMessages() {
     return this.messagesService.findAll();
   }
 
   @Post('messages')
+  @Roles(UserRole.ADMIN)
   createMessage(
+    @CurrentUser() user: any,
     @Body() body: {
       title: string;
       content: string;
@@ -59,10 +73,11 @@ export class AdminController {
       requiresConfirmation?: boolean;
     },
   ) {
-    return this.messagesService.create(body);
+    return this.messagesService.create(body, user.id);
   }
 
   @Patch('messages/:id')
+  @Roles(UserRole.ADMIN)
   updateMessage(
     @Param('id') id: string,
     @Body() body: {
@@ -79,17 +94,20 @@ export class AdminController {
   }
 
   @Delete('messages/:id')
+  @Roles(UserRole.ADMIN)
   deleteMessage(@Param('id') id: string) {
     return this.messagesService.delete(id);
   }
 
-  // Shifts
+  // Shifts - ADMIN and LOGISTICS
   @Get('shifts')
+  @Roles(UserRole.ADMIN, UserRole.LOGISTICS)
   getAllShifts() {
     return this.shiftsService.findAll();
   }
 
   @Post('shifts')
+  @Roles(UserRole.ADMIN, UserRole.LOGISTICS)
   @UseInterceptors(
     FileInterceptor('image', {
       storage: diskStorage({
@@ -130,6 +148,7 @@ export class AdminController {
   }
 
   @Patch('shifts/:id')
+  @Roles(UserRole.ADMIN, UserRole.LOGISTICS)
   @UseInterceptors(
     FileInterceptor('image', {
       storage: diskStorage({
@@ -160,22 +179,26 @@ export class AdminController {
   }
 
   @Delete('shifts/:id')
+  @Roles(UserRole.ADMIN, UserRole.LOGISTICS)
   deleteShift(@Param('id') id: string) {
     return this.shiftsService.delete(id);
   }
 
-  // Forms
+  // Forms - ADMIN and OFFICER (DUTY_OFFICER will have department-scoped view in forms service)
   @Get('forms')
+  @Roles(UserRole.ADMIN, UserRole.OFFICER)
   getAllForms() {
     return this.formsService.findAll();
   }
 
   @Get('forms/pending')
+  @Roles(UserRole.ADMIN, UserRole.OFFICER)
   getPendingForms() {
     return this.formsService.findAll(FormStatus.PENDING);
   }
 
   @Patch('forms/:id')
+  @Roles(UserRole.ADMIN, UserRole.OFFICER)
   updateFormStatus(
     @Param('id') id: string,
     @Body() body: { status: FormStatus; adminComment?: string },
@@ -183,13 +206,15 @@ export class AdminController {
     return this.formsService.updateStatus(id, body.status, body.adminComment);
   }
 
-  // Soldier Status
+  // Soldier Status - ADMIN only
   @Get('status')
+  @Roles(UserRole.ADMIN)
   getSoldierStatuses() {
     return this.adminService.getAllUsersWithStatus();
   }
 
   @Patch('status/:soldierId')
+  @Roles(UserRole.ADMIN)
   updateSoldierStatus(
     @Param('soldierId') soldierId: string,
     @Body() body: { status: SoldierStatusType; note?: string },
@@ -197,8 +222,9 @@ export class AdminController {
     return this.adminService.updateSoldierStatus(soldierId, body.status, body.note);
   }
 
-  // Notifications
+  // Notifications - ADMIN only
   @Post('notifications/broadcast')
+  @Roles(UserRole.ADMIN)
   broadcastNotification(
     @Body() body: { title: string; content: string },
   ) {

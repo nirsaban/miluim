@@ -1,15 +1,29 @@
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { UserRole } from '@prisma/client';
+import { UserRole, MilitaryRole } from '@prisma/client';
 import { ROLES_KEY } from '../decorators/roles.decorator';
+import { isAdminMilitaryRole, isDutyOfficer } from '../constants/permissions';
 
 /**
  * Role hierarchy and permissions:
- * - ADMIN: Full system access (bypasses all role checks)
- * - LOGISTICS: Manages shifts, zones, operational links
- * - OFFICER: Manages their department, leave requests from department
- * - COMMANDER: Like SOLDIER + receives command-level notifications
- * - SOLDIER: Basic user access
+ *
+ * Admin-level (full access) - MilitaryRole determines this:
+ *   - PLATOON_COMMANDER, SERGEANT_MAJOR, OPERATIONS_SGT → ADMIN
+ *
+ * Operations/Logistics (limited admin access):
+ *   - OPERATIONS_NCO → LOGISTICS
+ *   - Access: shifts, operational links, skills, zones, tasks
+ *   - NO access: messages, forms, soldiers management, csv-import
+ *
+ * Department-scoped (OFFICER with department filter):
+ *   - DUTY_OFFICER → OFFICER (department-scoped)
+ *   - Access: dashboard/department, dashboard/shift-duty
+ *   - Can approve: only their department's leave requests/forms
+ *   - Department scoping is enforced in service layer
+ *
+ * Commander / Basic:
+ *   - SQUAD_COMMANDER → COMMANDER (receives commander notifications)
+ *   - FIGHTER → SOLDIER (basic user access)
  */
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -31,8 +45,14 @@ export class RolesGuard implements CanActivate {
       throw new ForbiddenException('אין הרשאה לבצע פעולה זו');
     }
 
-    // ADMIN always has access to everything
+    // ADMIN UserRole always has access to everything
     if (user.role === 'ADMIN') {
+      return true;
+    }
+
+    // Admin-level military roles (PLATOON_COMMANDER, SERGEANT_MAJOR, OPERATIONS_SGT)
+    // also have full access regardless of their UserRole
+    if (user.militaryRole && isAdminMilitaryRole(user.militaryRole)) {
       return true;
     }
 
@@ -42,6 +62,9 @@ export class RolesGuard implements CanActivate {
     if (!hasRole) {
       throw new ForbiddenException('אין הרשאה לבצע פעולה זו');
     }
+
+    // Note: Department-scoping for DUTY_OFFICER is enforced in service layer,
+    // not in this guard. The guard only checks if the role is allowed.
 
     return true;
   }
@@ -59,5 +82,21 @@ export class RolesGuard implements CanActivate {
       SOLDIER: 10,
     };
     return hierarchy[userRole] >= hierarchy[minRole];
+  }
+
+  /**
+   * Check if user has admin-level access (based on MilitaryRole or UserRole)
+   */
+  static hasAdminAccess(user: { role: UserRole; militaryRole?: MilitaryRole }): boolean {
+    if (user.role === 'ADMIN') return true;
+    if (user.militaryRole && isAdminMilitaryRole(user.militaryRole)) return true;
+    return false;
+  }
+
+  /**
+   * Check if user is department-scoped (DUTY_OFFICER)
+   */
+  static isDepartmentScoped(user: { militaryRole?: MilitaryRole }): boolean {
+    return user.militaryRole ? isDutyOfficer(user.militaryRole) : false;
   }
 }

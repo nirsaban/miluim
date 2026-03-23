@@ -20,8 +20,8 @@ import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
 import { Badge } from '@/components/ui/Badge';
 import api from '@/lib/api';
-import { MilitaryRole, MILITARY_ROLE_LABELS } from '@/types';
-import { useAuth } from '@/hooks/useAuth';
+import { MilitaryRole, MILITARY_ROLE_LABELS, isAdminMilitaryRole } from '@/types';
+import { useAuth, useIsFullAdmin } from '@/hooks/useAuth';
 
 interface DepartmentAnalytics {
   department: { id: string; name: string };
@@ -72,6 +72,7 @@ const ATTENDANCE_STATUS_COLORS: Record<string, string> = {
 
 export default function DepartmentPage() {
   const { user } = useAuth();
+  const isFullAdmin = useIsFullAdmin();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('');
   const [showFilters, setShowFilters] = useState(false);
@@ -106,8 +107,14 @@ export default function DepartmentPage() {
     return matchesSearch && matchesStatus;
   });
 
-  // Check if user has OFFICER role
-  if (user?.role !== 'OFFICER' && user?.role !== 'ADMIN') {
+  // Check if user has appropriate role
+  // Allowed: OFFICER, ADMIN, or admin-level military roles
+  const hasAccess =
+    user?.role === 'OFFICER' ||
+    user?.role === 'ADMIN' ||
+    isFullAdmin;
+
+  if (!hasAccess) {
     return (
       <UserLayout>
         <div className="text-center py-12">

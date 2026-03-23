@@ -1,11 +1,11 @@
 'use client';
 
-import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode, useEffect, useState, useMemo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { Header } from './Header';
 import { Footer } from './Footer';
-import { useAuth, useIsAdmin } from '@/hooks/useAuth';
+import { useAuth, useIsAdmin, useIsFullAdmin } from '@/hooks/useAuth';
 import { PageLoader } from '@/components/ui/Spinner';
 import { cn } from '@/lib/utils';
 import {
@@ -32,6 +32,12 @@ import {
   CalendarCheck,
   BarChart3,
 } from 'lucide-react';
+import {
+  UserRole,
+  isAdminMilitaryRole,
+  LOGISTICS_ALLOWED_ADMIN_SECTIONS,
+  LOGISTICS_ALLOWED_ADMIN_CONTENT_ITEMS,
+} from '@/types';
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -41,6 +47,7 @@ interface MenuItem {
   href: string;
   label: string;
   icon: LucideIcon;
+  id?: string; // Used for filtering within sections
 }
 
 interface MenuSection {
@@ -50,6 +57,10 @@ interface MenuSection {
   items: MenuItem[];
 }
 
+/**
+ * Admin menu sections - full list
+ * Access is filtered based on user role
+ */
 const adminMenuSections: MenuSection[] = [
   {
     id: 'service',
@@ -99,28 +110,82 @@ const adminMenuSections: MenuSection[] = [
     label: 'ניהול תוכן',
     icon: Settings,
     items: [
-      { href: '/admin/messages', label: 'הודעות', icon: MessageSquare },
-      { href: '/admin/notifications', label: 'התראות מערכת', icon: Bell },
-      { href: '/admin/operational', label: 'קישורים מבצעיים', icon: Link2 },
-      { href: '/admin/skills', label: 'כישורים', icon: Award },
+      { href: '/admin/messages', label: 'הודעות', icon: MessageSquare, id: 'messages' },
+      { href: '/admin/notifications', label: 'התראות מערכת', icon: Bell, id: 'notifications' },
+      { href: '/admin/operational', label: 'קישורים מבצעיים', icon: Link2, id: 'operational' },
+      { href: '/admin/skills', label: 'כישורים', icon: Award, id: 'skills' },
     ],
   },
 ];
+
+/**
+ * Filter menu sections based on user role
+ *
+ * ADMIN (and admin-level MilitaryRoles): See all sections
+ * LOGISTICS: See only 'service' and 'shifts' sections, and limited 'content' items
+ * OFFICER: See only 'requests' section (department forms)
+ */
+function filterMenuSections(
+  sections: MenuSection[],
+  userRole: UserRole | undefined,
+  isFullAdmin: boolean
+): MenuSection[] {
+  // Full admin sees everything
+  if (isFullAdmin) {
+    return sections;
+  }
+
+  // LOGISTICS sees limited sections
+  if (userRole === 'LOGISTICS') {
+    return sections
+      .filter(section =>
+        LOGISTICS_ALLOWED_ADMIN_SECTIONS.includes(section.id) ||
+        section.id === 'content'
+      )
+      .map(section => {
+        // Filter content section items for LOGISTICS
+        if (section.id === 'content') {
+          return {
+            ...section,
+            items: section.items.filter(item =>
+              item.id && LOGISTICS_ALLOWED_ADMIN_CONTENT_ITEMS.includes(item.id)
+            ),
+          };
+        }
+        return section;
+      })
+      .filter(section => section.items.length > 0);
+  }
+
+  // OFFICER sees only requests section (for form management)
+  if (userRole === 'OFFICER') {
+    return sections.filter(section => section.id === 'requests');
+  }
+
+  // Default: no admin access
+  return [];
+}
 
 export function AdminLayout({ children }: AdminLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { isAuthenticated, user, isHydrated } = useAuth();
   const isAdmin = useIsAdmin();
+  const isFullAdmin = useIsFullAdmin();
+
+  // Filter menu sections based on user role
+  const filteredSections = useMemo(() => {
+    return filterMenuSections(adminMenuSections, user?.role, isFullAdmin);
+  }, [user?.role, isFullAdmin]);
 
   // Find which section contains the active path
   const getActiveSectionId = () => {
-    for (const section of adminMenuSections) {
+    for (const section of filteredSections) {
       if (section.items.some((item) => pathname === item.href)) {
         return section.id;
       }
     }
-    return adminMenuSections[0]?.id || '';
+    return filteredSections[0]?.id || '';
   };
 
   const [expandedSections, setExpandedSections] = useState<string[]>([getActiveSectionId()]);
@@ -168,7 +233,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             </h2>
           </div>
           <nav className="p-2">
-            {adminMenuSections.map((section) => {
+            {filteredSections.map((section) => {
               const SectionIcon = section.icon;
               const isExpanded = expandedSections.includes(section.id);
               const hasActiveItem = section.items.some((item) => pathname === item.href);
@@ -243,7 +308,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           <div className="lg:hidden mb-4 bg-white rounded-2xl shadow-card p-3">
             {/* Section tabs */}
             <div className="flex gap-2 overflow-x-auto pb-2 mb-2 scrollbar-hide">
-              {adminMenuSections.map((section) => {
+              {filteredSections.map((section) => {
                 const SectionIcon = section.icon;
                 const hasActiveItem = section.items.some((item) => pathname === item.href);
                 const isExpanded = expandedSections.includes(section.id);
@@ -272,7 +337,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             </div>
             {/* Sub-items for selected section */}
             <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-              {adminMenuSections
+              {filteredSections
                 .filter((section) => expandedSections.includes(section.id))
                 .flatMap((section) =>
                   section.items.map((item) => {

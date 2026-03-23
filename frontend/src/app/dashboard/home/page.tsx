@@ -689,23 +689,21 @@ export default function HomePage() {
           ) : notifications.length === 0 ? (
             <p className="text-center text-gray-500 py-4">אין התראות חדשות</p>
           ) : (
-            <div
-              className="relative"
-              onMouseEnter={() => notificationsCarousel.setIsPaused(true)}
-              onMouseLeave={() => notificationsCarousel.setIsPaused(false)}
-            >
-              {/* Carousel Container */}
-              <div className="overflow-hidden rounded-xl">
+            <div className="relative">
+              {/* Carousel Container - LTR for proper slide behavior */}
+              <div className="overflow-hidden rounded-xl" dir="ltr">
                 <div
                   className="flex transition-transform duration-300 ease-in-out"
-                  style={{ transform: `translateX(${notificationsCarousel.currentIndex * -100}%)` }}
+                  style={{ transform: `translateX(-${notificationsCarousel.currentIndex * 100}%)` }}
                 >
                   {notifications.map((notification) => (
                     <div
                       key={notification.id}
-                      className="w-full flex-shrink-0 min-w-full"
+                      className="w-full flex-shrink-0"
+                      style={{ minWidth: '100%' }}
                     >
-                      <div className="p-4 rounded-xl border-r-4 bg-gradient-to-l from-blue-50 to-white border-blue-500 min-h-[80px]">
+                      {/* Content wrapper with RTL */}
+                      <div dir="rtl" className="p-4 rounded-xl border-r-4 bg-gradient-to-l from-blue-50 to-white border-blue-500 min-h-[80px]">
                         <div className="flex items-start gap-3">
                           <div className="p-2 bg-blue-100 rounded-lg flex-shrink-0">
                             <Bell className="w-4 h-4 text-blue-600" />
@@ -724,20 +722,20 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* Navigation Arrows */}
+              {/* Navigation Arrows - RTL: Left=Next, Right=Prev */}
               {notifications.length > 1 && (
                 <>
                   <button
-                    onClick={notificationsCarousel.goToNext}
-                    className="absolute top-1/2 right-0 -translate-y-1/2 -translate-x-1 w-8 h-8 bg-white/90 shadow-md rounded-full flex items-center justify-center hover:bg-white transition-colors"
-                    aria-label="התראה הבאה"
+                    onClick={notificationsCarousel.goToPrev}
+                    className="absolute top-1/2 right-0 -translate-y-1/2 translate-x-1 w-8 h-8 bg-white/90 shadow-md rounded-full flex items-center justify-center hover:bg-white transition-colors z-10"
+                    aria-label="התראה קודמת"
                   >
                     <ChevronRight className="w-5 h-5 text-gray-600" />
                   </button>
                   <button
-                    onClick={notificationsCarousel.goToPrev}
-                    className="absolute top-1/2 left-0 -translate-y-1/2 translate-x-1 w-8 h-8 bg-white/90 shadow-md rounded-full flex items-center justify-center hover:bg-white transition-colors"
-                    aria-label="התראה קודמת"
+                    onClick={notificationsCarousel.goToNext}
+                    className="absolute top-1/2 left-0 -translate-y-1/2 -translate-x-1 w-8 h-8 bg-white/90 shadow-md rounded-full flex items-center justify-center hover:bg-white transition-colors z-10"
+                    aria-label="התראה הבאה"
                   >
                     <ChevronLeft className="w-5 h-5 text-gray-600" />
                   </button>
@@ -793,23 +791,22 @@ export default function HomePage() {
           ) : messages.length === 0 ? (
             <p className="text-center text-gray-500 py-4">אין הודעות חדשות</p>
           ) : (
-            <div
-              className="relative"
-              onMouseEnter={() => messagesCarousel.setIsPaused(true)}
-              onMouseLeave={() => messagesCarousel.setIsPaused(false)}
-            >
-              {/* Carousel Container */}
-              <div className="overflow-hidden rounded-xl">
+            <div className="relative">
+              {/* Carousel Container - LTR for proper slide behavior */}
+              <div className="overflow-hidden rounded-xl" dir="ltr">
                 <div
                   className="flex transition-transform duration-300 ease-in-out"
-                  style={{ transform: `translateX(${messagesCarousel.currentIndex * -100}%)` }}
+                  style={{ transform: `translateX(-${messagesCarousel.currentIndex * 100}%)` }}
                 >
                   {messages.map((message) => (
                     <div
                       key={message.id}
-                      className="w-full flex-shrink-0 min-w-full"
+                      className="w-full flex-shrink-0"
+                      style={{ minWidth: '100%' }}
                     >
+                      {/* Content wrapper with RTL */}
                       <div
+                        dir="rtl"
                         className={cn(
                           "p-4 rounded-xl border-r-4 min-h-[100px]",
                           message.priority === 'CRITICAL'
@@ -862,20 +859,20 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* Navigation Arrows */}
+              {/* Navigation Arrows - RTL: Left=Next, Right=Prev */}
               {messages.length > 1 && (
                 <>
                   <button
-                    onClick={messagesCarousel.goToNext}
-                    className="absolute top-1/2 right-0 -translate-y-1/2 -translate-x-1 w-8 h-8 bg-white/90 shadow-md rounded-full flex items-center justify-center hover:bg-white transition-colors"
-                    aria-label="הודעה הבאה"
+                    onClick={messagesCarousel.goToPrev}
+                    className="absolute top-1/2 right-0 -translate-y-1/2 translate-x-1 w-8 h-8 bg-white/90 shadow-md rounded-full flex items-center justify-center hover:bg-white transition-colors z-10"
+                    aria-label="הודעה קודמת"
                   >
                     <ChevronRight className="w-5 h-5 text-gray-600" />
                   </button>
                   <button
-                    onClick={messagesCarousel.goToPrev}
-                    className="absolute top-1/2 left-0 -translate-y-1/2 translate-x-1 w-8 h-8 bg-white/90 shadow-md rounded-full flex items-center justify-center hover:bg-white transition-colors"
-                    aria-label="הודעה קודמת"
+                    onClick={messagesCarousel.goToNext}
+                    className="absolute top-1/2 left-0 -translate-y-1/2 -translate-x-1 w-8 h-8 bg-white/90 shadow-md rounded-full flex items-center justify-center hover:bg-white transition-colors z-10"
+                    aria-label="הודעה הבאה"
                   >
                     <ChevronLeft className="w-5 h-5 text-gray-600" />
                   </button>

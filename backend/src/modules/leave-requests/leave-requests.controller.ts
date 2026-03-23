@@ -58,32 +58,33 @@ export class LeaveRequestsController {
   }
 
   // OFFICER endpoints (manages leave from their department, ADMIN has full access)
+  // Note: DUTY_OFFICER users will be department-scoped in service layer
   @Get('dashboard')
   @UseGuards(RolesGuard)
   @Roles('OFFICER')
   getDashboard(@Request() req: any) {
-    return this.leaveRequestsService.getDashboard(req.user.id, req.user.role);
+    return this.leaveRequestsService.getDashboard(req.user.id, req.user.role, req.user.militaryRole);
   }
 
   @Get('pending')
   @UseGuards(RolesGuard)
   @Roles('OFFICER')
   findPending(@Request() req: any) {
-    return this.leaveRequestsService.findPending(req.user.id, req.user.role);
+    return this.leaveRequestsService.findPending(req.user.id, req.user.role, req.user.militaryRole);
   }
 
   @Get('active')
   @UseGuards(RolesGuard)
   @Roles('OFFICER')
   findActive(@Request() req: any) {
-    return this.leaveRequestsService.findActive(req.user.id, req.user.role);
+    return this.leaveRequestsService.findActive(req.user.id, req.user.role, req.user.militaryRole);
   }
 
   @Get('overdue')
   @UseGuards(RolesGuard)
   @Roles('OFFICER')
   findOverdue(@Request() req: any) {
-    return this.leaveRequestsService.findOverdue(req.user.id, req.user.role);
+    return this.leaveRequestsService.findOverdue(req.user.id, req.user.role, req.user.militaryRole);
   }
 
   @Get()
@@ -95,7 +96,7 @@ export class LeaveRequestsController {
     @Query('type') type?: LeaveType,
     @Query('soldierId') soldierId?: string,
   ) {
-    return this.leaveRequestsService.findAll({ status, type, soldierId }, req.user.id, req.user.role);
+    return this.leaveRequestsService.findAll({ status, type, soldierId }, req.user.id, req.user.role, req.user.militaryRole);
   }
 
   @Patch(':id/approve')

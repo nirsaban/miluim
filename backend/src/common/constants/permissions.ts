@@ -3,16 +3,70 @@ import { MilitaryRole, UserRole } from '@prisma/client';
 /**
  * Role Hierarchy: Maps MilitaryRole to recommended UserRole
  * This defines the default authorization level for each military role
+ *
+ * Admin-level (full access):
+ *   - PLATOON_COMMANDER, SERGEANT_MAJOR, OPERATIONS_SGT → ADMIN
+ *
+ * Operations/Logistics (limited admin):
+ *   - OPERATIONS_NCO → LOGISTICS
+ *     Access: shifts, operational links, skills, zones, tasks
+ *     NO access: messages, forms, soldiers, csv-import
+ *
+ * Department-scoped (OFFICER with department filter):
+ *   - DUTY_OFFICER → OFFICER (department-scoped)
+ *     Access: dashboard/department, dashboard/shift-duty
+ *     Can approve: only their department's leave requests/forms
+ *
+ * Commander / Basic:
+ *   - SQUAD_COMMANDER → COMMANDER
+ *   - FIGHTER → SOLDIER
  */
 export const MILITARY_TO_USER_ROLE: Record<MilitaryRole, UserRole> = {
   PLATOON_COMMANDER: 'ADMIN',        // מפקד פלוגה - Full system access
-  SERGEANT_MAJOR: 'OFFICER',         // סמ״פ - Department + leave management
-  OPERATIONS_SGT: 'LOGISTICS',       // קמב״צ - Shift & operational management
-  OPERATIONS_NCO: 'LOGISTICS',       // סמב״צ - Shift & operational management
-  DUTY_OFFICER: 'OFFICER',           // מ״מ - Can approve leaves, manage department
+  SERGEANT_MAJOR: 'ADMIN',           // סמ״פ - Full system access (admin-level)
+  OPERATIONS_SGT: 'ADMIN',           // קמב״צ - Full system access (admin-level)
+  OPERATIONS_NCO: 'LOGISTICS',       // סמב״צ - Shift & operational management only
+  DUTY_OFFICER: 'OFFICER',           // מ״מ - Department-scoped access
   SQUAD_COMMANDER: 'COMMANDER',      // מפקד - Command-level notifications
   FIGHTER: 'SOLDIER',                // לוחם - Basic access
 };
+
+/**
+ * Military roles that have admin-level access
+ */
+export const ADMIN_MILITARY_ROLES: MilitaryRole[] = [
+  'PLATOON_COMMANDER',
+  'SERGEANT_MAJOR',
+  'OPERATIONS_SGT',
+];
+
+/**
+ * Admin routes accessible by LOGISTICS role (OPERATIONS_NCO)
+ * These users have limited admin access
+ */
+export const LOGISTICS_ALLOWED_ADMIN_SECTIONS = [
+  'service',   // Service cycles
+  'shifts',    // Shift management
+];
+
+export const LOGISTICS_ALLOWED_ADMIN_CONTENT_ITEMS = [
+  'operational', // Operational links
+  'skills',      // Skills management
+];
+
+/**
+ * Check if a military role has admin-level access
+ */
+export function isAdminMilitaryRole(militaryRole: MilitaryRole): boolean {
+  return ADMIN_MILITARY_ROLES.includes(militaryRole);
+}
+
+/**
+ * Check if user is a Duty Officer (department-scoped access)
+ */
+export function isDutyOfficer(militaryRole: MilitaryRole): boolean {
+  return militaryRole === 'DUTY_OFFICER';
+}
 
 /**
  * Role hierarchy level for comparison (higher = more permissions)

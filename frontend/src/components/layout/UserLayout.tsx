@@ -23,7 +23,7 @@ import {
   MoreHorizontal,
   X,
 } from 'lucide-react';
-import { UserRole } from '@/types';
+import { UserRole, MilitaryRole, isAdminMilitaryRole } from '@/types';
 
 interface UserLayoutProps {
   children: ReactNode;
@@ -141,24 +141,44 @@ const mobileNavConfig = {
 // Helper Functions
 // ============================================
 
-function filterFlatNavItems(items: NavItem[], userRole: UserRole): NavItem[] {
+function filterFlatNavItems(
+  items: NavItem[],
+  userRole: UserRole,
+  militaryRole?: MilitaryRole
+): NavItem[] {
   return items.filter((item) => {
     if (!item.roles) return true;
-    return item.roles.includes(userRole);
+    // Direct role match
+    if (item.roles.includes(userRole)) return true;
+    // Admin-level military roles get ADMIN access
+    if (item.roles.includes('ADMIN') && militaryRole && isAdminMilitaryRole(militaryRole)) {
+      return true;
+    }
+    return false;
   });
 }
 
-function filterNavSections(sections: NavSection[], userRole: UserRole): NavSection[] {
+function filterNavSections(
+  sections: NavSection[],
+  userRole: UserRole,
+  militaryRole?: MilitaryRole
+): NavSection[] {
+  const hasAdminAccess = militaryRole && isAdminMilitaryRole(militaryRole);
+
   return sections
     .filter((section) => {
       if (!section.roles) return true;
-      return section.roles.includes(userRole);
+      if (section.roles.includes(userRole)) return true;
+      if (section.roles.includes('ADMIN') && hasAdminAccess) return true;
+      return false;
     })
     .map((section) => ({
       ...section,
       items: section.items.filter((item) => {
         if (!item.roles) return true;
-        return item.roles.includes(userRole);
+        if (item.roles.includes(userRole)) return true;
+        if (item.roles.includes('ADMIN') && hasAdminAccess) return true;
+        return false;
       }),
     }))
     .filter((section) => section.items.length > 0);
@@ -264,8 +284,8 @@ export function UserLayout({ children }: UserLayoutProps) {
     return <PageLoader />;
   }
 
-  // Filter sections based on user role
-  const filteredSections = filterNavSections(navSections, user.role);
+  // Filter sections based on user role and military role
+  const filteredSections = filterNavSections(navSections, user.role, user.militaryRole);
 
   // Get all filtered items for mobile "more" menu
   const allItems = getAllNavItems(filteredSections);
@@ -339,7 +359,7 @@ export function UserLayout({ children }: UserLayoutProps) {
       <aside className="hidden lg:block fixed right-0 top-16 bottom-0 w-60 bg-white border-l border-gray-200 overflow-y-auto">
         <nav className="p-4">
           <ul className="space-y-1">
-            {filterFlatNavItems(flatNavItems, user.role).map((item, index, arr) => {
+            {filterFlatNavItems(flatNavItems, user.role, user.militaryRole).map((item, index, arr) => {
               const Icon = item.icon;
               const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
               const showDivider = item.dividerAfter && index < arr.length - 1;

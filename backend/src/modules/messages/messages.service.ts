@@ -1,7 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { MessageType, MessagePriority, MessageTargetAudience, UserRole } from '@prisma/client';
+import { MessageType, MessagePriority, MessageTargetAudience, UserRole, MilitaryRole } from '@prisma/client';
 import { PushService } from '../push/push.service';
+import { isDutyOfficer, isAdminMilitaryRole } from '../../common/constants/permissions';
 
 @Injectable()
 export class MessagesService {
@@ -79,14 +80,36 @@ export class MessagesService {
     });
   }
 
-  async create(data: {
-    title: string;
-    content: string;
-    type?: MessageType;
-    priority?: MessagePriority;
-    targetAudience?: MessageTargetAudience;
-    requiresConfirmation?: boolean;
-  }) {
+  async create(
+    data: {
+      title: string;
+      content: string;
+      type?: MessageType;
+      priority?: MessagePriority;
+      targetAudience?: MessageTargetAudience;
+      requiresConfirmation?: boolean;
+    },
+    creatorId?: string,
+  ) {
+    // Check if creator is a DUTY_OFFICER - if so, auto-scope to their department
+    let departmentId: string | null = null;
+    let creator: { militaryRole: MilitaryRole; departmentId: string | null } | null = null;
+
+    if (creatorId) {
+      creator = await this.prisma.user.findUnique({
+        where: { id: creatorId },
+        select: { militaryRole: true, departmentId: true },
+      });
+
+      // DUTY_OFFICER messages are auto-scoped to their department
+      if (creator && isDutyOfficer(creator.militaryRole)) {
+        if (!creator.departmentId) {
+          throw new ForbiddenException('מ"מ חייב להיות משויך למחלקה כדי לשלוח הודעות');
+        }
+        departmentId = creator.departmentId;
+      }
+    }
+
     const message = await this.prisma.message.create({
       data: {
         title: data.title,
@@ -95,6 +118,7 @@ export class MessagesService {
         priority: data.priority || MessagePriority.MEDIUM,
         targetAudience: data.targetAudience || MessageTargetAudience.ALL,
         requiresConfirmation: data.requiresConfirmation || false,
+        createdById: creatorId,
       },
     });
 
@@ -107,12 +131,20 @@ export class MessagesService {
       // Get target roles based on audience
       const targetRoles = this.getTargetRoles(data.targetAudience || MessageTargetAudience.ALL);
 
-      // Send push to users with matching roles
+      // Build user filter - scope to department if DUTY_OFFICER created the message
+      const userFilter: any = {
+        isActive: true,
+        role: { in: targetRoles },
+      };
+
+      if (departmentId) {
+        // DUTY_OFFICER: only send to their department
+        userFilter.departmentId = departmentId;
+      }
+
+      // Send push to users with matching roles (and department if scoped)
       const targetUsers = await this.prisma.user.findMany({
-        where: {
-          isActive: true,
-          role: { in: targetRoles },
-        },
+        where: userFilter,
         select: { id: true },
       });
 
