@@ -12,11 +12,10 @@ import { UserLayout } from '@/components/layout/UserLayout';
 import { Card, CardHeader, CardContent } from '@/components/ui/Card';
 import { Spinner } from '@/components/ui/Spinner';
 import { Button } from '@/components/ui/Button';
-import { Modal } from '@/components/ui/Modal';
 import { useAuth } from '@/hooks/useAuth';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import api from '@/lib/api';
-import { MILITARY_ROLE_LABELS, MilitaryRole, MessageTargetAudience, ShiftType, SHIFT_TYPE_LABELS, ServiceAttendanceStatus, ReserveServiceCycle, ServiceAttendance } from '@/types';
+import { MILITARY_ROLE_LABELS, MilitaryRole, MessageTargetAudience, ShiftType, SHIFT_TYPE_LABELS, ReserveServiceCycle, ServiceAttendance } from '@/types';
 import { formatWhatsAppLink, formatDate } from '@/lib/utils';
 
 interface TestUser {
@@ -360,6 +359,7 @@ export default function HomePage() {
               <Spinner />
             </div>
           ) : (
+            <>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-sm">
               <div className="flex items-center gap-2.5 p-2.5 bg-gray-50 rounded-xl">
                 <div className="p-2 bg-military-100 rounded-lg">
@@ -430,6 +430,7 @@ export default function HomePage() {
                 )}
               </div>
             )}
+            </>
           )}
         </CardContent>
       </Card>
