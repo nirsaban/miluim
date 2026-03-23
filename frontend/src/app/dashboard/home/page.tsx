@@ -698,13 +698,12 @@ export default function HomePage() {
               <div className="overflow-hidden rounded-xl">
                 <div
                   className="flex transition-transform duration-300 ease-in-out"
-                  style={{ transform: `translateX(${notificationsCarousel.currentIndex * 100}%)` }}
+                  style={{ transform: `translateX(${notificationsCarousel.currentIndex * -100}%)` }}
                 >
-                  {notifications.map((notification, index) => (
+                  {notifications.map((notification) => (
                     <div
                       key={notification.id}
-                      className="w-full flex-shrink-0"
-                      style={{ marginRight: index === notifications.length - 1 ? 0 : '-100%' }}
+                      className="w-full flex-shrink-0 min-w-full"
                     >
                       <div className="p-4 rounded-xl border-r-4 bg-gradient-to-l from-blue-50 to-white border-blue-500 min-h-[80px]">
                         <div className="flex items-start gap-3">
@@ -803,13 +802,12 @@ export default function HomePage() {
               <div className="overflow-hidden rounded-xl">
                 <div
                   className="flex transition-transform duration-300 ease-in-out"
-                  style={{ transform: `translateX(${messagesCarousel.currentIndex * 100}%)` }}
+                  style={{ transform: `translateX(${messagesCarousel.currentIndex * -100}%)` }}
                 >
-                  {messages.map((message, index) => (
+                  {messages.map((message) => (
                     <div
                       key={message.id}
-                      className="w-full flex-shrink-0"
-                      style={{ marginRight: index === messages.length - 1 ? 0 : '-100%' }}
+                      className="w-full flex-shrink-0 min-w-full"
                     >
                       <div
                         className={cn(
