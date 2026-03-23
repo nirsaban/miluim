@@ -209,7 +209,11 @@ export default function RegisterPage() {
               required
               error={errors.fullName?.message}
               {...register('fullName', {
-                required: 'שם מלא הוא שדה חובה',
+                required: 'נא להזין שם מלא',
+                minLength: {
+                  value: 2,
+                  message: 'השם חייב להכיל לפחות 2 תווים',
+                },
               })}
             />
 
@@ -219,10 +223,10 @@ export default function RegisterPage() {
               required
               error={errors.phone?.message}
               {...register('phone', {
-                required: 'טלפון הוא שדה חובה',
+                required: 'נא להזין מספר טלפון',
                 pattern: {
                   value: /^05\d{8}$/,
-                  message: 'מספר טלפון לא תקין',
+                  message: 'מספר טלפון לא תקין - יש להזין מספר נייד ישראלי (05XXXXXXXX)',
                 },
               })}
             />
@@ -234,32 +238,41 @@ export default function RegisterPage() {
               required
               error={errors.email?.message}
               {...register('email', {
-                required: 'אימייל הוא שדה חובה',
+                required: 'נא להזין כתובת אימייל',
                 pattern: {
                   value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                  message: 'כתובת אימייל לא תקינה',
+                  message: 'כתובת האימייל אינה תקינה',
                 },
               })}
             />
 
-            <Input
-              label="סיסמה"
-              type="password"
-              placeholder="••••••••"
-              required
-              error={errors.password?.message}
-              {...register('password', {
-                required: 'סיסמה היא שדה חובה',
-                minLength: {
-                  value: 8,
-                  message: 'הסיסמה חייבת להכיל לפחות 8 תווים',
-                },
-                pattern: {
-                  value: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
-                  message: 'הסיסמה חייבת להכיל אותיות גדולות, קטנות ומספרים',
-                },
-              })}
-            />
+            <div className="space-y-1">
+              <Input
+                label="סיסמה"
+                type="password"
+                placeholder="••••••••"
+                required
+                hint="לפחות 8 תווים, אות גדולה, אות קטנה ומספר"
+                error={errors.password?.message}
+                {...register('password', {
+                  required: 'נא להזין סיסמה',
+                  minLength: {
+                    value: 8,
+                    message: 'הסיסמה חייבת להכיל לפחות 8 תווים',
+                  },
+                  pattern: {
+                    value: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
+                    message: 'הסיסמה חייבת להכיל אות גדולה באנגלית, אות קטנה באנגלית ומספר',
+                  },
+                })}
+              />
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mt-2">
+                <p className="text-sm text-yellow-800">
+                  <strong>חשוב!</strong> זכור את הסיסמה שלך - תצטרך אותה בכל התחברות מחשב.
+                  מומלץ לרשום אותה במקום בטוח.
+                </p>
+              </div>
+            </div>
 
             <Input
               label="אימות סיסמה"
@@ -268,8 +281,8 @@ export default function RegisterPage() {
               required
               error={errors.confirmPassword?.message}
               {...register('confirmPassword', {
-                required: 'אימות סיסמה הוא שדה חובה',
-                validate: (value) => value === password || 'הסיסמאות לא תואמות',
+                required: 'נא להזין אימות סיסמה',
+                validate: (value) => value === password || 'הסיסמאות אינן תואמות',
               })}
             />
 
@@ -279,10 +292,10 @@ export default function RegisterPage() {
               required
               error={errors.idNumber?.message}
               {...register('idNumber', {
-                required: 'תעודת זהות היא שדה חובה',
+                required: 'נא להזין מספר תעודת זהות',
                 pattern: {
                   value: /^\d{9}$/,
-                  message: 'מספר תעודת זהות לא תקין',
+                  message: 'מספר תעודת זהות לא תקין - יש להזין 9 ספרות',
                 },
               })}
             />
@@ -309,6 +322,12 @@ export default function RegisterPage() {
                 onChange={setSelectedSkillIds}
                 placeholder="בחר כישורים..."
               />
+              <div className="mt-2 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-sm text-blue-800">
+                  <strong>תזכורת:</strong> אל תשכח לבחור את הכישור &quot;לוחם&quot; אם הוא רלוונטי עבורך.
+                  כישורים עוזרים לנו לשבץ אותך למשימות המתאימות.
+                </p>
+              </div>
             </div>
 
             {/* Optional fields toggle */}

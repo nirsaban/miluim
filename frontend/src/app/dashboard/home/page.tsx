@@ -1,18 +1,22 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { MessageSquare, Bell, Calendar, MapPin, Building2, User, Phone, ChevronLeft, CheckCircle2, Image, FlaskConical, RotateCcw, Copy, Check } from 'lucide-react';
+import { MessageSquare, Bell, Calendar, MapPin, Building2, User, Phone, ChevronLeft, CheckCircle2, Image, FlaskConical, RotateCcw, Copy, Check, BellRing, Timer } from 'lucide-react';
 import { PushNotificationToggle } from '@/components/ui/PushNotificationToggle';
+import { PWAInstallPrompt, usePWAInstall } from '@/components/ui/PWAInstallPrompt';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { UserLayout } from '@/components/layout/UserLayout';
 import { Card, CardHeader, CardContent } from '@/components/ui/Card';
 import { Spinner } from '@/components/ui/Spinner';
 import { Button } from '@/components/ui/Button';
+import { Modal } from '@/components/ui/Modal';
 import { useAuth } from '@/hooks/useAuth';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
 import api from '@/lib/api';
-import { MILITARY_ROLE_LABELS, MilitaryRole, MessageTargetAudience, ShiftType, SHIFT_TYPE_LABELS } from '@/types';
+import { MILITARY_ROLE_LABELS, MilitaryRole, MessageTargetAudience, ShiftType, SHIFT_TYPE_LABELS, ServiceAttendanceStatus, ReserveServiceCycle, ServiceAttendance } from '@/types';
 import { formatWhatsAppLink, formatDate } from '@/lib/utils';
 
 interface TestUser {
@@ -115,16 +119,72 @@ interface HomeData {
     confirmedAt?: string | null;
     createdAt: string;
   }>;
+  // Service cycle data
+  activeCycle?: ReserveServiceCycle | null;
+  myAttendance?: ServiceAttendance | null;
+}
+
+// Calculate days since cycle start
+function calculateDaysSinceStart(startDate: string): number {
+  const start = new Date(startDate);
+  const today = new Date();
+  start.setHours(0, 0, 0, 0);
+  today.setHours(0, 0, 0, 0);
+  const diffTime = today.getTime() - start.getTime();
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  return diffDays + 1; // +1 to count the first day
 }
 
 export default function HomePage() {
+  const router = useRouter();
   const { user, isAuthenticated, isHydrated } = useAuth();
   const queryClient = useQueryClient();
+
+  // PWA install prompt
+  const { showPrompt: showPWAPrompt, closePrompt: closePWAPrompt } = usePWAInstall();
+
+  // Push notification state
+  const { isSupported: pushSupported, isSubscribed: pushSubscribed, isLoading: pushLoading, subscribe: subscribePush } = usePushNotifications();
+  const [showPushPrompt, setShowPushPrompt] = useState(false);
+  const PUSH_PROMPT_DISMISSED_KEY = 'push-prompt-dismissed';
 
   // Test setup state (only for personalId 1234567)
   const [testResults, setTestResults] = useState<TestSetupResult | null>(null);
   const [rollbackResults, setRollbackResults] = useState<RollbackResult | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // Check and show push notification prompt
+  useEffect(() => {
+    if (!pushSupported || pushSubscribed || pushLoading) return;
+
+    // Check if user dismissed the prompt recently
+    const dismissed = localStorage.getItem(PUSH_PROMPT_DISMISSED_KEY);
+    if (dismissed) {
+      const dismissedTime = parseInt(dismissed, 10);
+      const threeDaysAgo = Date.now() - (3 * 24 * 60 * 60 * 1000);
+      if (dismissedTime > threeDaysAgo) return;
+    }
+
+    // Show prompt after a delay
+    const timer = setTimeout(() => {
+      setShowPushPrompt(true);
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [pushSupported, pushSubscribed, pushLoading]);
+
+  const handleEnablePush = async () => {
+    const success = await subscribePush();
+    if (success) {
+      toast.success('התראות הופעלו בהצלחה!');
+    }
+    setShowPushPrompt(false);
+  };
+
+  const handleDismissPush = () => {
+    localStorage.setItem(PUSH_PROMPT_DISMISSED_KEY, Date.now().toString());
+    setShowPushPrompt(false);
+  };
 
   const { data: homeData, isLoading: homeLoading } = useQuery<HomeData>({
     queryKey: ['home-data'],
@@ -144,6 +204,36 @@ export default function HomePage() {
     },
     enabled: isAuthenticated && isHydrated,
   });
+
+  // Fetch current service cycle and attendance status
+  const { data: currentCycle } = useQuery<ReserveServiceCycle | null>({
+    queryKey: ['current-service-cycle'],
+    queryFn: async () => {
+      const response = await api.get('/service-cycles/current');
+      return response.data;
+    },
+    enabled: isAuthenticated && isHydrated,
+  });
+
+  const { data: myAttendance } = useQuery<ServiceAttendance>({
+    queryKey: ['my-service-attendance'],
+    queryFn: async () => {
+      const response = await api.get('/service-attendance/current/me');
+      return response.data;
+    },
+    enabled: isAuthenticated && isHydrated && !!currentCycle,
+  });
+
+  // Redirect to current-service if active cycle and not confirmed arrival
+  useEffect(() => {
+    if (
+      currentCycle?.status === 'ACTIVE' &&
+      myAttendance &&
+      myAttendance.attendanceStatus === 'PENDING'
+    ) {
+      router.push('/dashboard/current-service');
+    }
+  }, [currentCycle, myAttendance, router]);
 
   const confirmMessageMutation = useMutation({
     mutationFn: async (messageId: string) => {
@@ -200,8 +290,51 @@ export default function HomePage() {
   const notifications = homeData?.notifications || [];
   const messages = homeData?.messages || [];
 
+  // Calculate days in service
+  const daysInService = currentCycle?.status === 'ACTIVE' && myAttendance?.attendanceStatus === 'ARRIVED'
+    ? calculateDaysSinceStart(currentCycle.startDate)
+    : null;
+
   return (
     <UserLayout>
+      {/* PWA Install Prompt */}
+      {showPWAPrompt && <PWAInstallPrompt onClose={closePWAPrompt} />}
+
+      {/* Push Notification Prompt */}
+      {showPushPrompt && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-slide-up">
+            <div className="p-6 text-center">
+              <div className="w-16 h-16 bg-military-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <BellRing className="w-8 h-8 text-military-600" />
+              </div>
+              <h3 className="text-xl font-bold text-military-700 mb-2">
+                הפעל התראות
+              </h3>
+              <p className="text-gray-600 mb-6">
+                קבל התראות על משמרות, הודעות חשובות ועדכונים חדשים ישירות למכשיר שלך
+              </p>
+              <div className="flex gap-3">
+                <Button
+                  variant="secondary"
+                  onClick={handleDismissPush}
+                  className="flex-1"
+                >
+                  לא עכשיו
+                </Button>
+                <Button
+                  onClick={handleEnablePush}
+                  className="flex-1"
+                >
+                  <BellRing className="w-4 h-4 ml-2" />
+                  הפעל התראות
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Welcome Section */}
       <div className="mb-5 sm:mb-6">
         <div className="flex items-center gap-3 sm:gap-4">
@@ -276,6 +409,27 @@ export default function HomePage() {
                 </div>
               )}
             </div>
+
+            {/* Days in Service Counter */}
+            {daysInService !== null && (
+              <div className="mt-3 p-3 bg-gradient-to-r from-military-100 to-military-50 rounded-xl border border-military-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Timer className="w-5 h-5 text-military-600" />
+                    <span className="text-sm font-medium text-military-700">ימים בסבב:</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl font-bold text-military-700">{daysInService}</span>
+                    <span className="text-sm text-military-600">ימים</span>
+                  </div>
+                </div>
+                {currentCycle && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    {currentCycle.name} • התחלה: {new Date(currentCycle.startDate).toLocaleDateString('he-IL')}
+                  </p>
+                )}
+              </div>
+            )}
           )}
         </CardContent>
       </Card>
@@ -291,7 +445,7 @@ export default function HomePage() {
             href="/dashboard/shifts"
             className="text-sm text-military-600 hover:text-military-700 flex items-center gap-1"
           >
-            צפייה בכל המשמרות
+            משמרות
             <ChevronLeft className="w-4 h-4" />
           </Link>
         </CardHeader>

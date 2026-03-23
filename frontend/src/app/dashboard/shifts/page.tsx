@@ -16,6 +16,11 @@ import {
   BatteryFull,
   UserCheck,
   AlertCircle,
+  Send,
+  MessageSquare,
+  UtensilsCrossed,
+  Wrench,
+  HelpCircle,
 } from 'lucide-react';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
@@ -24,8 +29,18 @@ import { Card, CardHeader, CardContent } from '@/components/ui/Card';
 import { Spinner } from '@/components/ui/Spinner';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import { Modal } from '@/components/ui/Modal';
+import { useAuth } from '@/hooks/useAuth';
 import api from '@/lib/api';
 import { formatDate, formatWhatsAppLink, cn } from '@/lib/utils';
+
+// Shift request categories
+const SHIFT_REQUEST_CATEGORIES = [
+  { id: 'food', label: 'בקשת מזון', icon: UtensilsCrossed, color: 'text-orange-600' },
+  { id: 'equipment', label: 'ציוד', icon: Wrench, color: 'text-blue-600' },
+  { id: 'report', label: 'דיווח', icon: MessageSquare, color: 'text-green-600' },
+  { id: 'other', label: 'אחר', icon: HelpCircle, color: 'text-gray-600' },
+];
 
 interface ShiftAssignment {
   id: string;
@@ -110,11 +125,18 @@ interface MyTodayShift {
 }
 
 export default function ShiftsPage() {
+  const { user } = useAuth();
   const [expandedShift, setExpandedShift] = useState<string | null>(null);
+  const [showRequestModal, setShowRequestModal] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [requestMessage, setRequestMessage] = useState('');
   const queryClient = useQueryClient();
 
   const today = new Date();
   const todayStr = today.toISOString().split('T')[0];
+
+  // Check if user is a commander
+  const isCommander = user?.role === 'COMMANDER' || user?.role === 'OFFICER' || user?.role === 'ADMIN';
 
   // Get my active shift for today with detailed info
   const { data: myActiveShift, isLoading: activeShiftLoading } = useQuery<MyTodayShift | null>({
@@ -175,6 +197,49 @@ export default function ShiftsPage() {
       toast.error(error.response?.data?.message || 'שגיאה בעדכון הסטטוס');
     },
   });
+
+  // Submit shift request mutation
+  const submitShiftRequestMutation = useMutation({
+    mutationFn: async (data: { category: string; message: string; shiftId: string }) => {
+      const response = await api.post('/forms', {
+        type: 'SHIFT_REQUEST',
+        content: {
+          category: data.category,
+          message: data.message,
+          shiftId: data.shiftId,
+          shiftName: myTodayShift?.shiftTemplate.displayName,
+          taskName: myTodayShift?.task.name,
+          submittedAt: new Date().toISOString(),
+        },
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      toast.success('הבקשה נשלחה בהצלחה לקצין התורן');
+      setShowRequestModal(false);
+      setSelectedCategory('');
+      setRequestMessage('');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'שגיאה בשליחת הבקשה');
+    },
+  });
+
+  const handleSubmitRequest = () => {
+    if (!selectedCategory || !requestMessage.trim()) {
+      toast.error('נא למלא את כל השדות');
+      return;
+    }
+    if (!myTodayShift) {
+      toast.error('אין משמרת פעילה');
+      return;
+    }
+    submitShiftRequestMutation.mutate({
+      category: selectedCategory,
+      message: requestMessage,
+      shiftId: myTodayShift.id,
+    });
+  };
 
   const isLoading = myShiftsLoading || todayShiftsLoading || activeShiftLoading;
 
@@ -368,10 +433,101 @@ export default function ShiftsPage() {
                       </div>
                     </div>
                   )}
+
+                  {/* Commander Request Button */}
+                  {isCommander && myTodayShift.arrivedAt && (
+                    <div className="border-t pt-3 mt-3 border-green-200">
+                      <Button
+                        onClick={() => setShowRequestModal(true)}
+                        variant="secondary"
+                        className="w-full"
+                      >
+                        <Send className="w-4 h-4 ml-2" />
+                        שלח בקשה לקצין התורן
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
           )}
+
+          {/* Shift Request Modal */}
+          <Modal
+            isOpen={showRequestModal}
+            onClose={() => {
+              setShowRequestModal(false);
+              setSelectedCategory('');
+              setRequestMessage('');
+            }}
+            title="שליחת בקשה לקצין התורן"
+            size="md"
+          >
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  סוג הבקשה
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {SHIFT_REQUEST_CATEGORIES.map((cat) => {
+                    const Icon = cat.icon;
+                    const isSelected = selectedCategory === cat.id;
+                    return (
+                      <button
+                        key={cat.id}
+                        onClick={() => setSelectedCategory(cat.id)}
+                        className={cn(
+                          'flex items-center gap-2 p-3 rounded-xl border-2 transition-colors',
+                          isSelected
+                            ? 'border-military-500 bg-military-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                        )}
+                      >
+                        <Icon className={cn('w-5 h-5', cat.color)} />
+                        <span className={isSelected ? 'font-medium text-military-700' : 'text-gray-700'}>
+                          {cat.label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  פירוט הבקשה
+                </label>
+                <textarea
+                  value={requestMessage}
+                  onChange={(e) => setRequestMessage(e.target.value)}
+                  placeholder="תאר את הבקשה שלך..."
+                  rows={4}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-military-500 focus:border-transparent resize-none"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <Button
+                  onClick={handleSubmitRequest}
+                  isLoading={submitShiftRequestMutation.isPending}
+                  className="flex-1"
+                >
+                  <Send className="w-4 h-4 ml-2" />
+                  שלח בקשה
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setShowRequestModal(false);
+                    setSelectedCategory('');
+                    setRequestMessage('');
+                  }}
+                >
+                  ביטול
+                </Button>
+              </div>
+            </div>
+          </Modal>
 
           {/* All Shifts for Today */}
           <Card className="mb-6">

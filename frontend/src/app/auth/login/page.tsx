@@ -62,9 +62,10 @@ export default function LoginPage() {
   }, []);
 
   // Redirect if already authenticated
+  // Use replace to prevent back-button redirect loops
   useEffect(() => {
     if (isHydrated && isAuthenticated) {
-      router.push('/dashboard');
+      router.replace('/dashboard');
     }
   }, [isHydrated, isAuthenticated, router]);
 

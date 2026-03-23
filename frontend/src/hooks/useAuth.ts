@@ -4,17 +4,19 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { User } from '@/types';
 import { setAuthToken, removeAuthToken, setUserData, getAuthToken, getUserData } from '@/lib/api';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 
 interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   _hasHydrated: boolean;
+  _isLoggingOut: boolean;
   login: (user: User, token: string) => Promise<void>;
   logout: () => void;
   updateUser: (user: Partial<User>) => void;
   setHasHydrated: (state: boolean) => void;
-  restoreFromCookies: () => void;
+  restoreFromCookies: () => boolean;
+  validateSession: () => boolean;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -23,6 +25,7 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       isAuthenticated: false,
       _hasHydrated: false,
+      _isLoggingOut: false,
       login: async (user: User, token: string) => {
         // 1. Store token in cookie first
         setAuthToken(token);
@@ -40,11 +43,12 @@ export const useAuthStore = create<AuthState>()(
         }
 
         // 4. Only then update auth state
-        set({ user, isAuthenticated: true });
+        set({ user, isAuthenticated: true, _isLoggingOut: false });
       },
       logout: () => {
+        set({ _isLoggingOut: true });
         removeAuthToken();
-        set({ user: null, isAuthenticated: false });
+        set({ user: null, isAuthenticated: false, _isLoggingOut: false });
       },
       updateUser: (userData: Partial<User>) => {
         set((state) => ({
@@ -59,20 +63,48 @@ export const useAuthStore = create<AuthState>()(
         const user = getUserData();
         if (token && user) {
           set({ user, isAuthenticated: true });
+          return true;
         }
+        return false;
+      },
+      // Validate that session is consistent across stores
+      validateSession: () => {
+        const token = getAuthToken();
+        const cookieUser = getUserData();
+        const state = get();
+
+        // If we think we're authenticated but have no token, we're not really authenticated
+        if (state.isAuthenticated && !token) {
+          set({ user: null, isAuthenticated: false });
+          return false;
+        }
+
+        // If we have a token but no user data, try to restore
+        if (token && !state.user && cookieUser) {
+          set({ user: cookieUser, isAuthenticated: true });
+          return true;
+        }
+
+        return state.isAuthenticated && !!token;
       },
     }),
     {
       name: 'auth-storage',
       storage: createJSONStorage(() => localStorage),
       onRehydrateStorage: () => (state) => {
-        // After rehydration, also check cookies as backup
+        // After rehydration, validate against cookies
         if (state) {
           const token = getAuthToken();
           const user = getUserData();
-          if (token && user && !state.isAuthenticated) {
+
+          // Only set authenticated if BOTH localStorage and cookies agree
+          if (token && user) {
             state.user = user;
             state.isAuthenticated = true;
+          } else {
+            // If cookies are missing, clear localStorage auth state too
+            state.user = null;
+            state.isAuthenticated = false;
           }
           state._hasHydrated = true;
         }
@@ -90,27 +122,55 @@ export const useAuth = () => {
   const store = useAuthStore();
   const [isHydrated, setIsHydrated] = useState(false);
 
-  useEffect(() => {
-    // Check if already hydrated from Zustand
-    if (store._hasHydrated) {
-      setIsHydrated(true);
-      return;
-    }
-
-    // Fallback: restore from cookies if localStorage failed
+  // Validate session on mount and periodically
+  const validateAndSync = useCallback(() => {
     const token = getAuthToken();
     const user = getUserData();
 
-    if (token && user && !store.isAuthenticated) {
-      store.login(user, token);
+    // If we have valid cookie data, ensure store is synced
+    if (token && user) {
+      if (!store.isAuthenticated) {
+        store.restoreFromCookies();
+      }
+      return true;
     }
 
+    // If cookies are missing but store thinks we're authenticated, clear store
+    if (!token && store.isAuthenticated) {
+      store.logout();
+      return false;
+    }
+
+    return store.isAuthenticated;
+  }, [store]);
+
+  useEffect(() => {
+    // Wait for Zustand hydration
+    if (!store._hasHydrated) {
+      return;
+    }
+
+    // Validate and sync state
+    validateAndSync();
     setIsHydrated(true);
-  }, [store._hasHydrated]);
+  }, [store._hasHydrated, validateAndSync]);
+
+  // Re-validate when window regains focus (handles expired sessions)
+  useEffect(() => {
+    const handleFocus = () => {
+      if (store._hasHydrated) {
+        validateAndSync();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [store._hasHydrated, validateAndSync]);
 
   return {
     ...store,
     isHydrated,
+    validateSession: validateAndSync,
   };
 };
 

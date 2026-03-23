@@ -92,7 +92,7 @@ const navSections: NavSection[] = [
   },
   {
     id: 'community',
-    label: 'קהילה',
+    label: 'חברי הפלוגה',
     icon: Users,
     items: [
       { href: '/dashboard/friends', label: 'חברים', icon: Users },
@@ -115,7 +115,7 @@ const mobileNavConfig = {
   primaryItems: [
     { href: '/dashboard/home', label: 'בית', icon: Home },
     { href: '/dashboard/shifts', label: 'משמרות', icon: Calendar },
-    { href: '/dashboard/friends', label: 'קהילה', icon: Users },
+    { href: '/dashboard/requests', label: 'בקשות וטפסים', icon: Users },
     { href: '/dashboard/profile', label: 'פרופיל', icon: User },
   ],
   moreMenuLabel: 'עוד',
@@ -335,7 +335,8 @@ export function UserLayout({ children }: UserLayoutProps) {
 
   useEffect(() => {
     if (isHydrated && !isAuthenticated) {
-      router.push('/auth/login');
+      // Use replace to prevent back button issues
+      router.replace('/auth/login');
     }
   }, [isAuthenticated, isHydrated, router]);
 

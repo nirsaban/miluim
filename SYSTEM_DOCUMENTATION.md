@@ -1,12 +1,12 @@
-# Yogev System - Military Reserve Platoon Management Platform
+# Miltech System - Military Reserve Platoon Management Platform
 
 ## The Story: Why This System Exists
 
 Picture this: A reserve platoon in the IDF (Israel Defense Forces) gets called up for duty. Dozens of soldiers need to coordinate their arrival, get assigned to guard shifts, request short leaves to handle personal errands, and stay informed about operational updates - all while commanders need real-time visibility into who's on base, who's on duty, and what's happening at any moment.
 
-Before Yogev System, this was managed through WhatsApp groups, Excel spreadsheets, and endless phone calls. Commanders couldn't easily see the status of their soldiers, shift assignments were chaotic, and tracking who went out for a quick break became a nightmare.
+Before Miltech System, this was managed through WhatsApp groups, Excel spreadsheets, and endless phone calls. Commanders couldn't easily see the status of their soldiers, shift assignments were chaotic, and tracking who went out for a quick break became a nightmare.
 
-**Yogev System was born to solve this chaos.**
+**Miltech System was born to solve this chaos.**
 
 It's a mobile-first, Hebrew RTL (right-to-left) web application that digitizes every aspect of reserve duty management - from the moment a service cycle begins until the last soldier checks out.
 
@@ -460,7 +460,7 @@ The architecture supports future enhancements:
 
 ## Conclusion
 
-Yogev System transforms the chaotic, manual process of reserve duty management into a streamlined digital experience. Every stakeholder - from the individual soldier checking their shift to the platoon commander monitoring attendance - has exactly the tools they need.
+Miltech System transforms the chaotic, manual process of reserve duty management into a streamlined digital experience. Every stakeholder - from the individual soldier checking their shift to the platoon commander monitoring attendance - has exactly the tools they need.
 
 The system respects military hierarchy while enabling modern, mobile-first workflows. It's built with security in mind (important for military applications) while remaining accessible to soldiers who might not be tech-savvy.
 
@@ -470,7 +470,7 @@ Most importantly, it answers the fundamental questions commanders ask every day:
 - **Where is everyone?**
 - **What needs to happen today?**
 
-With Yogev System, those answers are always one tap away.
+With Miltech System, those answers are always one tap away.
 
 ---
 

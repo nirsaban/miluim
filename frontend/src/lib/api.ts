@@ -40,25 +40,45 @@ api.interceptors.request.use(
   }
 );
 
+// Flag to prevent multiple concurrent redirects
+let isRedirecting = false;
+
 api.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
     if (error.response?.status === 401) {
-      // Don't redirect if already on login/auth pages
+      // Don't redirect if already on login/auth pages or already redirecting
       const isAuthPage = typeof window !== 'undefined' &&
         window.location.pathname.startsWith('/auth');
 
-      if (!isAuthPage) {
+      if (!isAuthPage && !isRedirecting) {
+        isRedirecting = true;
+
+        // Clear all auth data from cookies
         Cookies.remove('token', { path: '/' });
         Cookies.remove('user', { path: '/' });
+
+        // Also clear localStorage auth state to prevent hydration mismatch
         if (typeof window !== 'undefined') {
-          window.location.href = '/auth/login';
+          try {
+            localStorage.removeItem('auth-storage');
+          } catch (e) {
+            // Ignore localStorage errors
+          }
+
+          // Use replace to prevent back button issues
+          window.location.replace('/auth/login');
         }
       }
     }
     return Promise.reject(error);
   }
 );
+
+// Reset redirect flag when page loads (for fresh page loads)
+if (typeof window !== 'undefined') {
+  isRedirecting = false;
+}
 
 // Determine if we're on HTTPS
 const isSecure = () => typeof window !== 'undefined' && window.location.protocol === 'https:';

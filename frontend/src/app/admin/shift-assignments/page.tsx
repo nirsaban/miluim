@@ -513,163 +513,170 @@ export default function ShiftAssignmentsPage() {
       {/* Controls */}
       <Card className="mb-6">
         <CardContent className="py-4">
-        <div className="flex flex-wrap items-center gap-4">
-          {/* Date selector */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => handleDateChange(-1)}
-              className="p-2 hover:bg-gray-100 rounded-lg"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
-            <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-lg">
-              <Calendar className="w-5 h-5 text-gray-500" />
-              <span className="font-medium">{formatDate(selectedDate)}</span>
+        <div className="space-y-4">
+          {/* First row: Date, Zone, Shift selectors */}
+          <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3">
+            {/* Date selector */}
+            <div className="flex items-center gap-2 justify-center sm:justify-start">
+              <button
+                onClick={() => handleDateChange(-1)}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+              <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-lg flex-1 sm:flex-none justify-center">
+                <Calendar className="w-5 h-5 text-gray-500" />
+                <span className="font-medium text-sm sm:text-base">{formatDate(selectedDate)}</span>
+              </div>
+              <button
+                onClick={() => handleDateChange(1)}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
             </div>
-            <button
-              onClick={() => handleDateChange(1)}
-              className="p-2 hover:bg-gray-100 rounded-lg"
+
+            {/* Zone selector */}
+            <Select
+              value={selectedZoneId}
+              onChange={(e) => setSelectedZoneId(e.target.value)}
+              options={[
+                { value: '', label: 'בחר איזור' },
+                ...(zones?.map((z) => ({ value: z.id, label: z.name })) || []),
+              ]}
+              className="w-full sm:w-40"
+            />
+
+            {/* Shift selector */}
+            <Select
+              value={selectedShiftId}
+              onChange={(e) => setSelectedShiftId(e.target.value)}
+              options={[
+                { value: '', label: 'בחר משמרת' },
+                ...(shiftTemplates?.map((s) => ({ value: s.id, label: s.displayName })) || []),
+              ]}
+              className="w-full sm:w-40"
+            />
+
+            <Button
+              variant="secondary"
+              onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}
+              className="w-full sm:w-auto"
             >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
+              היום
+            </Button>
           </div>
 
-          {/* Zone selector */}
-          <Select
-            value={selectedZoneId}
-            onChange={(e) => setSelectedZoneId(e.target.value)}
-            options={[
-              { value: '', label: 'בחר איזור' },
-              ...(zones?.map((z) => ({ value: z.id, label: z.name })) || []),
-            ]}
-            className="w-48"
-          />
-
-          {/* Shift selector */}
-          <Select
-            value={selectedShiftId}
-            onChange={(e) => setSelectedShiftId(e.target.value)}
-            options={[
-              { value: '', label: 'בחר משמרת' },
-              ...(shiftTemplates?.map((s) => ({ value: s.id, label: s.displayName })) || []),
-            ]}
-            className="w-48"
-          />
-
-          <Button
-            variant="secondary"
-            onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}
-          >
-            היום
-          </Button>
-
-          {/* Shift Officer Selector */}
+          {/* Second row: Shift Officer & Publish controls */}
           {selectedZoneId && (
-            <div className="flex items-center gap-2 border-r pr-4 mr-2">
-              <Shield className="w-4 h-4 text-military-600" />
-              <span className="text-sm text-gray-600">קצין תורן:</span>
-              <Select
-                value={scheduleWithOfficer?.shiftOfficerId || ''}
-                onChange={(e) => {
-                  if (e.target.value) {
-                    assignOfficerMutation.mutate(e.target.value);
-                  }
-                }}
-                options={[
-                  { value: '', label: 'בחר קצין תורן' },
-                  ...(potentialOfficers?.map((u) => ({ value: u.id, label: u.fullName })) || []),
-                ]}
-                className="w-48"
-              />
-              {scheduleWithOfficer?.shiftOfficer && (
-                <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded">
-                  {scheduleWithOfficer.shiftOfficer.fullName}
-                </span>
-              )}
+            <div className="flex flex-col lg:flex-row lg:items-center gap-3 pt-3 border-t">
+              {/* Shift Officer Selector */}
+              <div className="flex flex-wrap items-center gap-2">
+                <Shield className="w-4 h-4 text-military-600" />
+                <span className="text-sm text-gray-600">קצין תורן:</span>
+                <Select
+                  value={scheduleWithOfficer?.shiftOfficerId || ''}
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      assignOfficerMutation.mutate(e.target.value);
+                    }
+                  }}
+                  options={[
+                    { value: '', label: 'בחר קצין תורן' },
+                    ...(potentialOfficers?.map((u) => ({ value: u.id, label: u.fullName })) || []),
+                  ]}
+                  className="w-full sm:w-48"
+                />
+                {scheduleWithOfficer?.shiftOfficer && (
+                  <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded">
+                    {scheduleWithOfficer.shiftOfficer.fullName}
+                  </span>
+                )}
+              </div>
+
+              {/* Spacer */}
+              <div className="hidden lg:block flex-1" />
+
+              {/* Schedule Status & Publish */}
+              <div className="flex flex-wrap items-center gap-3">
+                {scheduleStatus?.status === 'PUBLISHED' ? (
+                  <div className="flex items-center gap-2 px-3 py-2 bg-green-50 text-green-700 rounded-lg">
+                    <Check className="w-4 h-4" />
+                    <span className="text-sm font-medium">פורסם</span>
+                    {scheduleStatus.publishedBy && (
+                      <span className="text-xs text-green-600 hidden sm:inline">
+                        ע"י {scheduleStatus.publishedBy.fullName}
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 text-amber-700 rounded-lg">
+                    <FileText className="w-4 h-4" />
+                    <span className="text-sm font-medium">טיוטה</span>
+                    {scheduleStatus?.assignmentCount ? (
+                      <span className="text-xs">({scheduleStatus.assignmentCount})</span>
+                    ) : null}
+                  </div>
+                )}
+
+                {/* Publish All button */}
+                {scheduleStatus?.status !== 'PUBLISHED' && scheduleStatus?.assignmentCount && scheduleStatus.assignmentCount > 0 && (
+                  <Button
+                    onClick={() => {
+                      if (confirm('האם לפרסם את כל המשמרות? כל החיילים המשובצים יקבלו התראה.')) {
+                        publishMutation.mutate(undefined);
+                      }
+                    }}
+                    isLoading={publishMutation.isPending}
+                    className="w-full sm:w-auto"
+                  >
+                    <Send className="w-4 h-4 ml-2" />
+                    פרסם הכל
+                  </Button>
+                )}
+              </div>
             </div>
           )}
 
-          {/* Spacer */}
-          <div className="flex-1" />
+          {/* Third row: Per-shift publish buttons (hidden on mobile, visible on desktop) */}
+          {selectedZoneId && shiftTemplates && shiftTemplates.length > 0 && (
+            <div className="hidden lg:flex flex-wrap items-center gap-2 pt-3 border-t">
+              <span className="text-sm text-gray-500 ml-2">פרסם לפי משמרת:</span>
+              {shiftTemplates.map((template) => {
+                const templateAssignments = assignments?.filter(a => a.shiftTemplateId === template.id) || [];
+                const confirmedCount = templateAssignments.filter(a => a.status === 'CONFIRMED').length;
+                const isPublished = confirmedCount > 0 && confirmedCount === templateAssignments.length;
 
-          {/* Schedule Status & Publish */}
-          {selectedZoneId && (
-            <div className="flex items-center gap-3 flex-wrap">
-              {scheduleStatus?.status === 'PUBLISHED' ? (
-                <div className="flex items-center gap-2 px-3 py-2 bg-green-50 text-green-700 rounded-lg">
-                  <Check className="w-4 h-4" />
-                  <span className="text-sm font-medium">פורסם</span>
-                  {scheduleStatus.publishedBy && (
-                    <span className="text-xs text-green-600">
-                      ע"י {scheduleStatus.publishedBy.fullName}
-                    </span>
-                  )}
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 text-amber-700 rounded-lg">
-                  <FileText className="w-4 h-4" />
-                  <span className="text-sm font-medium">טיוטה</span>
-                  {scheduleStatus?.assignmentCount ? (
-                    <span className="text-xs">({scheduleStatus.assignmentCount} שיבוצים)</span>
-                  ) : null}
-                </div>
-              )}
-
-              {/* Publish buttons per shift template */}
-              {shiftTemplates && shiftTemplates.length > 0 && (
-                <div className="flex items-center gap-2 border-r pr-3 mr-2">
-                  {shiftTemplates.map((template) => {
-                    const templateAssignments = assignments?.filter(a => a.shiftTemplateId === template.id) || [];
-                    const confirmedCount = templateAssignments.filter(a => a.status === 'CONFIRMED').length;
-                    const isPublished = confirmedCount > 0 && confirmedCount === templateAssignments.length;
-
-                    return (
-                      <Button
-                        key={template.id}
-                        size="sm"
-                        variant={isPublished ? 'secondary' : 'primary'}
-                        onClick={() => {
-                          if (templateAssignments.length === 0) {
-                            toast.error(`אין שיבוצים למשמרת ${template.displayName}`);
-                            return;
-                          }
-                          if (confirm(`האם לפרסם את משמרת ${template.displayName}? ${templateAssignments.length} חיילים יקבלו התראה.`)) {
-                            publishMutation.mutate(template.id);
-                          }
-                        }}
-                        isLoading={publishMutation.isPending}
-                        disabled={templateAssignments.length === 0 || isPublished}
-                        className="text-xs"
-                      >
-                        {isPublished ? (
-                          <Check className="w-3 h-3 ml-1" />
-                        ) : (
-                          <Send className="w-3 h-3 ml-1" />
-                        )}
-                        {template.displayName}
-                        {templateAssignments.length > 0 && !isPublished && (
-                          <span className="mr-1 text-xs">({templateAssignments.length})</span>
-                        )}
-                      </Button>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Publish All button */}
-              {scheduleStatus?.status !== 'PUBLISHED' && scheduleStatus?.assignmentCount && scheduleStatus.assignmentCount > 0 && (
-                <Button
-                  onClick={() => {
-                    if (confirm('האם לפרסם את כל המשמרות? כל החיילים המשובצים יקבלו התראה.')) {
-                      publishMutation.mutate(undefined);
-                    }
-                  }}
-                  isLoading={publishMutation.isPending}
-                >
-                  <Send className="w-4 h-4 ml-2" />
-                  פרסם הכל
-                </Button>
-              )}
+                return (
+                  <Button
+                    key={template.id}
+                    size="sm"
+                    variant={isPublished ? 'secondary' : 'primary'}
+                    onClick={() => {
+                      if (templateAssignments.length === 0) {
+                        toast.error(`אין שיבוצים למשמרת ${template.displayName}`);
+                        return;
+                      }
+                      if (confirm(`האם לפרסם את משמרת ${template.displayName}? ${templateAssignments.length} חיילים יקבלו התראה.`)) {
+                        publishMutation.mutate(template.id);
+                      }
+                    }}
+                    isLoading={publishMutation.isPending}
+                    disabled={templateAssignments.length === 0 || isPublished}
+                    className="text-xs"
+                  >
+                    {isPublished ? (
+                      <Check className="w-3 h-3 ml-1" />
+                    ) : (
+                      <Send className="w-3 h-3 ml-1" />
+                    )}
+                    {template.displayName}
+                    {templateAssignments.length > 0 && !isPublished && (
+                      <span className="mr-1 text-xs">({templateAssignments.length})</span>
+                    )}
+                  </Button>
+                );
+              })}
             </div>
           )}
         </div>
@@ -690,10 +697,10 @@ export default function ShiftAssignmentsPage() {
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
-          <div className="grid grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 lg:gap-6">
             {/* Available Soldiers */}
-            <div className="col-span-1">
-              <Card className="sticky top-4">
+            <div className="lg:col-span-1 order-2 lg:order-1">
+              <Card className="lg:sticky lg:top-4">
                 <CardHeader className="flex items-center gap-2">
                   <Users className="w-5 h-5" />
                   <span>חיילים זמינים</span>
@@ -701,7 +708,7 @@ export default function ShiftAssignmentsPage() {
                     ({filteredSoldiers.length}{soldierSearch && availableSoldiers ? `/${availableSoldiers.length}` : ''})
                   </span>
                 </CardHeader>
-                <CardContent className="max-h-[calc(100vh-300px)] overflow-y-auto">
+                <CardContent className="max-h-[300px] lg:max-h-[calc(100vh-300px)] overflow-y-auto">
                   {/* Search Input */}
                   <div className="relative mb-3">
                     <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -725,7 +732,7 @@ export default function ShiftAssignmentsPage() {
                       לא נמצאו חיילים מתאימים לחיפוש
                     </p>
                   ) : (
-                    <div className="space-y-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-1 gap-2">
                       {filteredSoldiers.map((soldier) => (
                         <SoldierCard
                           key={soldier.id}
@@ -740,7 +747,7 @@ export default function ShiftAssignmentsPage() {
             </div>
 
             {/* Tasks Grid */}
-            <div className="col-span-3">
+            <div className="lg:col-span-3 order-1 lg:order-2">
               {assignmentsLoading ? (
                 <div className="flex justify-center py-12">
                   <Spinner />
