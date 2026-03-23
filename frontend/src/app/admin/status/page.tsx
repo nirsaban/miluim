@@ -13,6 +13,10 @@ import {
   LogOut,
   RefreshCw,
   BarChart3,
+  Calendar,
+  Shield,
+  MessageSquare,
+  Bell,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { AdminLayout } from '@/components/layout/AdminLayout';
@@ -83,6 +87,41 @@ export default function AdminStatusPage() {
       return response.data;
     },
     refetchInterval: 30000, // Refresh every 30 seconds
+  });
+
+  // Fetch today's shift overview
+  const { data: shiftOverview } = useQuery({
+    queryKey: ['shift-overview-today'],
+    queryFn: async () => {
+      const today = new Date().toISOString().split('T')[0];
+      const response = await api.get(`/shift-assignments/date/${today}`);
+      const assignments = response.data || [];
+
+      // Calculate stats
+      const stats = {
+        total: assignments.length,
+        confirmed: assignments.filter((a: any) => a.status === 'CONFIRMED').length,
+        pending: assignments.filter((a: any) => a.status === 'PENDING').length,
+        arrived: assignments.filter((a: any) => a.arrivedAt).length,
+      };
+      return stats;
+    },
+    refetchInterval: 60000, // Refresh every minute
+  });
+
+  // Fetch unconfirmed messages count
+  const { data: messagesStats } = useQuery({
+    queryKey: ['messages-stats'],
+    queryFn: async () => {
+      const response = await api.get('/messages');
+      const messages = response.data || [];
+      const requireConfirmation = messages.filter((m: any) => m.requiresConfirmation && m.isActive);
+      return {
+        total: messages.length,
+        requireConfirmation: requireConfirmation.length,
+      };
+    },
+    refetchInterval: 60000,
   });
 
   const approveMutation = useMutation({
@@ -174,6 +213,86 @@ export default function AdminStatusPage() {
           <RefreshCw className="w-4 h-4 ml-1" />
           רענן
         </Button>
+      </div>
+
+      {/* Quick System Overview */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        {/* Today's Shifts */}
+        <div className="bg-gradient-to-br from-military-50 to-military-100 rounded-lg p-4 border border-military-200">
+          <div className="flex items-center gap-2 mb-2">
+            <Calendar className="w-5 h-5 text-military-600" />
+            <span className="text-sm font-medium text-military-700">משמרות היום</span>
+          </div>
+          <div className="flex items-baseline gap-1">
+            <span className="text-2xl font-bold text-military-800">{shiftOverview?.arrived || 0}</span>
+            <span className="text-sm text-military-600">/ {shiftOverview?.total || 0}</span>
+          </div>
+          <p className="text-xs text-military-500 mt-1">הגיעו למשמרת</p>
+        </div>
+
+        {/* Pending Shift Confirmations */}
+        <div className={cn(
+          "rounded-lg p-4 border",
+          shiftOverview?.pending && shiftOverview.pending > 0
+            ? "bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200"
+            : "bg-gray-50 border-gray-200"
+        )}>
+          <div className="flex items-center gap-2 mb-2">
+            <Shield className="w-5 h-5 text-orange-600" />
+            <span className="text-sm font-medium text-orange-700">ממתינים למשמרת</span>
+          </div>
+          <div className="flex items-baseline gap-1">
+            <span className={cn(
+              "text-2xl font-bold",
+              shiftOverview?.pending && shiftOverview.pending > 0 ? "text-orange-700" : "text-gray-400"
+            )}>{shiftOverview?.pending || 0}</span>
+          </div>
+          <p className="text-xs text-orange-500 mt-1">טרם אישרו הגעה</p>
+        </div>
+
+        {/* Messages Requiring Confirmation */}
+        <div className={cn(
+          "rounded-lg p-4 border",
+          messagesStats?.requireConfirmation && messagesStats.requireConfirmation > 0
+            ? "bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200"
+            : "bg-gray-50 border-gray-200"
+        )}>
+          <div className="flex items-center gap-2 mb-2">
+            <MessageSquare className="w-5 h-5 text-purple-600" />
+            <span className="text-sm font-medium text-purple-700">הודעות לאישור</span>
+          </div>
+          <div className="flex items-baseline gap-1">
+            <span className={cn(
+              "text-2xl font-bold",
+              messagesStats?.requireConfirmation && messagesStats.requireConfirmation > 0 ? "text-purple-700" : "text-gray-400"
+            )}>{messagesStats?.requireConfirmation || 0}</span>
+          </div>
+          <p className="text-xs text-purple-500 mt-1">הודעות פעילות</p>
+        </div>
+
+        {/* Service Cycle Status */}
+        <div className={cn(
+          "rounded-lg p-4 border",
+          dashboard?.currentCycle
+            ? "bg-gradient-to-br from-green-50 to-green-100 border-green-200"
+            : "bg-gray-50 border-gray-200"
+        )}>
+          <div className="flex items-center gap-2 mb-2">
+            <Bell className="w-5 h-5 text-green-600" />
+            <span className="text-sm font-medium text-green-700">סבב מילואים</span>
+          </div>
+          {dashboard?.currentCycle ? (
+            <>
+              <p className="text-sm font-bold text-green-800 truncate">{dashboard.currentCycle.name}</p>
+              <p className="text-xs text-green-500 mt-1">פעיל</p>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-gray-500">אין סבב פעיל</p>
+              <p className="text-xs text-gray-400 mt-1">-</p>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Tabs */}

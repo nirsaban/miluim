@@ -18,6 +18,71 @@ export const MILITARY_ROLE_LABELS: Record<MilitaryRole, string> = {
   FIGHTER: 'לוחם',
 };
 
+// Role Hierarchy: Maps MilitaryRole to recommended UserRole
+// This defines the default authorization level for each military role
+export const MILITARY_TO_USER_ROLE: Record<MilitaryRole, UserRole> = {
+  PLATOON_COMMANDER: 'ADMIN',        // מפקד פלוגה - Full system access
+  SERGEANT_MAJOR: 'OFFICER',         // סמ״פ - Department + leave management
+  OPERATIONS_SGT: 'LOGISTICS',       // קמב״צ - Shift & operational management
+  OPERATIONS_NCO: 'LOGISTICS',       // סמב״צ - Shift & operational management
+  DUTY_OFFICER: 'OFFICER',           // מ״מ - Can approve leaves, manage department
+  SQUAD_COMMANDER: 'COMMANDER',      // מפקד - Command-level notifications
+  FIGHTER: 'SOLDIER',                // לוחם - Basic access
+};
+
+// Role hierarchy level for comparison (higher = more permissions)
+export const ROLE_HIERARCHY_LEVEL: Record<UserRole, number> = {
+  ADMIN: 100,
+  LOGISTICS: 50,
+  OFFICER: 50,
+  COMMANDER: 20,
+  SOLDIER: 10,
+};
+
+// Permission descriptions for each UserRole
+export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
+  SOLDIER: [
+    'צפייה במשמרות שלו',
+    'בקשת יציאות',
+    'צפייה בהודעות',
+    'עדכון פרופיל',
+  ],
+  COMMANDER: [
+    'כל הרשאות חייל',
+    'קבלת התראות פיקוד',
+    'יצירת הודעות',
+  ],
+  OFFICER: [
+    'כל הרשאות מפקד',
+    'ניהול מחלקה',
+    'אישור בקשות יציאה',
+    'ניהול סבבי מילואים',
+  ],
+  LOGISTICS: [
+    'כל הרשאות מפקד',
+    'ניהול משמרות ושיבוצים',
+    'ניהול אזורים ומשימות',
+    'ניהול קישורים מבצעיים',
+  ],
+  ADMIN: [
+    'גישה מלאה למערכת',
+    'ניהול משתמשים',
+    'הגדרות מערכת',
+    'ייבוא נתונים',
+  ],
+};
+
+// Helper to check if user can access a specific permission level
+export function canAccessRole(userRole: UserRole, requiredRole: UserRole): boolean {
+  if (userRole === 'ADMIN') return true;
+  return ROLE_HIERARCHY_LEVEL[userRole] >= ROLE_HIERARCHY_LEVEL[requiredRole];
+}
+
+// Helper to get suggested UserRole based on MilitaryRole
+export function getSuggestedUserRole(militaryRole: MilitaryRole): UserRole {
+  return MILITARY_TO_USER_ROLE[militaryRole] || 'SOLDIER';
+}
+
 // Department interface
 export interface Department {
   id: string;

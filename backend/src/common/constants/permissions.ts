@@ -1,4 +1,44 @@
-import { MilitaryRole } from '@prisma/client';
+import { MilitaryRole, UserRole } from '@prisma/client';
+
+/**
+ * Role Hierarchy: Maps MilitaryRole to recommended UserRole
+ * This defines the default authorization level for each military role
+ */
+export const MILITARY_TO_USER_ROLE: Record<MilitaryRole, UserRole> = {
+  PLATOON_COMMANDER: 'ADMIN',        // מפקד פלוגה - Full system access
+  SERGEANT_MAJOR: 'OFFICER',         // סמ״פ - Department + leave management
+  OPERATIONS_SGT: 'LOGISTICS',       // קמב״צ - Shift & operational management
+  OPERATIONS_NCO: 'LOGISTICS',       // סמב״צ - Shift & operational management
+  DUTY_OFFICER: 'OFFICER',           // מ״מ - Can approve leaves, manage department
+  SQUAD_COMMANDER: 'COMMANDER',      // מפקד - Command-level notifications
+  FIGHTER: 'SOLDIER',                // לוחם - Basic access
+};
+
+/**
+ * Role hierarchy level for comparison (higher = more permissions)
+ */
+export const ROLE_HIERARCHY_LEVEL: Record<UserRole, number> = {
+  ADMIN: 100,
+  LOGISTICS: 50,
+  OFFICER: 50,
+  COMMANDER: 20,
+  SOLDIER: 10,
+};
+
+/**
+ * Check if a user role meets the minimum required role
+ */
+export function isAtLeastRole(userRole: UserRole, requiredRole: UserRole): boolean {
+  if (userRole === 'ADMIN') return true;
+  return ROLE_HIERARCHY_LEVEL[userRole] >= ROLE_HIERARCHY_LEVEL[requiredRole];
+}
+
+/**
+ * Get the suggested UserRole based on MilitaryRole
+ */
+export function getSuggestedUserRole(militaryRole: MilitaryRole): UserRole {
+  return MILITARY_TO_USER_ROLE[militaryRole] || 'SOLDIER';
+}
 
 // Permission keys
 export enum Permission {
@@ -95,21 +135,26 @@ export const ROLE_PERMISSIONS: Record<MilitaryRole, Permission[]> = {
     Permission.APPROVE_LEAVES,
   ],
 
-  // סמב״צ - Operations NCO - Limited operational control
+  // סמב״צ - Operations NCO - Operational & logistics control (same as LOGISTICS role)
   [MilitaryRole.OPERATIONS_NCO]: [
     Permission.VIEW_SHIFT_MANAGEMENT,
     Permission.MANAGE_ZONES,
     Permission.MANAGE_TASKS,
     Permission.MANAGE_SKILLS,
     Permission.MANAGE_SHIFT_BOARD,
+    Permission.MANAGE_SHIFT_IMAGES,
+    Permission.VIEW_ALL_LEAVES,        // Can view leaves for operational planning
+    Permission.MANAGE_MESSAGES,        // Can send operational messages
   ],
 
-  // מ״מ - Duty Officer - Department-scoped access
+  // מ״מ - Duty Officer - Department-scoped access + leave approval (same as OFFICER role)
   [MilitaryRole.DUTY_OFFICER]: [
     Permission.VIEW_DEPARTMENT_REQUESTS,
     Permission.UPDATE_DEPARTMENT_REQUESTS,
     Permission.MANAGE_MESSAGES,
     Permission.MANAGE_SYSTEM_MESSAGES,
+    Permission.VIEW_ALL_LEAVES,          // Can view all leaves
+    Permission.APPROVE_LEAVES,           // Can approve leave requests
   ],
 
   // מפקד - Squad Commander - Basic soldier portal

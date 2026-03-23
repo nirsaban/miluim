@@ -41,6 +41,9 @@ const config: Config = {
         'slide-down': 'slideDown 0.3s ease-out',
         'fade-in': 'fadeIn 0.3s ease-out',
         'carousel': 'carousel 10s ease-in-out infinite',
+        'slide-out-left': 'slideOutLeft 0.2s ease-out',
+        'slide-out-right': 'slideOutRight 0.2s ease-out',
+        'scale-in': 'scaleIn 0.2s ease-out',
       },
       keyframes: {
         slideUp: {
@@ -59,6 +62,18 @@ const config: Config = {
           '0%, 33%': { transform: 'translateX(0)' },
           '40%, 73%': { transform: 'translateX(-100%)' },
           '80%, 100%': { transform: 'translateX(-200%)' },
+        },
+        slideOutLeft: {
+          '0%': { transform: 'translateX(0)', opacity: '1' },
+          '100%': { transform: 'translateX(-20px)', opacity: '0' },
+        },
+        slideOutRight: {
+          '0%': { transform: 'translateX(0)', opacity: '1' },
+          '100%': { transform: 'translateX(20px)', opacity: '0' },
+        },
+        scaleIn: {
+          '0%': { transform: 'scale(0.95)', opacity: '0' },
+          '100%': { transform: 'scale(1)', opacity: '1' },
         },
       },
     },
