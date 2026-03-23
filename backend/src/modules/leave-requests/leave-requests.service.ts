@@ -408,23 +408,88 @@ export class LeaveRequestsService {
     };
   }
 
-  async approve(id: string, adminId: string, adminNote?: string) {
+  /**
+   * Verify that the admin/officer has access to this request's soldier
+   */
+  private async verifyAccessToRequest(
+    requestId: string,
+    userId: string,
+    userRole: UserRole,
+    militaryRole?: MilitaryRole,
+  ): Promise<{ request: any; hasAccess: boolean }> {
     const request = await this.prisma.leaveRequest.findUnique({
-      where: { id },
+      where: { id: requestId },
+      include: {
+        soldier: {
+          select: { id: true, departmentId: true },
+        },
+      },
     });
 
     if (!request) {
       throw new NotFoundException('בקשה לא נמצאה');
     }
 
-    if (request.status !== 'PENDING') {
-      throw new BadRequestException('ניתן לאשר רק בקשות ממתינות');
+    // ADMIN sees all
+    if (userRole === 'ADMIN') {
+      return { request, hasAccess: true };
+    }
+
+    // Admin-level military roles see all
+    if (militaryRole && isAdminMilitaryRole(militaryRole)) {
+      return { request, hasAccess: true };
+    }
+
+    // OFFICER must be in the same department as the soldier
+    if (userRole === 'OFFICER') {
+      const officer = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { departmentId: true },
+      });
+
+      if (!officer?.departmentId) {
+        return { request, hasAccess: false };
+      }
+
+      const hasAccess = officer.departmentId === request.soldier.departmentId;
+      return { request, hasAccess };
+    }
+
+    return { request, hasAccess: false };
+  }
+
+  async approve(
+    id: string,
+    adminId: string,
+    adminNote?: string,
+    userRole?: UserRole,
+    militaryRole?: MilitaryRole,
+  ) {
+    // Verify access if role info provided (for department scoping)
+    if (userRole) {
+      const { request, hasAccess } = await this.verifyAccessToRequest(id, adminId, userRole, militaryRole);
+      if (!hasAccess) {
+        throw new ForbiddenException('אין לך הרשאה לאשר בקשה זו');
+      }
+      if (request.status !== 'PENDING') {
+        throw new BadRequestException('ניתן לאשר רק בקשות ממתינות');
+      }
+    } else {
+      // Fallback for backwards compatibility
+      const request = await this.prisma.leaveRequest.findUnique({ where: { id } });
+      if (!request) {
+        throw new NotFoundException('בקשה לא נמצאה');
+      }
+      if (request.status !== 'PENDING') {
+        throw new BadRequestException('ניתן לאשר רק בקשות ממתינות');
+      }
     }
 
     // Check if exit time is now or in the past - mark as ACTIVE
     // Otherwise mark as APPROVED (will become ACTIVE when exit time arrives)
     const now = new Date();
-    const exitTime = new Date(request.exitTime);
+    const requestData = await this.prisma.leaveRequest.findUnique({ where: { id } });
+    const exitTime = new Date(requestData!.exitTime);
     const newStatus: LeaveStatus = exitTime <= now ? 'ACTIVE' : 'APPROVED';
 
     return this.prisma.leaveRequest.update({
@@ -438,17 +503,31 @@ export class LeaveRequestsService {
     });
   }
 
-  async reject(id: string, adminId: string, adminNote?: string) {
-    const request = await this.prisma.leaveRequest.findUnique({
-      where: { id },
-    });
-
-    if (!request) {
-      throw new NotFoundException('בקשה לא נמצאה');
-    }
-
-    if (request.status !== 'PENDING') {
-      throw new BadRequestException('ניתן לדחות רק בקשות ממתינות');
+  async reject(
+    id: string,
+    adminId: string,
+    adminNote?: string,
+    userRole?: UserRole,
+    militaryRole?: MilitaryRole,
+  ) {
+    // Verify access if role info provided (for department scoping)
+    if (userRole) {
+      const { request, hasAccess } = await this.verifyAccessToRequest(id, adminId, userRole, militaryRole);
+      if (!hasAccess) {
+        throw new ForbiddenException('אין לך הרשאה לדחות בקשה זו');
+      }
+      if (request.status !== 'PENDING') {
+        throw new BadRequestException('ניתן לדחות רק בקשות ממתינות');
+      }
+    } else {
+      // Fallback for backwards compatibility
+      const request = await this.prisma.leaveRequest.findUnique({ where: { id } });
+      if (!request) {
+        throw new NotFoundException('בקשה לא נמצאה');
+      }
+      if (request.status !== 'PENDING') {
+        throw new BadRequestException('ניתן לדחות רק בקשות ממתינות');
+      }
     }
 
     return this.prisma.leaveRequest.update({
@@ -462,17 +541,30 @@ export class LeaveRequestsService {
     });
   }
 
-  async markActive(id: string) {
-    const request = await this.prisma.leaveRequest.findUnique({
-      where: { id },
-    });
-
-    if (!request) {
-      throw new NotFoundException('בקשה לא נמצאה');
-    }
-
-    if (request.status !== 'APPROVED') {
-      throw new BadRequestException('ניתן להפעיל רק בקשות מאושרות');
+  async markActive(
+    id: string,
+    userId?: string,
+    userRole?: UserRole,
+    militaryRole?: MilitaryRole,
+  ) {
+    // Verify access if role info provided (for department scoping)
+    if (userRole && userId) {
+      const { request, hasAccess } = await this.verifyAccessToRequest(id, userId, userRole, militaryRole);
+      if (!hasAccess) {
+        throw new ForbiddenException('אין לך הרשאה לעדכן בקשה זו');
+      }
+      if (request.status !== 'APPROVED') {
+        throw new BadRequestException('ניתן להפעיל רק בקשות מאושרות');
+      }
+    } else {
+      // Fallback for backwards compatibility
+      const request = await this.prisma.leaveRequest.findUnique({ where: { id } });
+      if (!request) {
+        throw new NotFoundException('בקשה לא נמצאה');
+      }
+      if (request.status !== 'APPROVED') {
+        throw new BadRequestException('ניתן להפעיל רק בקשות מאושרות');
+      }
     }
 
     return this.prisma.leaveRequest.update({
@@ -482,17 +574,30 @@ export class LeaveRequestsService {
     });
   }
 
-  async markReturned(id: string) {
-    const request = await this.prisma.leaveRequest.findUnique({
-      where: { id },
-    });
-
-    if (!request) {
-      throw new NotFoundException('בקשה לא נמצאה');
-    }
-
-    if (request.status !== 'ACTIVE') {
-      throw new BadRequestException('ניתן לסמן חזרה רק לחיילים שבחוץ');
+  async markReturned(
+    id: string,
+    userId?: string,
+    userRole?: UserRole,
+    militaryRole?: MilitaryRole,
+  ) {
+    // Verify access if role info provided (for department scoping)
+    if (userRole && userId) {
+      const { request, hasAccess } = await this.verifyAccessToRequest(id, userId, userRole, militaryRole);
+      if (!hasAccess) {
+        throw new ForbiddenException('אין לך הרשאה לעדכן בקשה זו');
+      }
+      if (request.status !== 'ACTIVE') {
+        throw new BadRequestException('ניתן לסמן חזרה רק לחיילים שבחוץ');
+      }
+    } else {
+      // Fallback for backwards compatibility
+      const request = await this.prisma.leaveRequest.findUnique({ where: { id } });
+      if (!request) {
+        throw new NotFoundException('בקשה לא נמצאה');
+      }
+      if (request.status !== 'ACTIVE') {
+        throw new BadRequestException('ניתן לסמן חזרה רק לחיילים שבחוץ');
+      }
     }
 
     return this.prisma.leaveRequest.update({

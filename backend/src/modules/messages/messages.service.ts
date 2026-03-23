@@ -124,43 +124,51 @@ export class MessagesService {
       },
     });
 
-    // Send push notification for new messages
-    const shouldPush = data.type === MessageType.URGENT ||
-                       data.priority === MessagePriority.HIGH ||
-                       data.priority === MessagePriority.CRITICAL ||
-                       departmentId !== null; // Always push department messages
+    // Send push notification for ALL messages with full data
+    // Get target roles based on audience
+    const targetRoles = this.getTargetRoles(data.targetAudience || MessageTargetAudience.ALL);
 
-    if (shouldPush) {
-      // Get target roles based on audience
-      const targetRoles = this.getTargetRoles(data.targetAudience || MessageTargetAudience.ALL);
+    // Build user filter - scope to department if set
+    const userFilter: any = {
+      isActive: true,
+      role: { in: targetRoles },
+    };
 
-      // Build user filter - scope to department if set
-      const userFilter: any = {
-        isActive: true,
-        role: { in: targetRoles },
-      };
+    if (departmentId) {
+      // Scope to department
+      userFilter.departmentId = departmentId;
+    }
 
-      if (departmentId) {
-        // Scope to department
-        userFilter.departmentId = departmentId;
-      }
+    // Send push to users with matching roles (and department if scoped)
+    const targetUsers = await this.prisma.user.findMany({
+      where: userFilter,
+      select: { id: true },
+    });
 
-      // Send push to users with matching roles (and department if scoped)
-      const targetUsers = await this.prisma.user.findMany({
-        where: userFilter,
-        select: { id: true },
+    // Build notification with all relevant data
+    const messageType = data.type || MessageType.GENERAL;
+    const messagePriority = data.priority || MessagePriority.MEDIUM;
+    const isHighPriority = messagePriority === MessagePriority.HIGH || messagePriority === MessagePriority.CRITICAL;
+    const typeLabel = this.getMessageTypeLabel(messageType);
+    const priorityLabel = this.getPriorityLabel(messagePriority);
+
+    for (const user of targetUsers) {
+      await this.pushService.sendToUser(user.id, {
+        title: `${typeLabel}${isHighPriority ? ' ⚠️' : ''}`,
+        body: `${data.title}\n\n${data.content}`,
+        icon: '/icons/icon-192x192.png',
+        badge: '/icons/icon-72x72.png',
+        tag: `message-${message.id}`,
+        url: '/dashboard/home',
+        data: {
+          messageId: message.id,
+          type: messageType,
+          priority: messagePriority,
+          priorityLabel,
+          requiresConfirmation: data.requiresConfirmation || false,
+          isDepartmentMessage: departmentId !== null,
+        },
       });
-
-      for (const user of targetUsers) {
-        await this.pushService.sendToUser(user.id, {
-          title: this.getMessageTypeLabel(data.type || MessageType.GENERAL),
-          body: data.title,
-          icon: '/icons/icon-192x192.png',
-          badge: '/icons/icon-72x72.png',
-          tag: `message-${message.id}`,
-          url: '/dashboard/home',
-        });
-      }
     }
 
     return message;
@@ -289,6 +297,16 @@ export class MessagesService {
       OPERATIONAL: 'הודעה מבצעית',
     };
     return labels[type] || 'הודעה חדשה';
+  }
+
+  private getPriorityLabel(priority: MessagePriority): string {
+    const labels: Record<MessagePriority, string> = {
+      LOW: 'נמוכה',
+      MEDIUM: 'רגילה',
+      HIGH: 'גבוהה',
+      CRITICAL: 'קריטית',
+    };
+    return labels[priority] || 'רגילה';
   }
 
   // Message confirmation methods

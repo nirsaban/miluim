@@ -88,7 +88,6 @@ const adminMenuSections: MenuSection[] = [
     label: 'בקשות',
     icon: FileText,
     items: [
-      { href: '/admin/status', label: 'בקשות יציאה', icon: UserCheck },
       { href: '/admin/forms', label: 'טפסים ובקשות', icon: FileText },
       { href: '/admin/leave-categories', label: 'קטגוריות יציאה', icon: Tags },
     ],
@@ -158,9 +157,9 @@ function filterMenuSections(
       .filter(section => section.items.length > 0);
   }
 
-  // OFFICER sees only requests section (for form management)
+  // OFFICER does not access admin panel - they use /dashboard/department
   if (userRole === 'OFFICER') {
-    return sections.filter(section => section.id === 'requests');
+    return [];
   }
 
   // Default: no admin access

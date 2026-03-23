@@ -10,6 +10,7 @@ export interface PushPayload {
   badge?: string;
   url?: string;
   tag?: string;
+  data?: Record<string, any>; // Additional data to pass to service worker
 }
 
 @Injectable()

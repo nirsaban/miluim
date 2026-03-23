@@ -107,7 +107,13 @@ export class LeaveRequestsController {
     @Param('id') id: string,
     @Body() body: { adminNote?: string },
   ) {
-    return this.leaveRequestsService.approve(id, req.user.id, body.adminNote);
+    return this.leaveRequestsService.approve(
+      id,
+      req.user.id,
+      body.adminNote,
+      req.user.role,
+      req.user.militaryRole,
+    );
   }
 
   @Patch(':id/reject')
@@ -118,20 +124,42 @@ export class LeaveRequestsController {
     @Param('id') id: string,
     @Body() body: { adminNote?: string },
   ) {
-    return this.leaveRequestsService.reject(id, req.user.id, body.adminNote);
+    return this.leaveRequestsService.reject(
+      id,
+      req.user.id,
+      body.adminNote,
+      req.user.role,
+      req.user.militaryRole,
+    );
   }
 
   @Patch(':id/activate')
   @UseGuards(RolesGuard)
   @Roles('OFFICER')
-  markActive(@Param('id') id: string) {
-    return this.leaveRequestsService.markActive(id);
+  markActive(
+    @Request() req: any,
+    @Param('id') id: string,
+  ) {
+    return this.leaveRequestsService.markActive(
+      id,
+      req.user.id,
+      req.user.role,
+      req.user.militaryRole,
+    );
   }
 
   @Patch(':id/return')
   @UseGuards(RolesGuard)
   @Roles('OFFICER')
-  markReturned(@Param('id') id: string) {
-    return this.leaveRequestsService.markReturned(id);
+  markReturned(
+    @Request() req: any,
+    @Param('id') id: string,
+  ) {
+    return this.leaveRequestsService.markReturned(
+      id,
+      req.user.id,
+      req.user.role,
+      req.user.militaryRole,
+    );
   }
 }

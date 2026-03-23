@@ -850,4 +850,274 @@ export class UsersService {
       serviceAttendances: undefined,
     }));
   }
+
+  /**
+   * Get comprehensive department statistics for officer dashboard
+   */
+  async getDepartmentComprehensiveStats(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        departmentId: true,
+        department: { select: { id: true, name: true } },
+      },
+    });
+
+    if (!user?.departmentId) {
+      throw new NotFoundException('משתמש לא משויך למחלקה');
+    }
+
+    const departmentId = user.departmentId;
+
+    // Get all department users
+    const departmentUsers = await this.prisma.user.findMany({
+      where: { isActive: true, departmentId },
+      select: { id: true },
+    });
+    const userIds = departmentUsers.map(u => u.id);
+    const totalUsers = userIds.length;
+
+    // Get current active service cycle
+    const activeCycle = await this.prisma.reserveServiceCycle.findFirst({
+      where: { status: 'ACTIVE' },
+    });
+
+    // Attendance statistics
+    let attendanceStats = {
+      totalInCycle: 0,
+      arrived: 0,
+      notComing: 0,
+      pending: 0,
+      late: 0,
+    };
+
+    let arrivedUserIds: string[] = [];
+
+    if (activeCycle) {
+      const attendances = await this.prisma.serviceAttendance.findMany({
+        where: {
+          serviceCycleId: activeCycle.id,
+          userId: { in: userIds },
+        },
+        select: { userId: true, attendanceStatus: true },
+      });
+
+      attendanceStats.totalInCycle = attendances.length;
+
+      for (const att of attendances) {
+        switch (att.attendanceStatus) {
+          case 'ARRIVED':
+            attendanceStats.arrived++;
+            arrivedUserIds.push(att.userId);
+            break;
+          case 'NOT_COMING':
+            attendanceStats.notComing++;
+            break;
+          case 'PENDING':
+            attendanceStats.pending++;
+            break;
+          case 'LATE':
+            attendanceStats.late++;
+            arrivedUserIds.push(att.userId);
+            break;
+        }
+      }
+    }
+
+    // Leave statistics (only for arrived users in cycle, or all users if no cycle)
+    const leaveFilterUserIds = arrivedUserIds.length > 0 ? arrivedUserIds : userIds;
+
+    const [activeLeaves, homeLeaves, shortLeaves, pendingRequests, approvedRequests, rejectedRequests] = await Promise.all([
+      // Active leaves count
+      this.prisma.leaveRequest.count({
+        where: { status: 'ACTIVE', soldierId: { in: leaveFilterUserIds } },
+      }),
+      // Home leaves (active)
+      this.prisma.leaveRequest.count({
+        where: { status: 'ACTIVE', type: 'HOME', soldierId: { in: leaveFilterUserIds } },
+      }),
+      // Short leaves (active)
+      this.prisma.leaveRequest.count({
+        where: { status: 'ACTIVE', type: 'SHORT', soldierId: { in: leaveFilterUserIds } },
+      }),
+      // Pending requests
+      this.prisma.leaveRequest.count({
+        where: { status: 'PENDING', soldierId: { in: userIds } },
+      }),
+      // Approved (not yet active)
+      this.prisma.leaveRequest.count({
+        where: { status: 'APPROVED', soldierId: { in: userIds } },
+      }),
+      // Rejected (last 30 days)
+      this.prisma.leaveRequest.count({
+        where: {
+          status: 'REJECTED',
+          soldierId: { in: userIds },
+          updatedAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
+        },
+      }),
+    ]);
+
+    // Get users currently on leave with details
+    const usersOnLeave = await this.prisma.leaveRequest.findMany({
+      where: { status: 'ACTIVE', soldierId: { in: leaveFilterUserIds } },
+      include: {
+        soldier: { select: { id: true, fullName: true, phone: true } },
+        category: { select: { displayName: true } },
+      },
+      orderBy: { expectedReturn: 'asc' },
+    });
+
+    const usersAtHome = usersOnLeave.filter(l => l.type === 'HOME');
+    const usersOnShortLeave = usersOnLeave.filter(l => l.type === 'SHORT');
+
+    // Today's shifts
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const todayShifts = await this.prisma.shiftAssignment.count({
+      where: {
+        date: { gte: today, lt: tomorrow },
+        soldierId: { in: userIds },
+      },
+    });
+
+    // Calculate in base
+    const inBase = (arrivedUserIds.length || totalUsers) - activeLeaves;
+
+    return {
+      department: user.department,
+      activeCycle: activeCycle ? { id: activeCycle.id, name: activeCycle.name } : null,
+      overview: {
+        totalUsers,
+        totalInCycle: attendanceStats.totalInCycle,
+        inBase: Math.max(0, inBase),
+        onLeave: activeLeaves,
+        todayShifts,
+      },
+      attendance: {
+        arrived: attendanceStats.arrived,
+        notComing: attendanceStats.notComing,
+        pending: attendanceStats.pending,
+        late: attendanceStats.late,
+        unconfirmed: attendanceStats.pending,
+      },
+      leaves: {
+        active: activeLeaves,
+        atHome: homeLeaves,
+        shortLeave: shortLeaves,
+        usersAtHome: usersAtHome.map(l => ({
+          id: l.soldier.id,
+          name: l.soldier.fullName,
+          phone: l.soldier.phone,
+          expectedReturn: l.expectedReturn,
+        })),
+        usersOnShortLeave: usersOnShortLeave.map(l => ({
+          id: l.soldier.id,
+          name: l.soldier.fullName,
+          phone: l.soldier.phone,
+          category: l.category?.displayName || 'אחר',
+          expectedReturn: l.expectedReturn,
+        })),
+      },
+      requests: {
+        pending: pendingRequests,
+        approved: approvedRequests,
+        rejected: rejectedRequests,
+      },
+    };
+  }
+
+  /**
+   * Get department leave requests with filters for officer
+   */
+  async getDepartmentLeaveRequests(
+    userId: string,
+    filters: {
+      status?: string;
+      type?: string;
+      soldierId?: string;
+      fromDate?: string;
+      toDate?: string;
+    } = {},
+  ) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { departmentId: true },
+    });
+
+    if (!user?.departmentId) {
+      throw new NotFoundException('משתמש לא משויך למחלקה');
+    }
+
+    // Get department user IDs
+    const departmentUsers = await this.prisma.user.findMany({
+      where: { isActive: true, departmentId: user.departmentId },
+      select: { id: true },
+    });
+    const userIds = departmentUsers.map(u => u.id);
+
+    // Build filter
+    const where: any = {
+      soldierId: { in: userIds },
+    };
+
+    if (filters.status) {
+      where.status = filters.status;
+    }
+    if (filters.type) {
+      where.type = filters.type;
+    }
+    if (filters.soldierId && userIds.includes(filters.soldierId)) {
+      where.soldierId = filters.soldierId;
+    }
+    if (filters.fromDate) {
+      where.createdAt = { ...where.createdAt, gte: new Date(filters.fromDate) };
+    }
+    if (filters.toDate) {
+      where.createdAt = { ...where.createdAt, lte: new Date(filters.toDate) };
+    }
+
+    return this.prisma.leaveRequest.findMany({
+      where,
+      include: {
+        soldier: {
+          select: { id: true, fullName: true, phone: true, armyNumber: true },
+        },
+        category: { select: { id: true, displayName: true } },
+        approvedBy: { select: { id: true, fullName: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+  }
+
+  /**
+   * Get department messages history (sent by officers in this department)
+   */
+  async getDepartmentMessages(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { departmentId: true },
+    });
+
+    if (!user?.departmentId) {
+      throw new NotFoundException('משתמש לא משויך למחלקה');
+    }
+
+    return this.prisma.message.findMany({
+      where: {
+        departmentId: user.departmentId,
+        isActive: true,
+      },
+      include: {
+        createdBy: { select: { id: true, fullName: true } },
+        _count: { select: { confirmations: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+  }
 }

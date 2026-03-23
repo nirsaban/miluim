@@ -127,13 +127,28 @@ const navSections: NavSection[] = [
 ];
 
 // Mobile bottom nav: Primary items shown directly, rest in "More" menu
-const mobileNavConfig = {
-  primaryItems: [
+// Dynamic based on user role
+function getMobileNavItems(userRole: UserRole): NavItem[] {
+  // For OFFICER: show מחלקה instead of בקשות וטפסים
+  if (userRole === 'OFFICER') {
+    return [
+      { href: '/dashboard/home', label: 'בית', icon: Home },
+      { href: '/dashboard/shifts', label: 'משמרות', icon: Calendar },
+      { href: '/dashboard/department', label: 'מחלקה', icon: Building2 },
+      { href: '/dashboard/profile', label: 'פרופיל', icon: User },
+    ];
+  }
+
+  // Default for other roles
+  return [
     { href: '/dashboard/home', label: 'בית', icon: Home },
     { href: '/dashboard/shifts', label: 'משמרות', icon: Calendar },
-    { href: '/dashboard/requests', label: 'בקשות וטפסים', icon: Users },
+    { href: '/dashboard/requests', label: 'בקשות וטפסים', icon: FileText },
     { href: '/dashboard/profile', label: 'פרופיל', icon: User },
-  ],
+  ];
+}
+
+const mobileNavConfig = {
   moreMenuLabel: 'עוד',
 };
 
@@ -287,9 +302,12 @@ export function UserLayout({ children }: UserLayoutProps) {
   // Filter sections based on user role and military role
   const filteredSections = filterNavSections(navSections, user.role, user.militaryRole);
 
+  // Get mobile nav items based on user role
+  const mobileNavItems = getMobileNavItems(user.role);
+
   // Get all filtered items for mobile "more" menu
   const allItems = getAllNavItems(filteredSections);
-  const primaryHrefs = mobileNavConfig.primaryItems.map((item) => item.href);
+  const primaryHrefs = mobileNavItems.map((item) => item.href);
 
   // Check if current path is in "more" items (not in primary nav)
   const isMoreActive = allItems.some(
@@ -310,7 +328,7 @@ export function UserLayout({ children }: UserLayoutProps) {
       {/* Bottom Navigation - Mobile (5 items max: 4 primary + More) */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 lg:hidden z-40 safe-area-pb">
         <div className="flex justify-around items-center h-16 px-1">
-          {mobileNavConfig.primaryItems.map((item) => {
+          {mobileNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
             return (

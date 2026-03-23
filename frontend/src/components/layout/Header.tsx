@@ -2,16 +2,22 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Bell, LogOut, User, Settings, Menu, X } from 'lucide-react';
+import { Bell, LogOut, User, Settings, Menu, X, Users } from 'lucide-react';
 import { useState } from 'react';
-import { useAuth, useIsAdmin } from '@/hooks/useAuth';
+import { useAuth, useIsFullAdmin } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 
 export function Header() {
   const router = useRouter();
   const { user, logout } = useAuth();
-  const isAdmin = useIsAdmin();
+  const isFullAdmin = useIsFullAdmin();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Show admin link for ADMIN, LOGISTICS, and admin-level military roles (not OFFICER)
+  const showAdminLink = isFullAdmin || user?.role === 'LOGISTICS';
+
+  // Show department link for OFFICER role
+  const showDepartmentLink = user?.role === 'OFFICER';
 
   const handleLogout = () => {
     logout();
@@ -36,7 +42,16 @@ export function Header() {
             >
               ראשי
             </Link>
-            {isAdmin && (
+            {showDepartmentLink && (
+              <Link
+                href="/dashboard/department"
+                className="hover:text-military-200 transition-colors flex items-center gap-1"
+              >
+                <Users className="w-4 h-4" />
+                המחלקה שלי
+              </Link>
+            )}
+            {showAdminLink && (
               <Link
                 href="/admin/messages"
                 className="hover:text-military-200 transition-colors"
@@ -92,7 +107,17 @@ export function Header() {
               >
                 ראשי
               </Link>
-              {isAdmin && (
+              {showDepartmentLink && (
+                <Link
+                  href="/dashboard/department"
+                  className="px-4 py-2 hover:bg-military-600 rounded-lg transition-colors flex items-center gap-2"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <Users className="w-4 h-4" />
+                  המחלקה שלי
+                </Link>
+              )}
+              {showAdminLink && (
                 <Link
                   href="/admin/messages"
                   className="px-4 py-2 hover:bg-military-600 rounded-lg transition-colors"

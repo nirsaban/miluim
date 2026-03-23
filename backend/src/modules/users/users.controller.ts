@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Delete, Param, UseGuards, Patch, Put, Body } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Param, Query, UseGuards, Patch, Put, Body } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -163,5 +163,48 @@ export class UsersController {
   @Roles('OFFICER')
   getDepartmentSoldiersWithStatus(@CurrentUser() user: any) {
     return this.usersService.getDepartmentSoldiersWithStatus(user.id);
+  }
+
+  /**
+   * Get comprehensive department statistics for officer dashboard
+   */
+  @Get('department/comprehensive-stats')
+  @UseGuards(RolesGuard)
+  @Roles('OFFICER')
+  getDepartmentComprehensiveStats(@CurrentUser() user: any) {
+    return this.usersService.getDepartmentComprehensiveStats(user.id);
+  }
+
+  /**
+   * Get department leave requests with filters
+   */
+  @Get('department/leave-requests')
+  @UseGuards(RolesGuard)
+  @Roles('OFFICER')
+  getDepartmentLeaveRequests(
+    @CurrentUser() user: any,
+    @Query('status') status?: string,
+    @Query('type') type?: string,
+    @Query('soldierId') soldierId?: string,
+    @Query('fromDate') fromDate?: string,
+    @Query('toDate') toDate?: string,
+  ) {
+    return this.usersService.getDepartmentLeaveRequests(user.id, {
+      status,
+      type,
+      soldierId,
+      fromDate,
+      toDate,
+    });
+  }
+
+  /**
+   * Get department messages history
+   */
+  @Get('department/messages')
+  @UseGuards(RolesGuard)
+  @Roles('OFFICER')
+  getDepartmentMessages(@CurrentUser() user: any) {
+    return this.usersService.getDepartmentMessages(user.id);
   }
 }
