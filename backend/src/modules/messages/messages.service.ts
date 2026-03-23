@@ -88,23 +88,24 @@ export class MessagesService {
       priority?: MessagePriority;
       targetAudience?: MessageTargetAudience;
       requiresConfirmation?: boolean;
+      departmentId?: string; // Optional: for department-scoped messages
     },
     creatorId?: string,
   ) {
-    // Check if creator is a DUTY_OFFICER - if so, auto-scope to their department
-    let departmentId: string | null = null;
-    let creator: { militaryRole: MilitaryRole; departmentId: string | null } | null = null;
+    // Determine department scoping
+    let departmentId: string | null = data.departmentId || null;
+    let creator: { militaryRole: MilitaryRole; departmentId: string | null; role: UserRole } | null = null;
 
     if (creatorId) {
       creator = await this.prisma.user.findUnique({
         where: { id: creatorId },
-        select: { militaryRole: true, departmentId: true },
+        select: { militaryRole: true, departmentId: true, role: true },
       });
 
-      // DUTY_OFFICER messages are auto-scoped to their department
-      if (creator && isDutyOfficer(creator.militaryRole)) {
+      // OFFICER role (including DUTY_OFFICER) creating without explicit departmentId - auto-scope
+      if (creator && creator.role === 'OFFICER' && !data.departmentId) {
         if (!creator.departmentId) {
-          throw new ForbiddenException('מ"מ חייב להיות משויך למחלקה כדי לשלוח הודעות');
+          throw new ForbiddenException('קצין חייב להיות משויך למחלקה כדי לשלוח הודעות');
         }
         departmentId = creator.departmentId;
       }
@@ -119,26 +120,28 @@ export class MessagesService {
         targetAudience: data.targetAudience || MessageTargetAudience.ALL,
         requiresConfirmation: data.requiresConfirmation || false,
         createdById: creatorId,
+        departmentId: departmentId,
       },
     });
 
-    // Send push notification for new messages (especially urgent ones)
+    // Send push notification for new messages
     const shouldPush = data.type === MessageType.URGENT ||
                        data.priority === MessagePriority.HIGH ||
-                       data.priority === MessagePriority.CRITICAL;
+                       data.priority === MessagePriority.CRITICAL ||
+                       departmentId !== null; // Always push department messages
 
     if (shouldPush) {
       // Get target roles based on audience
       const targetRoles = this.getTargetRoles(data.targetAudience || MessageTargetAudience.ALL);
 
-      // Build user filter - scope to department if DUTY_OFFICER created the message
+      // Build user filter - scope to department if set
       const userFilter: any = {
         isActive: true,
         role: { in: targetRoles },
       };
 
       if (departmentId) {
-        // DUTY_OFFICER: only send to their department
+        // Scope to department
         userFilter.departmentId = departmentId;
       }
 
@@ -161,6 +164,82 @@ export class MessagesService {
     }
 
     return message;
+  }
+
+  /**
+   * Create a department-scoped message (for officers)
+   */
+  async createDepartmentMessage(
+    data: {
+      title: string;
+      content: string;
+      type?: MessageType;
+      priority?: MessagePriority;
+      requiresConfirmation?: boolean;
+    },
+    creatorId: string,
+  ) {
+    // Get officer's department
+    const officer = await this.prisma.user.findUnique({
+      where: { id: creatorId },
+      select: { departmentId: true, role: true },
+    });
+
+    if (!officer) {
+      throw new ForbiddenException('משתמש לא נמצא');
+    }
+
+    if (!officer.departmentId) {
+      throw new ForbiddenException('קצין חייב להיות משויך למחלקה כדי לשלוח הודעות מחלקתיות');
+    }
+
+    return this.create(
+      {
+        ...data,
+        targetAudience: MessageTargetAudience.ALL, // Department messages go to all roles in department
+        departmentId: officer.departmentId,
+      },
+      creatorId,
+    );
+  }
+
+  /**
+   * Find messages for a specific department (including global messages)
+   */
+  async findForDepartment(departmentId: string, userId: string, userRole: UserRole) {
+    const visibleAudiences = this.getVisibleAudiences(userRole);
+
+    const messages = await this.prisma.message.findMany({
+      where: {
+        isActive: true,
+        targetAudience: { in: visibleAudiences },
+        OR: [
+          { departmentId: null }, // Global messages
+          { departmentId: departmentId }, // Department-specific messages
+        ],
+      },
+      include: {
+        confirmations: {
+          where: { userId },
+          select: { confirmedAt: true },
+        },
+        department: {
+          select: { id: true, name: true },
+        },
+      },
+      orderBy: [
+        { priority: 'desc' },
+        { createdAt: 'desc' },
+      ],
+    });
+
+    return messages.map((message) => ({
+      ...message,
+      isConfirmed: message.confirmations.length > 0,
+      confirmedAt: message.confirmations[0]?.confirmedAt || null,
+      isDepartmentMessage: message.departmentId !== null,
+      confirmations: undefined,
+    }));
   }
 
   async update(id: string, data: Partial<{

@@ -569,16 +569,24 @@ export class UsersService {
 
     const visibleAudiences = getVisibleAudiences(userWithRole?.role || 'SOLDIER');
 
-    // Get active messages filtered by targetAudience and include confirmation status
+    // Get active messages filtered by targetAudience and department
+    // Include global messages (departmentId: null) + messages for user's department
     const messages = await this.prisma.message.findMany({
       where: {
         isActive: true,
         targetAudience: { in: visibleAudiences as any },
+        OR: [
+          { departmentId: null }, // Global messages
+          { departmentId: user.departmentId }, // User's department messages
+        ],
       },
       include: {
         confirmations: {
           where: { userId },
           select: { confirmedAt: true },
+        },
+        department: {
+          select: { id: true, name: true },
         },
       },
       orderBy: [
@@ -588,7 +596,7 @@ export class UsersService {
       take: 10,
     });
 
-    // Map messages to include isConfirmed status
+    // Map messages to include isConfirmed status and department info
     const messagesWithConfirmation = messages.map((message) => ({
       id: message.id,
       title: message.title,
@@ -600,6 +608,8 @@ export class UsersService {
       isConfirmed: message.confirmations.length > 0,
       confirmedAt: message.confirmations[0]?.confirmedAt || null,
       createdAt: message.createdAt,
+      isDepartmentMessage: message.departmentId !== null,
+      departmentName: message.department?.name || null,
     }));
 
     const formatShift = (shift: any) => shift ? {

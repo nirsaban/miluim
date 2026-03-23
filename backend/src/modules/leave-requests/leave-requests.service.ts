@@ -1,11 +1,17 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LeaveType, LeaveStatus, ReserveServiceCycleStatus, ServiceAttendanceStatus, UserRole, MilitaryRole } from '@prisma/client';
 import { isDutyOfficer, isAdminMilitaryRole } from '../../common/constants/permissions';
+import { PushService } from '../push/push.service';
 
 @Injectable()
 export class LeaveRequestsService {
-  constructor(private prisma: PrismaService) {}
+  private readonly logger = new Logger(LeaveRequestsService.name);
+
+  constructor(
+    private prisma: PrismaService,
+    private pushService: PushService,
+  ) {}
 
   private readonly includeRelations = {
     soldier: {
@@ -154,7 +160,7 @@ export class LeaveRequestsService {
 
     // Allow multiple requests - removed single active request restriction
 
-    return this.prisma.leaveRequest.create({
+    const leaveRequest = await this.prisma.leaveRequest.create({
       data: {
         soldierId,
         type: data.type,
@@ -165,6 +171,72 @@ export class LeaveRequestsService {
       },
       include: this.includeRelations,
     });
+
+    // Send push notification to officers from the soldier's department and all admins
+    this.notifyOfficersOfNewRequest(leaveRequest).catch((err) => {
+      this.logger.error('Failed to send push notifications for leave request', err);
+    });
+
+    return leaveRequest;
+  }
+
+  /**
+   * Send push notification to officers from the soldier's department and all admins
+   */
+  private async notifyOfficersOfNewRequest(leaveRequest: {
+    id: string;
+    type: LeaveType;
+    soldier: { fullName: string; departmentId: string | null };
+  }) {
+    const departmentId = leaveRequest.soldier.departmentId;
+
+    // Find officers from the same department + all admins
+    const usersToNotify = await this.prisma.user.findMany({
+      where: {
+        isActive: true,
+        OR: [
+          // Officers from the same department
+          {
+            role: 'OFFICER',
+            departmentId: departmentId,
+          },
+          // All admins
+          {
+            role: 'ADMIN',
+          },
+          // Users with admin-level military roles (PLATOON_COMMANDER, SERGEANT_MAJOR, OPERATIONS_SGT)
+          {
+            militaryRole: {
+              in: ['PLATOON_COMMANDER', 'SERGEANT_MAJOR', 'OPERATIONS_SGT'],
+            },
+          },
+        ],
+      },
+      select: { id: true },
+    });
+
+    if (usersToNotify.length === 0) {
+      this.logger.log('No officers or admins to notify for leave request');
+      return;
+    }
+
+    const leaveTypeName = leaveRequest.type === 'SHORT' ? 'יציאה קצרה' : 'יציאה הביתה';
+    const payload = {
+      title: 'בקשת יציאה חדשה',
+      body: `${leaveRequest.soldier.fullName} הגיש בקשת ${leaveTypeName}`,
+      url: '/admin/status',
+      tag: `leave-request-${leaveRequest.id}`,
+    };
+
+    // Send push to all relevant users
+    const results = await Promise.allSettled(
+      usersToNotify.map((user) => this.pushService.sendToUser(user.id, payload)),
+    );
+
+    const sent = results.filter((r) => r.status === 'fulfilled').length;
+    const failed = results.filter((r) => r.status === 'rejected').length;
+
+    this.logger.log(`Leave request push notifications: sent=${sent}, failed=${failed}`);
   }
 
   async findPending(userId: string, userRole: UserRole, militaryRole?: MilitaryRole) {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Users,
   CheckCircle,
@@ -12,15 +12,20 @@ import {
   Phone,
   Search,
   Filter,
+  Send,
+  MessageSquare,
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { UserLayout } from '@/components/layout/UserLayout';
 import { Card, CardHeader, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
 import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { Modal } from '@/components/ui/Modal';
 import api from '@/lib/api';
-import { MilitaryRole, MILITARY_ROLE_LABELS, isAdminMilitaryRole } from '@/types';
+import { MilitaryRole, MILITARY_ROLE_LABELS, isAdminMilitaryRole, MessageType, MessagePriority } from '@/types';
 import { useAuth, useIsFullAdmin } from '@/hooks/useAuth';
 
 interface DepartmentAnalytics {
@@ -73,9 +78,58 @@ const ATTENDANCE_STATUS_COLORS: Record<string, string> = {
 export default function DepartmentPage() {
   const { user } = useAuth();
   const isFullAdmin = useIsFullAdmin();
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('');
   const [showFilters, setShowFilters] = useState(false);
+
+  // Message modal state
+  const [showMessageModal, setShowMessageModal] = useState(false);
+  const [messageTitle, setMessageTitle] = useState('');
+  const [messageContent, setMessageContent] = useState('');
+  const [messageType, setMessageType] = useState<MessageType>('GENERAL');
+  const [messagePriority, setMessagePriority] = useState<MessagePriority>('MEDIUM');
+
+  const sendMessageMutation = useMutation({
+    mutationFn: async (data: {
+      title: string;
+      content: string;
+      type: MessageType;
+      priority: MessagePriority;
+    }) => {
+      const response = await api.post('/messages/department', data);
+      return response.data;
+    },
+    onSuccess: () => {
+      toast.success('ההודעה נשלחה למחלקה בהצלחה');
+      setShowMessageModal(false);
+      resetMessageForm();
+      queryClient.invalidateQueries({ queryKey: ['home-data'] });
+    },
+    onError: () => {
+      toast.error('שגיאה בשליחת ההודעה');
+    },
+  });
+
+  const resetMessageForm = () => {
+    setMessageTitle('');
+    setMessageContent('');
+    setMessageType('GENERAL');
+    setMessagePriority('MEDIUM');
+  };
+
+  const handleSendMessage = () => {
+    if (!messageTitle.trim() || !messageContent.trim()) {
+      toast.error('נא למלא כותרת ותוכן');
+      return;
+    }
+    sendMessageMutation.mutate({
+      title: messageTitle,
+      content: messageContent,
+      type: messageType,
+      priority: messagePriority,
+    });
+  };
 
   const { data: analytics, isLoading: isLoadingAnalytics } = useQuery<DepartmentAnalytics>({
     queryKey: ['department-analytics'],
@@ -128,12 +182,18 @@ export default function DepartmentPage() {
     <UserLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-military-700">המחלקה שלי</h1>
-          <p className="text-gray-600 mt-1">
-            {analytics?.department?.name || 'טוען...'}
-            {analytics?.activeCycle && ` - ${analytics.activeCycle.name}`}
-          </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-military-700">המחלקה שלי</h1>
+            <p className="text-gray-600 mt-1">
+              {analytics?.department?.name || 'טוען...'}
+              {analytics?.activeCycle && ` - ${analytics.activeCycle.name}`}
+            </p>
+          </div>
+          <Button onClick={() => setShowMessageModal(true)}>
+            <MessageSquare className="w-4 h-4 ml-2" />
+            שלח הודעה למחלקה
+          </Button>
         </div>
 
         {/* Analytics Cards */}
@@ -305,6 +365,84 @@ export default function DepartmentPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Send Message Modal */}
+      <Modal
+        isOpen={showMessageModal}
+        onClose={() => {
+          setShowMessageModal(false);
+          resetMessageForm();
+        }}
+        title="שלח הודעה למחלקה"
+        size="md"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="label">כותרת</label>
+            <Input
+              value={messageTitle}
+              onChange={(e) => setMessageTitle(e.target.value)}
+              placeholder="כותרת ההודעה..."
+            />
+          </div>
+
+          <div>
+            <label className="label">תוכן</label>
+            <textarea
+              value={messageContent}
+              onChange={(e) => setMessageContent(e.target.value)}
+              placeholder="תוכן ההודעה..."
+              className="input min-h-[100px] resize-none"
+              rows={4}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <Select
+              label="סוג הודעה"
+              value={messageType}
+              onChange={(e) => setMessageType(e.target.value as MessageType)}
+              options={[
+                { value: 'GENERAL', label: 'כללי' },
+                { value: 'ANNOUNCEMENT', label: 'הכרזה' },
+                { value: 'URGENT', label: 'דחוף' },
+                { value: 'OPERATIONAL', label: 'מבצעי' },
+              ]}
+            />
+            <Select
+              label="עדיפות"
+              value={messagePriority}
+              onChange={(e) => setMessagePriority(e.target.value as MessagePriority)}
+              options={[
+                { value: 'LOW', label: 'נמוכה' },
+                { value: 'MEDIUM', label: 'רגילה' },
+                { value: 'HIGH', label: 'גבוהה' },
+                { value: 'CRITICAL', label: 'קריטית' },
+              ]}
+            />
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <Button
+              onClick={handleSendMessage}
+              isLoading={sendMessageMutation.isPending}
+              className="flex-1"
+            >
+              <Send className="w-4 h-4 ml-2" />
+              שלח הודעה
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setShowMessageModal(false);
+                resetMessageForm();
+              }}
+            >
+              ביטול
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </UserLayout>
   );
 }
