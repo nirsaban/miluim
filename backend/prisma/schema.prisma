@@ -21,11 +21,12 @@ enum MilitaryRole {
 
 // UserRole enum - used for authorization/permissions
 enum UserRole {
-  SOLDIER     // Basic user access
-  COMMANDER   // Like soldier + receives command-level notifications
-  OFFICER     // Manages their department + leave requests from department
-  LOGISTICS   // Manages operational links, shifts, zones
-  ADMIN       // Full system control
+  SOLDIER           // Basic user access
+  COMMANDER         // Like soldier + receives command-level notifications
+  OFFICER           // Manages their department + leave requests from department
+  LOGISTICS         // Manages operational links, shifts, zones
+  ADMIN             // Full system control
+  SYSTEM_TECHNICAL  // Developer access - hidden from UI, full DB access
 }
 
 enum FormType {
@@ -200,6 +201,10 @@ model User {
 
   // WebAuthn/Passkey credentials
   webAuthnCredentials     WebAuthnCredential[]
+
+  // Social Activities relations
+  createdSocialActivities   SocialActivity[]             @relation("SocialActivityCreator")
+  socialActivityParticipations SocialActivityParticipant[] @relation("SocialActivityParticipant")
 
   @@map("users")
 }
@@ -707,4 +712,63 @@ model ServiceVehicle {
   updatedAt       DateTime             @updatedAt
 
   @@map("service_vehicles")
+}
+
+// ============================================================
+// SOCIAL ACTIVITIES - פעילויות חברתיות
+// ============================================================
+
+enum SocialActivityStatus {
+  OPEN        // פתוח להצטרפות
+  FULL        // מלא
+  IN_PROGRESS // בתהליך
+  COMPLETED   // הסתיים
+  CANCELLED   // בוטל
+}
+
+// פעילות חברתית
+model SocialActivity {
+  id          String               @id @default(uuid())
+  title       String               // כותרת הפעילות
+  description String?              // תיאור / תכנון
+  place       String               // מקום
+  startTime   DateTime             // זמן התחלה
+  endTime     DateTime?            // זמן סיום (אופציונלי)
+  maxParticipants Int?             // מקסימום משתתפים (אופציונלי)
+  status      SocialActivityStatus @default(OPEN)
+
+  // Creator
+  createdById String
+  createdBy   User                 @relation("SocialActivityCreator", fields: [createdById], references: [id])
+
+  // Timestamps
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  // Relations
+  participants SocialActivityParticipant[]
+
+  @@map("social_activities")
+}
+
+enum ParticipantStatus {
+  JOINED      // הצטרף
+  CONFIRMED   // אישר הגעה
+  CANCELLED   // ביטל
+}
+
+// משתתף בפעילות
+model SocialActivityParticipant {
+  id          String            @id @default(uuid())
+  activityId  String
+  activity    SocialActivity    @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User              @relation("SocialActivityParticipant", fields: [userId], references: [id], onDelete: Cascade)
+
+  status      ParticipantStatus @default(JOINED)
+  joinedAt    DateTime          @default(now())
+  confirmedAt DateTime?         // זמן אישור הגעה
+
+  @@unique([activityId, userId])
+  @@map("social_activity_participants")
 }

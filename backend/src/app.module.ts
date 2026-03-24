@@ -31,6 +31,8 @@ import { ServiceChecklistModule } from './modules/service-checklist/service-chec
 import { PushModule } from './modules/push/push.module';
 import { WebAuthnModule } from './modules/webauthn/webauthn.module';
 import { TestSetupModule } from './modules/test-setup/test-setup.module';
+import { SystemModule } from './modules/system/system.module';
+import { SocialActivitiesModule } from './modules/social-activities/social-activities.module';
 
 @Module({
   imports: [
@@ -74,6 +76,8 @@ import { TestSetupModule } from './modules/test-setup/test-setup.module';
     PushModule,
     WebAuthnModule,
     TestSetupModule,
+    SystemModule,
+    SocialActivitiesModule,
   ],
 })
 export class AppModule {}

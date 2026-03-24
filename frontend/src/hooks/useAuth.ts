@@ -176,11 +176,12 @@ export const useAuth = () => {
 
 import { isAdminMilitaryRole, isDutyOfficer as checkIsDutyOfficer, MilitaryRole } from '@/types';
 
-// Can access admin panel (ADMIN, OFFICER, LOGISTICS only - NOT COMMANDER)
+// Can access admin panel (ADMIN, OFFICER, LOGISTICS, SYSTEM_TECHNICAL - NOT COMMANDER)
 export const useIsAdmin = () => {
   const user = useAuthStore((state) => state.user);
   // Check UserRole OR admin-level MilitaryRole
   if (user?.role === 'ADMIN') return true;
+  if (user?.role === 'SYSTEM_TECHNICAL') return true;
   if (user?.role === 'OFFICER') return true;
   if (user?.role === 'LOGISTICS') return true;
   // Admin-level military roles (PLATOON_COMMANDER, SERGEANT_MAJOR, OPERATIONS_SGT)
@@ -188,13 +189,20 @@ export const useIsAdmin = () => {
   return false;
 };
 
-// Full admin access (PLATOON_COMMANDER, SERGEANT_MAJOR, OPERATIONS_SGT)
+// Full admin access (ADMIN, SYSTEM_TECHNICAL, or admin-level MilitaryRoles)
 // These users have full system access, not limited like LOGISTICS or DUTY_OFFICER
 export const useIsFullAdmin = () => {
   const user = useAuthStore((state) => state.user);
   if (user?.role === 'ADMIN') return true;
+  if (user?.role === 'SYSTEM_TECHNICAL') return true;
   if (user?.militaryRole && isAdminMilitaryRole(user.militaryRole)) return true;
   return false;
+};
+
+// Check if user is SYSTEM_TECHNICAL (developer access)
+export const useIsSystemTech = () => {
+  const user = useAuthStore((state) => state.user);
+  return user?.role === 'SYSTEM_TECHNICAL';
 };
 
 // Check if user is DUTY_OFFICER (department-scoped access)
@@ -209,28 +217,31 @@ export const useMilitaryRole = (): MilitaryRole | undefined => {
   return user?.militaryRole;
 };
 
-// Can manage shifts (ADMIN + LOGISTICS)
+// Can manage shifts (ADMIN + LOGISTICS + SYSTEM_TECHNICAL)
 export const useCanManageShifts = () => {
   const user = useAuthStore((state) => state.user);
   if (user?.role === 'ADMIN') return true;
+  if (user?.role === 'SYSTEM_TECHNICAL') return true;
   if (user?.role === 'LOGISTICS') return true;
   if (user?.militaryRole && isAdminMilitaryRole(user.militaryRole)) return true;
   return false;
 };
 
-// Can manage forms (ADMIN + OFFICER, but NOT LOGISTICS)
+// Can manage forms (ADMIN + OFFICER + SYSTEM_TECHNICAL, but NOT LOGISTICS)
 export const useCanManageForms = () => {
   const user = useAuthStore((state) => state.user);
   if (user?.role === 'ADMIN') return true;
+  if (user?.role === 'SYSTEM_TECHNICAL') return true;
   if (user?.role === 'OFFICER') return true;
   if (user?.militaryRole && isAdminMilitaryRole(user.militaryRole)) return true;
   return false;
 };
 
-// Can manage messages (ADMIN only, NOT LOGISTICS or DUTY_OFFICER)
+// Can manage messages (ADMIN + SYSTEM_TECHNICAL only, NOT LOGISTICS or DUTY_OFFICER)
 export const useCanManageMessages = () => {
   const user = useAuthStore((state) => state.user);
   if (user?.role === 'ADMIN') return true;
+  if (user?.role === 'SYSTEM_TECHNICAL') return true;
   if (user?.militaryRole && isAdminMilitaryRole(user.militaryRole)) return true;
   return false;
 };

@@ -87,6 +87,7 @@ export const LOGISTICS_ALLOWED_ADMIN_CONTENT_ITEMS = [
 
 // Role hierarchy level for comparison (higher = more permissions)
 export const ROLE_HIERARCHY_LEVEL: Record<UserRole, number> = {
+  SYSTEM_TECHNICAL: 100,
   ADMIN: 100,
   LOGISTICS: 50,
   OFFICER: 50,
@@ -94,7 +95,7 @@ export const ROLE_HIERARCHY_LEVEL: Record<UserRole, number> = {
   SOLDIER: 10,
 };
 
-// Permission descriptions for each UserRole
+// Permission descriptions for each UserRole (SYSTEM_TECHNICAL hidden from UI)
 export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
   SOLDIER: [
     'צפייה במשמרות שלו',
@@ -125,11 +126,16 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'הגדרות מערכת',
     'ייבוא נתונים',
   ],
+  SYSTEM_TECHNICAL: [
+    'גישה מלאה למערכת',
+    'ניהול בסיס נתונים',
+    'גישת מפתח',
+  ],
 };
 
 // Helper to check if user can access a specific permission level
 export function canAccessRole(userRole: UserRole, requiredRole: UserRole): boolean {
-  if (userRole === 'ADMIN') return true;
+  if (userRole === 'ADMIN' || userRole === 'SYSTEM_TECHNICAL') return true;
   return ROLE_HIERARCHY_LEVEL[userRole] >= ROLE_HIERARCHY_LEVEL[requiredRole];
 }
 
@@ -170,15 +176,21 @@ export interface User {
   createdAt: string;
 }
 
-export type UserRole = 'SOLDIER' | 'COMMANDER' | 'OFFICER' | 'LOGISTICS' | 'ADMIN';
+export type UserRole = 'SOLDIER' | 'COMMANDER' | 'OFFICER' | 'LOGISTICS' | 'ADMIN' | 'SYSTEM_TECHNICAL';
 
-export const USER_ROLE_LABELS: Record<UserRole, string> = {
+// User role labels - SYSTEM_TECHNICAL intentionally excluded to hide from UI
+export const USER_ROLE_LABELS: Record<Exclude<UserRole, 'SYSTEM_TECHNICAL'>, string> = {
   SOLDIER: 'חייל',
   COMMANDER: 'מפקד',
   OFFICER: 'קצין',
   LOGISTICS: 'לוגיסטיקה',
   ADMIN: 'מנהל',
 };
+
+// Visible roles for UI dropdowns (excludes SYSTEM_TECHNICAL)
+export const VISIBLE_USER_ROLES: Exclude<UserRole, 'SYSTEM_TECHNICAL'>[] = [
+  'SOLDIER', 'COMMANDER', 'OFFICER', 'LOGISTICS', 'ADMIN'
+];
 
 export type MessageTargetAudience = 'ALL' | 'COMMANDERS_PLUS' | 'OFFICERS_PLUS' | 'ADMIN_ONLY';
 
@@ -397,6 +409,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   OFFICER: 'קצין',
   LOGISTICS: 'לוגיסטיקה',
   ADMIN: 'מנהל מערכת',
+  SYSTEM_TECHNICAL: 'מערכת טכני',
 };
 
 // Skills, Zones, Tasks Types
@@ -740,3 +753,60 @@ export const SERVICE_CHECKLIST_CATEGORY_LABELS: Record<ServiceChecklistCategory,
   WEAPONS: 'נשקים',
   GENERAL: 'כללי',
 };
+
+// ============================================================
+// Social Activities - פעילויות חברתיות
+// ============================================================
+
+export type SocialActivityStatus = 'OPEN' | 'FULL' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+export type ParticipantStatus = 'JOINED' | 'CONFIRMED' | 'CANCELLED';
+
+export const SOCIAL_ACTIVITY_STATUS_LABELS: Record<SocialActivityStatus, string> = {
+  OPEN: 'פתוח להצטרפות',
+  FULL: 'מלא',
+  IN_PROGRESS: 'בתהליך',
+  COMPLETED: 'הסתיים',
+  CANCELLED: 'בוטל',
+};
+
+export const PARTICIPANT_STATUS_LABELS: Record<ParticipantStatus, string> = {
+  JOINED: 'הצטרף',
+  CONFIRMED: 'אישר הגעה',
+  CANCELLED: 'ביטל',
+};
+
+export interface SocialActivityParticipant {
+  id: string;
+  userId: string;
+  user: {
+    id: string;
+    fullName: string;
+    phone?: string;
+  };
+  status: ParticipantStatus;
+  joinedAt: string;
+  confirmedAt: string | null;
+}
+
+export interface SocialActivity {
+  id: string;
+  title: string;
+  description: string | null;
+  place: string;
+  startTime: string;
+  endTime: string | null;
+  maxParticipants: number | null;
+  status: SocialActivityStatus;
+  createdById: string;
+  createdBy: {
+    id: string;
+    fullName: string;
+    phone?: string;
+  };
+  participants: SocialActivityParticipant[];
+  _count: {
+    participants: number;
+  };
+  createdAt: string;
+  updatedAt: string;
+}

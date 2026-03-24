@@ -474,4 +474,142 @@ With Miltech System, those answers are always one tap away.
 
 ---
 
+## Part 8: Recent Updates (March 2026)
+
+### OFFICER Role Enhancements
+
+Officers now have a comprehensive department management view instead of accessing the admin panel.
+
+**Navigation Changes:**
+- Officers see "המחלקה שלי" (My Department) in the header instead of "ניהול"
+- Mobile bottom nav shows "מחלקה" instead of "בקשות וטפסים" for OFFICER role
+- Officers no longer access `/admin/*` routes - they use `/dashboard/department`
+
+**Department Dashboard (`/dashboard/department`):**
+A comprehensive tabbed interface with:
+1. **Overview Tab (סקירה כללית):**
+   - Department soldier count and attendance stats
+   - Active service cycle information
+   - Recent leave request summary
+   - Quick action buttons
+
+2. **Requests Tab (בקשות):**
+   - Pending leave requests requiring approval
+   - Active leave requests (soldiers currently out)
+   - Ability to approve/reject with notes
+   - Mark soldiers as returned
+   - Filter by status and date range
+
+3. **Soldiers Tab (חיילים):**
+   - Full department soldier list
+   - Search and filter by status
+   - View soldier details and contact info
+   - Attendance status indicators
+
+4. **Messages Tab (הודעות):**
+   - Send messages to department members only
+   - View message history
+   - Department-scoped communication
+
+### Push Notifications for Leave Requests
+
+When a soldier submits a leave request:
+1. System identifies officers from the same department
+2. Sends push notification to all department officers
+3. Also notifies ADMIN users
+4. Notification includes soldier name and leave type
+
+**Implementation:**
+- `LeaveRequestsService.notifyOfficersOfNewRequest()` - Backend notification logic
+- Uses `PushService` for web push delivery
+- Department-scoped filtering ensures officers only get their soldiers' requests
+
+### Department-Scoped Messages
+
+Officers can now send messages that only reach their department members.
+
+**New Features:**
+- `departmentId` field added to `Message` model in schema
+- `POST /messages/department` - Create department-scoped message
+- `GET /messages/my-department` - Get messages for user's department
+- Home page shows department messages alongside global announcements
+
+### Access Control Improvements
+
+**Leave Request Management:**
+- `verifyAccessToRequest()` method ensures officers can only manage their department's requests
+- ADMIN users retain full access to all requests
+- Department ownership verified before approve/reject/return actions
+
+**Roles Guard Enhancement:**
+- `DUTY_OFFICER` military role now grants `OFFICER` permissions for leave management
+- Admin-level military roles (PLATOON_COMMANDER, SERGEANT_MAJOR, OPERATIONS_SGT) get ADMIN access
+
+### New API Endpoints
+
+**Users Module:**
+```
+GET /users/department/comprehensive-stats - Full department statistics
+GET /users/department/leave-requests     - Filtered leave requests for department
+GET /users/department/messages           - Department message history
+```
+
+**Messages Module:**
+```
+POST /messages/department    - Create department-scoped message
+GET /messages/my-department  - Get department messages
+```
+
+**Leave Requests Module:**
+```
+PATCH /leave-requests/my/:id/return - Soldier self-confirm return from leave
+```
+
+### UI/UX Improvements
+
+**Home Page Enhancements:**
+- Message carousel for rotating announcements
+- PWA install prompt for first-time mobile users
+- Improved current shift display
+- Battery level and equipment status reporting
+
+**Shift Duty Page (`/dashboard/shift-duty`):**
+- Enhanced shift officer dashboard
+- Real-time soldier status updates
+- Battery level tracking
+- Missing items reporting
+- Quick action buttons for attendance management
+
+**Gallery Section:**
+- Improved image carousel
+- Better mobile responsiveness
+- Touch-friendly navigation
+
+### Mobile Navigation
+
+Dynamic navigation based on user role:
+
+**OFFICER:**
+- בית (Home)
+- משמרות (Shifts)
+- מחלקה (Department)
+- פרופיל (Profile)
+- עוד (More menu)
+
+**Other Roles:**
+- בית (Home)
+- משמרות (Shifts)
+- בקשות וטפסים (Requests)
+- פרופיל (Profile)
+- עוד (More menu)
+
+### Test Setup Module
+
+Development-only module for testing:
+- `POST /test-setup/scenario/:name` - Reset database to predefined test scenarios
+- Scenarios include: basic, with-service-cycle, with-shifts
+- Automatically disabled in production
+
+---
+
 *Built with care for the soldiers who serve.* 🇮🇱

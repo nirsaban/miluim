@@ -45,8 +45,8 @@ export class RolesGuard implements CanActivate {
       throw new ForbiddenException('אין הרשאה לבצע פעולה זו');
     }
 
-    // ADMIN UserRole always has access to everything
-    if (user.role === 'ADMIN') {
+    // ADMIN and SYSTEM_TECHNICAL UserRole always has access to everything
+    if (user.role === 'ADMIN' || user.role === 'SYSTEM_TECHNICAL') {
       return true;
     }
 
@@ -71,10 +71,11 @@ export class RolesGuard implements CanActivate {
 
   /**
    * Helper to check if a role meets a minimum level
-   * Hierarchy: ADMIN > LOGISTICS = OFFICER > COMMANDER > SOLDIER
+   * Hierarchy: SYSTEM_TECHNICAL = ADMIN > LOGISTICS = OFFICER > COMMANDER > SOLDIER
    */
   static isAtLeast(userRole: UserRole, minRole: UserRole): boolean {
     const hierarchy: Record<UserRole, number> = {
+      SYSTEM_TECHNICAL: 100,
       ADMIN: 100,
       LOGISTICS: 50,
       OFFICER: 50,
@@ -88,7 +89,7 @@ export class RolesGuard implements CanActivate {
    * Check if user has admin-level access (based on MilitaryRole or UserRole)
    */
   static hasAdminAccess(user: { role: UserRole; militaryRole?: MilitaryRole }): boolean {
-    if (user.role === 'ADMIN') return true;
+    if (user.role === 'ADMIN' || user.role === 'SYSTEM_TECHNICAL') return true;
     if (user.militaryRole && isAdminMilitaryRole(user.militaryRole)) return true;
     return false;
   }

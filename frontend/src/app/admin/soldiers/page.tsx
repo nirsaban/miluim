@@ -12,7 +12,7 @@ import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
 import { MultiSelect } from '@/components/ui/MultiSelect';
 import api from '@/lib/api';
-import { SoldierWithSkills, Skill, MilitaryRole, MILITARY_ROLE_LABELS, Department, UserRole, USER_ROLE_LABELS } from '@/types';
+import { SoldierWithSkills, Skill, MilitaryRole, MILITARY_ROLE_LABELS, Department, UserRole, USER_ROLE_LABELS, VISIBLE_USER_ROLES } from '@/types';
 
 export default function AdminSoldiersPage() {
   const queryClient = useQueryClient();
@@ -295,21 +295,22 @@ export default function AdminSoldiersPage() {
                               setSelectedUserRole(newRole);
                               handleUserRoleChange(soldier.id, newRole);
                             }}
-                            options={Object.entries(USER_ROLE_LABELS).map(([value, label]) => ({
-                              value,
-                              label,
+                            options={VISIBLE_USER_ROLES.map((role) => ({
+                              value: role,
+                              label: USER_ROLE_LABELS[role],
                             }))}
                             className="w-32"
                           />
                         ) : (
                           <span className={`px-2 py-1 text-xs rounded-lg font-medium ${
+                            soldier.role === 'SYSTEM_TECHNICAL' ? 'bg-purple-100 text-purple-700' :
                             soldier.role === 'ADMIN' ? 'bg-red-100 text-red-700' :
                             soldier.role === 'OFFICER' ? 'bg-orange-100 text-orange-700' :
                             soldier.role === 'LOGISTICS' ? 'bg-green-100 text-green-700' :
                             soldier.role === 'COMMANDER' ? 'bg-blue-100 text-blue-700' :
                             'bg-gray-100 text-gray-700'
                           }`}>
-                            {USER_ROLE_LABELS[soldier.role] || 'חייל'}
+                            {soldier.role === 'SYSTEM_TECHNICAL' ? 'מערכת' : (USER_ROLE_LABELS[soldier.role as Exclude<UserRole, 'SYSTEM_TECHNICAL'>] || 'חייל')}
                           </span>
                         )}
                       </td>

@@ -117,4 +117,105 @@ Located at `backend/prisma/schema.prisma` - defines all models, enums, and relat
 - OTP codes logged to console when Gmail not configured
 - Uploads stored in `backend/uploads/`
 - PostgreSQL runs on port 5433 (not default 5432)
-# the database schemas is locate in @backend/prisma/schema.prisma
+- The database schema is located at `backend/prisma/schema.prisma`
+
+## Role-Based Access Control
+
+### User Roles (Authorization)
+- **SOLDIER** - Basic access: view shifts, request leave, see announcements
+- **COMMANDER** - Like soldier + receives command-level notifications
+- **OFFICER** - Manages their department + approves leave requests (uses `/dashboard/department`)
+- **LOGISTICS** - Manages shifts, zones, operational links (uses `/admin/*` - limited sections)
+- **ADMIN** - Full system control
+
+### Military Roles (Organizational Identity)
+Admin-level military roles get ADMIN permissions:
+- PLATOON_COMMANDER, SERGEANT_MAJOR, OPERATIONS_SGT
+
+DUTY_OFFICER military role gets OFFICER permissions for leave management.
+
+### Navigation by Role
+- **OFFICER**: Header shows "המחלקה שלי", mobile nav shows "מחלקה"
+- **LOGISTICS/ADMIN**: Header shows "ניהול", full/limited admin access
+- **SOLDIER/COMMANDER**: Standard user navigation
+
+## Key API Endpoints
+
+### Department Management (OFFICER role)
+```
+GET  /users/department/comprehensive-stats  - Stats, attendance, leaves
+GET  /users/department/leave-requests       - Filtered leave requests
+GET  /users/department/messages             - Department message history
+POST /messages/department                   - Send department-scoped message
+```
+
+### Leave Requests
+```
+GET    /leave-requests/my           - User's own requests
+POST   /leave-requests              - Submit new request (triggers push to officers)
+DELETE /leave-requests/:id          - Cancel own request
+PATCH  /leave-requests/my/:id/return - Self-confirm return
+
+# Officer endpoints (department-scoped)
+GET   /leave-requests/dashboard     - Leave dashboard stats
+GET   /leave-requests/pending       - Pending approvals
+GET   /leave-requests/active        - Currently out
+GET   /leave-requests/overdue       - Past expected return
+PATCH /leave-requests/:id/approve   - Approve request
+PATCH /leave-requests/:id/reject    - Reject request
+PATCH /leave-requests/:id/return    - Mark soldier returned
+```
+
+### Shift Assignments
+```
+GET   /shift-assignments/my-today    - Current shift assignment
+GET   /shift-assignments/shift-duty  - Shift officer dashboard
+PATCH /shift-assignments/:id/confirm - Confirm arrival
+PATCH /shift-assignments/:id/battery - Update battery level
+PATCH /shift-assignments/:id/missing - Report missing items
+```
+
+### Messages
+```
+GET  /messages/my-department  - Department messages for home page
+POST /messages/department     - Create department message (OFFICER)
+GET  /messages                - All messages (filtered by audience)
+POST /messages                - Create global message (ADMIN/LOGISTICS)
+```
+
+## Recent Changes (March 2026)
+
+### OFFICER Department Management
+- Comprehensive `/dashboard/department` with tabs: Overview, Requests, Soldiers, Messages
+- Officers removed from admin panel access
+- Leave request approval with department scoping
+- Push notifications sent to officers when soldiers submit leave requests
+
+### Push Notification Flow
+```typescript
+// LeaveRequestsService.notifyOfficersOfNewRequest()
+// - Finds officers in soldier's department
+// - Sends push via PushService
+// - Also notifies ADMIN users
+```
+
+### Access Verification
+```typescript
+// LeaveRequestsService.verifyAccessToRequest()
+// - ADMIN: access all
+// - OFFICER: only same department
+// - Used in approve/reject/return endpoints
+```
+
+### Mobile Navigation
+Dynamic based on user.role:
+- OFFICER: בית, משמרות, מחלקה, פרופיל
+- Others: בית, משמרות, בקשות וטפסים, פרופיל
+
+### Key Files for Role-Based Features
+- `frontend/src/components/layout/UserLayout.tsx` - Mobile nav by role
+- `frontend/src/components/layout/Header.tsx` - Desktop nav links
+- `frontend/src/components/layout/AdminLayout.tsx` - Admin panel filtering
+- `frontend/src/app/dashboard/department/page.tsx` - OFFICER dashboard
+- `backend/src/modules/leave-requests/leave-requests.service.ts` - Access control
+- `backend/src/common/guards/roles.guard.ts` - Role checking with military roles

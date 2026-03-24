@@ -246,9 +246,81 @@ assignment slots
 
 AI scheduler
 Workload balancing
-Push notifications
-PWA support
 WhatsApp notifications
+
+---
+
+# Recent Updates (March 2026)
+
+## OFFICER Role Management
+
+Officers now manage their department through `/dashboard/department` instead of admin panel.
+
+Department Dashboard Tabs:
+- Overview (סקירה כללית) - Stats, attendance, active cycle
+- Requests (בקשות) - Leave request approval/rejection
+- Soldiers (חיילים) - Department member list
+- Messages (הודעות) - Department-scoped messaging
+
+Navigation Changes:
+- Header shows "המחלקה שלי" for OFFICER role
+- Mobile bottom nav shows "מחלקה" instead of "בקשות וטפסים"
+- Officers removed from admin panel access
+
+## Push Notifications
+
+Implemented push notifications for leave requests:
+- Soldier submits request → Officers in department receive push
+- ADMIN users also receive notification
+- Uses `PushService` with Web Push API
+
+## Department-Scoped Messages
+
+Officers can send messages only to their department:
+- `departmentId` field on Message model
+- `POST /messages/department` endpoint
+- Home page shows department messages
+
+## Access Control Enhancements
+
+Leave request verification:
+- `verifyAccessToRequest()` method in LeaveRequestsService
+- ADMIN sees all, OFFICER only same department
+- Applied to approve/reject/return endpoints
+
+Military Role Permissions:
+- DUTY_OFFICER → gets OFFICER permissions
+- PLATOON_COMMANDER, SERGEANT_MAJOR, OPERATIONS_SGT → get ADMIN permissions
+
+## New API Endpoints
+
+Department (OFFICER):
+- `GET /users/department/comprehensive-stats`
+- `GET /users/department/leave-requests`
+- `GET /users/department/messages`
+
+Messages:
+- `POST /messages/department`
+- `GET /messages/my-department`
+
+Leave Requests:
+- `PATCH /leave-requests/my/:id/return` (self-confirm return)
+
+## UI Components
+
+New/Updated Components:
+- `PWAInstallPrompt` - First-time mobile install instructions
+- `MessageCarousel` - Rotating announcements
+- `GallerySection` - Improved image carousel
+- Department page with tabbed interface
+
+## Shift Management
+
+Shift Officer Dashboard enhancements:
+- Battery level reporting
+- Missing items tracking
+- Real-time soldier status
+- Quick attendance actions
 
 ---
 
@@ -262,6 +334,51 @@ When generating code:
 4. Follow NestJS modular structure
 5. Keep backend services separated
 6. Avoid breaking current functionality
+7. Respect role-based access control patterns
+8. Use department scoping for OFFICER features
+9. Send push notifications for important events
+
+---
+
+# Key Implementation Patterns
+
+## Role-Based Navigation
+
+```typescript
+// UserLayout.tsx - getMobileNavItems()
+function getMobileNavItems(userRole: UserRole): NavItem[] {
+  if (userRole === 'OFFICER') {
+    return [...]; // Shows מחלקה
+  }
+  return [...]; // Shows בקשות וטפסים
+}
+```
+
+## Department Access Verification
+
+```typescript
+// leave-requests.service.ts
+private async verifyAccessToRequest(
+  requestId: string,
+  userId: string,
+  userRole: UserRole,
+  militaryRole?: MilitaryRole,
+): Promise<{ request: any; hasAccess: boolean }> {
+  // ADMIN sees all
+  // OFFICER only same department as soldier
+}
+```
+
+## Push Notification Pattern
+
+```typescript
+// leave-requests.service.ts
+private async notifyOfficersOfNewRequest(leaveRequest: {...}) {
+  // Find officers in soldier's department
+  // Find all admins
+  // Send push to all recipients
+}
+```
 
 ---
 
