@@ -13,11 +13,11 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = 'primary', size = 'md', isLoading, children, disabled, ...props }, ref) => {
     const variants = {
-      primary: 'bg-military-700 text-white hover:bg-military-800 focus:ring-military-500 shadow-sm hover:shadow-md',
-      secondary: 'bg-gray-100 text-gray-900 hover:bg-gray-200 focus:ring-gray-400',
-      danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 shadow-sm hover:shadow-md',
-      outline: 'border-2 border-military-700 text-military-700 hover:bg-military-50 focus:ring-military-500',
-      ghost: 'text-military-700 hover:bg-military-50 focus:ring-military-500',
+      primary: 'bg-accent text-app hover:bg-accent-hover active:bg-accent-active focus:ring-accent/40 shadow-glow-sm hover:shadow-glow',
+      secondary: 'bg-transparent border border-accent text-content-secondary hover:bg-accent/10 hover:text-content-primary focus:ring-accent/40',
+      danger: 'bg-danger text-white hover:bg-danger-light focus:ring-danger/40 shadow-[0_0_20px_rgba(239,68,68,0.2)]',
+      outline: 'border border-accent text-accent hover:bg-accent/10 focus:ring-accent/40',
+      ghost: 'text-content-secondary hover:bg-glass hover:text-content-primary focus:ring-accent/40',
     };
 
     const sizes = {
@@ -30,7 +30,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       <button
         ref={ref}
         className={cn(
-          'inline-flex items-center justify-center gap-2 rounded-xl font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed',
+          'inline-flex items-center justify-center gap-2 rounded-btn font-medium transition-all duration-200 focus:outline-none focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed tracking-wide',
           variants[variant],
           sizes[size],
           className

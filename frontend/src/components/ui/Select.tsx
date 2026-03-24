@@ -20,32 +20,32 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
     return (
       <div className="w-full">
         {label && (
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-content-secondary mb-1.5">
             {label}
-            {props.required && <span className="text-red-500 mr-1">*</span>}
+            {props.required && <span className="text-danger mr-1">*</span>}
           </label>
         )}
         <select
           className={cn(
-            'w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-military-500 focus:border-transparent transition-colors bg-white',
-            error && 'border-red-500 focus:ring-red-500',
+            'w-full px-4 py-2.5 border border-border rounded-input focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent transition-colors bg-glass backdrop-blur-glass text-content-primary',
+            error && 'border-danger focus:ring-danger/40',
             className
           )}
           ref={ref}
           {...props}
         >
           {placeholder && (
-            <option value="" disabled>
+            <option value="" disabled className="bg-canvas text-content-muted">
               {placeholder}
             </option>
           )}
           {options.map((option) => (
-            <option key={option.value} value={option.value}>
+            <option key={option.value} value={option.value} className="bg-canvas text-content-primary">
               {option.label}
             </option>
           ))}
         </select>
-        {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
+        {error && <p className="mt-1.5 text-sm text-danger-light">{error}</p>}
       </div>
     );
   }

@@ -98,17 +98,17 @@ export function MessageCarousel({
         <>
           <button
             onClick={goToPrev}
-            className="absolute right-0 top-1/2 -translate-y-1/2 -mr-2 p-1.5 bg-white/90 rounded-full shadow-md hover:bg-white transition-colors z-10"
+            className="absolute right-0 top-1/2 -translate-y-1/2 -mr-2 p-1.5 bg-surface-2/90 border border-border-subtle rounded-full shadow-md hover:bg-elevated transition-colors z-10"
             aria-label="הודעה קודמת"
           >
-            <ChevronRight className="w-4 h-4 text-gray-600" />
+            <ChevronRight className="w-4 h-4 text-content-secondary" />
           </button>
           <button
             onClick={goToNext}
-            className="absolute left-0 top-1/2 -translate-y-1/2 -ml-2 p-1.5 bg-white/90 rounded-full shadow-md hover:bg-white transition-colors z-10"
+            className="absolute left-0 top-1/2 -translate-y-1/2 -ml-2 p-1.5 bg-surface-2/90 border border-border-subtle rounded-full shadow-md hover:bg-elevated transition-colors z-10"
             aria-label="הודעה הבאה"
           >
-            <ChevronLeft className="w-4 h-4 text-gray-600" />
+            <ChevronLeft className="w-4 h-4 text-content-secondary" />
           </button>
         </>
       )}
@@ -123,8 +123,8 @@ export function MessageCarousel({
               className={cn(
                 'w-2 h-2 rounded-full transition-all duration-200',
                 index === currentIndex
-                  ? 'bg-military-600 w-4'
-                  : 'bg-gray-300 hover:bg-gray-400'
+                  ? 'bg-accent w-4'
+                  : 'bg-border hover:bg-border-strong'
               )}
               aria-label={`עבור להודעה ${index + 1}`}
             />
@@ -133,7 +133,7 @@ export function MessageCarousel({
       )}
 
       {/* Counter */}
-      <div className="absolute bottom-0 left-0 text-xs text-gray-400 bg-white/80 px-2 py-0.5 rounded">
+      <div className="absolute bottom-0 left-0 text-xs text-content-muted bg-surface/80 px-2 py-0.5 rounded">
         {currentIndex + 1} / {sortedMessages.length}
       </div>
     </div>

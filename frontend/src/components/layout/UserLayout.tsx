@@ -233,17 +233,17 @@ function MobileMoreMenu({ isOpen, onClose, sections, pathname, primaryHrefs }: M
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/50 z-50"
+        className="fixed inset-0 bg-overlay z-50"
         onClick={onClose}
       />
 
       {/* Menu */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl z-50 max-h-[70vh] overflow-y-auto safe-area-pb">
-        <div className="sticky top-0 bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between">
-          <span className="font-semibold text-gray-900">תפריט נוסף</span>
+      <div className="fixed bottom-0 left-0 right-0 bg-glass backdrop-blur-glass-lg rounded-t-2xl z-50 max-h-[70vh] overflow-y-auto safe-area-pb border-t border-border">
+        <div className="sticky top-0 bg-glass-dark border-b border-border px-4 py-3 flex items-center justify-between">
+          <span className="font-semibold text-content-primary">תפריט נוסף</span>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-full"
+            className="p-2 hover:bg-surface-2 rounded-full text-content-muted"
           >
             <X className="w-5 h-5" />
           </button>
@@ -263,8 +263,8 @@ function MobileMoreMenu({ isOpen, onClose, sections, pathname, primaryHrefs }: M
                     className={cn(
                       'flex items-center gap-4 px-4 py-3 rounded-xl transition-colors',
                       isActive
-                        ? 'bg-military-700 text-white'
-                        : 'text-gray-700 hover:bg-gray-100'
+                        ? 'bg-accent text-white'
+                        : 'text-content-secondary hover:bg-surface-2 hover:text-content-primary'
                     )}
                   >
                     <Icon className="w-5 h-5" />
@@ -317,7 +317,7 @@ export function UserLayout({ children }: UserLayoutProps) {
   );
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-100">
+    <div className="min-h-screen flex flex-col bg-canvas">
       <Header />
 
       {/* Main content with padding for bottom nav on mobile */}
@@ -326,7 +326,7 @@ export function UserLayout({ children }: UserLayoutProps) {
       </main>
 
       {/* Bottom Navigation - Mobile (5 items max: 4 primary + More) */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 lg:hidden z-40 safe-area-pb">
+      <nav className="fixed bottom-0 left-0 right-0 bg-glass backdrop-blur-glass border-t border-border lg:hidden z-40 safe-area-pb">
         <div className="flex justify-around items-center h-16 px-1">
           {mobileNavItems.map((item) => {
             const Icon = item.icon;
@@ -338,11 +338,11 @@ export function UserLayout({ children }: UserLayoutProps) {
                 className={cn(
                   'flex flex-col items-center justify-center flex-1 h-full transition-colors min-w-0',
                   isActive
-                    ? 'text-military-700'
-                    : 'text-gray-500 hover:text-military-600'
+                    ? 'text-accent'
+                    : 'text-content-muted hover:text-content-secondary'
                 )}
               >
-                <Icon className={cn('w-5 h-5', isActive && 'text-military-700')} />
+                <Icon className={cn('w-5 h-5', isActive && 'text-accent')} />
                 <span className="text-[10px] mt-0.5 truncate">{item.label}</span>
               </Link>
             );
@@ -354,11 +354,11 @@ export function UserLayout({ children }: UserLayoutProps) {
             className={cn(
               'flex flex-col items-center justify-center flex-1 h-full transition-colors min-w-0',
               isMoreActive
-                ? 'text-military-700'
-                : 'text-gray-500 hover:text-military-600'
+                ? 'text-accent'
+                : 'text-content-muted hover:text-content-secondary'
             )}
           >
-            <MoreHorizontal className={cn('w-5 h-5', isMoreActive && 'text-military-700')} />
+            <MoreHorizontal className={cn('w-5 h-5', isMoreActive && 'text-accent')} />
             <span className="text-[10px] mt-0.5">{mobileNavConfig.moreMenuLabel}</span>
           </button>
         </div>
@@ -374,7 +374,7 @@ export function UserLayout({ children }: UserLayoutProps) {
       />
 
       {/* Side Navigation - Desktop with Flat Items */}
-      <aside className="hidden lg:block fixed right-0 top-16 bottom-0 w-60 bg-white border-l border-gray-200 overflow-y-auto">
+      <aside className="hidden lg:block fixed right-0 top-16 bottom-0 w-60 bg-glass backdrop-blur-glass border-l border-border overflow-y-auto">
         <nav className="p-4">
           <ul className="space-y-1">
             {filterFlatNavItems(flatNavItems, user.role, user.militaryRole).map((item, index, arr) => {
@@ -387,17 +387,17 @@ export function UserLayout({ children }: UserLayoutProps) {
                   <Link
                     href={item.href}
                     className={cn(
-                      'flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors',
+                      'flex items-center gap-3 px-4 py-2.5 rounded-btn transition-all duration-200 relative',
                       isActive
-                        ? 'bg-military-700 text-white shadow-sm'
-                        : 'text-gray-700 hover:bg-military-50 hover:text-military-700'
+                        ? 'bg-accent/15 text-accent nav-item-active'
+                        : 'text-content-secondary hover:bg-glass-light hover:text-content-primary'
                     )}
                   >
                     <Icon className="w-5 h-5" />
                     <span className="font-medium">{item.label}</span>
                   </Link>
                   {showDivider && (
-                    <div className="my-2 mx-4 border-t border-gray-200" />
+                    <div className="my-2 mx-4 border-t border-border-subtle" />
                   )}
                 </li>
               );

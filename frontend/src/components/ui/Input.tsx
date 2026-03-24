@@ -23,17 +23,17 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="w-full">
         {label && (
-          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+          <label className="block text-sm font-medium text-content-secondary mb-1.5">
             {label}
-            {props.required && <span className="text-red-500 mr-1">*</span>}
+            {props.required && <span className="text-danger mr-1">*</span>}
           </label>
         )}
         <div className="relative">
           <input
             type={actualType}
             className={cn(
-              'w-full px-4 py-3 border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-military-500 focus:border-transparent transition-all duration-200 text-base min-h-[48px]',
-              error && 'border-red-500 focus:ring-red-500 bg-red-50',
+              'w-full px-4 py-3 border border-border rounded-input bg-glass backdrop-blur-glass text-content-primary placeholder:text-content-muted focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent transition-all duration-200 text-base min-h-[48px]',
+              error && 'border-danger focus:ring-danger/40 bg-danger-surface',
               shouldShowToggle && 'pl-12',
               className
             )}
@@ -44,7 +44,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none p-1 rounded-lg hover:bg-gray-100 transition-colors"
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-content-muted hover:text-content-primary focus:outline-none p-1 rounded-lg hover:bg-surface-2 transition-colors"
               tabIndex={-1}
               aria-label={showPassword ? 'הסתר סיסמה' : 'הצג סיסמה'}
             >
@@ -57,9 +57,9 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
           )}
         </div>
         {hint && !error && (
-          <p className="mt-1.5 text-sm text-gray-500">{hint}</p>
+          <p className="mt-1.5 text-sm text-content-muted">{hint}</p>
         )}
-        {error && <p className="mt-1.5 text-sm text-red-600">{error}</p>}
+        {error && <p className="mt-1.5 text-sm text-danger-light">{error}</p>}
       </div>
     );
   }

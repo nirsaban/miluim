@@ -59,24 +59,24 @@ export function MultiSelect({
       <div
         onClick={() => !disabled && setIsOpen(!isOpen)}
         className={`
-          min-h-[42px] px-3 py-2 border rounded-lg bg-white
+          min-h-[42px] px-3 py-2 border rounded-lg bg-canvas
           flex flex-wrap items-center gap-1.5 cursor-pointer
-          ${disabled ? 'bg-gray-100 cursor-not-allowed' : 'hover:border-blue-400'}
-          ${isOpen ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-300'}
+          ${disabled ? 'bg-surface-2 cursor-not-allowed opacity-50' : 'hover:border-accent'}
+          ${isOpen ? 'border-accent ring-2 ring-accent/40' : 'border-border'}
         `}
       >
         {selectedOptions.length > 0 ? (
           selectedOptions.map((opt) => (
             <span
               key={opt.value}
-              className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-800 rounded-md text-sm"
+              className="inline-flex items-center gap-1 px-2 py-0.5 bg-info-surface text-info-light border border-info-border rounded-md text-sm"
             >
               {opt.label}
               {!disabled && (
                 <button
                   type="button"
                   onClick={(e) => removeOption(opt.value, e)}
-                  className="hover:bg-blue-200 rounded p-0.5"
+                  className="hover:bg-accent/20 rounded p-0.5"
                 >
                   <X className="w-3 h-3" />
                 </button>
@@ -84,17 +84,17 @@ export function MultiSelect({
             </span>
           ))
         ) : (
-          <span className="text-gray-400">{placeholder}</span>
+          <span className="text-content-muted">{placeholder}</span>
         )}
         <ChevronDown
-          className={`w-4 h-4 text-gray-400 mr-auto transition-transform ${isOpen ? 'rotate-180' : ''}`}
+          className={`w-4 h-4 text-content-muted mr-auto transition-transform ${isOpen ? 'rotate-180' : ''}`}
         />
       </div>
 
       {isOpen && !disabled && (
-        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-auto">
+        <div className="absolute z-50 w-full mt-1 bg-elevated border border-border rounded-lg shadow-lg max-h-60 overflow-auto">
           {options.length === 0 ? (
-            <div className="px-3 py-2 text-gray-500 text-center">אין אפשרויות</div>
+            <div className="px-3 py-2 text-content-muted text-center">אין אפשרויות</div>
           ) : (
             options.map((option) => {
               const isSelected = value.includes(option.value);
@@ -104,11 +104,11 @@ export function MultiSelect({
                   onClick={() => toggleOption(option.value)}
                   className={`
                     px-3 py-2 cursor-pointer flex items-center justify-between
-                    ${isSelected ? 'bg-blue-50 text-blue-800' : 'hover:bg-gray-50'}
+                    ${isSelected ? 'bg-info-surface text-info-light' : 'text-content-primary hover:bg-surface-2'}
                   `}
                 >
                   <span>{option.label}</span>
-                  {isSelected && <Check className="w-4 h-4 text-blue-600" />}
+                  {isSelected && <Check className="w-4 h-4 text-accent" />}
                 </div>
               );
             })

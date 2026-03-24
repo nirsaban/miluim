@@ -219,15 +219,15 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen flex flex-col bg-canvas">
       <Header />
       <div className="flex-1 flex">
         {/* Desktop Sidebar */}
-        <aside className="w-64 bg-white shadow-card hidden lg:block overflow-y-auto border-l border-gray-100">
-          <div className="p-4 border-b border-gray-100">
-            <h2 className="font-bold text-military-700 flex items-center gap-2">
-              <div className="w-8 h-8 bg-military-100 rounded-lg flex items-center justify-center">
-                <LayoutDashboard className="w-4 h-4 text-military-600" />
+        <aside className="w-64 bg-glass backdrop-blur-glass hidden lg:block overflow-y-auto border-l border-border">
+          <div className="p-4 border-b border-border-subtle">
+            <h2 className="font-bold text-content-primary flex items-center gap-2">
+              <div className="w-8 h-8 bg-accent/20 rounded-lg flex items-center justify-center">
+                <LayoutDashboard className="w-4 h-4 text-accent" />
               </div>
               פאנל ניהול
             </h2>
@@ -245,27 +245,27 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                     className={cn(
                       'w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-200 text-sm font-medium',
                       hasActiveItem
-                        ? 'bg-military-50 text-military-700 shadow-sm'
-                        : 'text-gray-700 hover:bg-gray-50'
+                        ? 'bg-surface-2 text-content-primary'
+                        : 'text-content-secondary hover:bg-surface-2'
                     )}
                   >
                     <div className="flex items-center gap-2.5">
                       <div className={cn(
                         'w-7 h-7 rounded-lg flex items-center justify-center transition-colors',
-                        hasActiveItem ? 'bg-military-100' : 'bg-gray-100'
+                        hasActiveItem ? 'bg-accent/20' : 'bg-elevated'
                       )}>
-                        <SectionIcon className="w-4 h-4" />
+                        <SectionIcon className={cn('w-4 h-4', hasActiveItem ? 'text-accent' : 'text-content-muted')} />
                       </div>
                       {section.label}
                     </div>
                     {isExpanded ? (
-                      <ChevronDown className="w-4 h-4 transition-transform" />
+                      <ChevronDown className="w-4 h-4 transition-transform text-content-muted" />
                     ) : (
-                      <ChevronLeft className="w-4 h-4 transition-transform" />
+                      <ChevronLeft className="w-4 h-4 transition-transform text-content-muted" />
                     )}
                   </button>
                   {isExpanded && (
-                    <ul className="mt-1.5 mr-5 space-y-1 border-r-2 border-gray-100 pr-2">
+                    <ul className="mt-1.5 mr-5 space-y-1 border-r-2 border-border-subtle pr-2">
                       {section.items.map((item) => {
                         const Icon = item.icon;
                         const isActive = pathname === item.href;
@@ -274,10 +274,10 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                             <Link
                               href={item.href}
                               className={cn(
-                                'flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 text-sm',
+                                'flex items-center gap-2 px-3 py-2 rounded-btn transition-all duration-200 text-sm relative',
                                 isActive
-                                  ? 'bg-military-700 text-white shadow-sm'
-                                  : 'text-gray-600 hover:bg-military-50 hover:text-military-700'
+                                  ? 'bg-accent/15 text-accent shadow-glow-sm'
+                                  : 'text-content-secondary hover:bg-glass-light hover:text-content-primary'
                               )}
                             >
                               <Icon className="w-4 h-4" />
@@ -292,10 +292,10 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               );
             })}
           </nav>
-          <div className="p-4 border-t border-gray-100 mt-auto">
+          <div className="p-4 border-t border-border-subtle mt-auto">
             <Link
               href="/dashboard"
-              className="flex items-center gap-2 text-gray-500 hover:text-military-700 transition-colors text-sm px-3 py-2 rounded-lg hover:bg-gray-50"
+              className="flex items-center gap-2 text-content-muted hover:text-accent transition-colors text-sm px-3 py-2 rounded-lg hover:bg-surface-2"
             >
               <LayoutDashboard className="w-4 h-4" />
               חזרה לדף הראשי
@@ -305,7 +305,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
         <main className="flex-1 p-4 sm:p-6 overflow-auto">
           {/* Mobile Navigation */}
-          <div className="lg:hidden mb-4 bg-white rounded-2xl shadow-card p-3">
+          <div className="lg:hidden mb-4 bg-glass backdrop-blur-glass rounded-card border border-border p-3">
             {/* Section tabs */}
             <div className="flex gap-2 overflow-x-auto pb-2 mb-2 scrollbar-hide">
               {filteredSections.map((section) => {
@@ -323,10 +323,10 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                     className={cn(
                       'flex items-center gap-2 px-4 py-2.5 rounded-xl whitespace-nowrap transition-all duration-200 text-sm font-medium min-h-[44px]',
                       isExpanded
-                        ? 'bg-military-700 text-white shadow-sm'
+                        ? 'bg-accent text-white shadow-sm'
                         : hasActiveItem
-                          ? 'bg-military-100 text-military-700'
-                          : 'bg-gray-100 text-gray-700'
+                          ? 'bg-accent/20 text-accent'
+                          : 'bg-surface-2 text-content-secondary'
                     )}
                   >
                     <SectionIcon className="w-4 h-4" />
@@ -350,8 +350,8 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                         className={cn(
                           'flex items-center gap-2 px-3 py-2 rounded-lg whitespace-nowrap transition-all duration-200 text-sm min-h-[40px]',
                           isActive
-                            ? 'bg-military-600 text-white shadow-sm'
-                            : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+                            ? 'bg-accent text-white shadow-sm'
+                            : 'bg-elevated text-content-secondary hover:bg-surface-2'
                         )}
                       >
                         <Icon className="w-3.5 h-3.5" />

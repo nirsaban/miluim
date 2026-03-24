@@ -26,11 +26,11 @@ export function Header() {
   };
 
   return (
-    <header className="bg-military-700 text-white shadow-lg sticky top-0 z-50">
+    <header className="bg-glass-dark backdrop-blur-glass-lg border-b border-border text-white sticky top-0 z-50">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-14 sm:h-16">
           <Link href="/dashboard" className="flex items-center gap-2 sm:gap-3">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 bg-white rounded-full flex items-center justify-center shadow-sm overflow-hidden">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 bg-surface-2 rounded-full flex items-center justify-center shadow-sm overflow-hidden border border-border-subtle">
               <Image
                 src="/icons/gemini_logo.png"
                 alt="לוגו"
@@ -39,20 +39,20 @@ export function Header() {
                 className="w-7 h-7 sm:w-8 sm:h-8 object-contain"
               />
             </div>
-            <span className="text-lg sm:text-xl font-bold hidden sm:block">מערכת ניהול - פלוגת יוגב</span>
+            <span className="text-lg sm:text-xl font-bold hidden sm:block text-content-primary">מערכת ניהול - פלוגת יוגב</span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-6">
             <Link
               href="/dashboard"
-              className="hover:text-military-200 transition-colors"
+              className="text-content-secondary hover:text-accent transition-colors"
             >
               ראשי
             </Link>
             {showDepartmentLink && (
               <Link
                 href="/dashboard/department"
-                className="hover:text-military-200 transition-colors flex items-center gap-1"
+                className="text-content-secondary hover:text-accent transition-colors flex items-center gap-1"
               >
                 <Users className="w-4 h-4" />
                 המחלקה שלי
@@ -61,7 +61,7 @@ export function Header() {
             {showAdminLink && (
               <Link
                 href="/admin/messages"
-                className="hover:text-military-200 transition-colors"
+                className="text-content-secondary hover:text-accent transition-colors"
               >
                 ניהול
               </Link>
@@ -71,21 +71,21 @@ export function Header() {
           <div className="flex items-center gap-4">
             <Link
               href="/dashboard#notifications"
-              className="relative p-2 hover:bg-military-600 rounded-full transition-colors"
+              className="relative p-2 hover:bg-surface-2 rounded-full transition-colors text-content-secondary hover:text-accent"
             >
               <Bell className="w-5 h-5" />
             </Link>
 
             <div className="hidden md:flex items-center gap-2">
-              <div className="w-8 h-8 bg-military-500 rounded-full flex items-center justify-center">
-                <User className="w-4 h-4" />
+              <div className="w-8 h-8 bg-surface-2 border border-border-subtle rounded-full flex items-center justify-center">
+                <User className="w-4 h-4 text-content-secondary" />
               </div>
-              <span className="text-sm">{user?.fullName}</span>
+              <span className="text-sm text-content-secondary">{user?.fullName}</span>
             </div>
 
             <button
               onClick={handleLogout}
-              className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-military-600 hover:bg-military-500 rounded-lg transition-colors"
+              className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-surface-2 border border-border-subtle hover:bg-elevated hover:border-border rounded-lg transition-colors text-content-secondary hover:text-content-primary"
             >
               <LogOut className="w-4 h-4" />
               <span className="text-sm">יציאה</span>
@@ -93,7 +93,7 @@ export function Header() {
 
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="md:hidden p-2 hover:bg-military-600 rounded-lg transition-colors"
+              className="md:hidden p-2 hover:bg-surface-2 rounded-lg transition-colors text-content-secondary"
             >
               {isMobileMenuOpen ? (
                 <X className="w-5 h-5" />
@@ -105,11 +105,11 @@ export function Header() {
         </div>
 
         {isMobileMenuOpen && (
-          <div className="md:hidden py-4 border-t border-military-600">
+          <div className="md:hidden py-4 border-t border-border-subtle">
             <nav className="flex flex-col gap-2">
               <Link
                 href="/dashboard"
-                className="px-4 py-2 hover:bg-military-600 rounded-lg transition-colors"
+                className="px-4 py-2 hover:bg-surface-2 rounded-lg transition-colors text-content-secondary hover:text-content-primary"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 ראשי
@@ -117,7 +117,7 @@ export function Header() {
               {showDepartmentLink && (
                 <Link
                   href="/dashboard/department"
-                  className="px-4 py-2 hover:bg-military-600 rounded-lg transition-colors flex items-center gap-2"
+                  className="px-4 py-2 hover:bg-surface-2 rounded-lg transition-colors flex items-center gap-2 text-content-secondary hover:text-content-primary"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   <Users className="w-4 h-4" />
@@ -127,20 +127,20 @@ export function Header() {
               {showAdminLink && (
                 <Link
                   href="/admin/messages"
-                  className="px-4 py-2 hover:bg-military-600 rounded-lg transition-colors"
+                  className="px-4 py-2 hover:bg-surface-2 rounded-lg transition-colors text-content-secondary hover:text-content-primary"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   ניהול
                 </Link>
               )}
-              <div className="border-t border-military-600 mt-2 pt-2">
-                <div className="px-4 py-2 flex items-center gap-2">
+              <div className="border-t border-border-subtle mt-2 pt-2">
+                <div className="px-4 py-2 flex items-center gap-2 text-content-secondary">
                   <User className="w-4 h-4" />
                   <span>{user?.fullName}</span>
                 </div>
                 <button
                   onClick={handleLogout}
-                  className="w-full px-4 py-2 flex items-center gap-2 hover:bg-military-600 rounded-lg transition-colors text-right"
+                  className="w-full px-4 py-2 flex items-center gap-2 hover:bg-surface-2 rounded-lg transition-colors text-right text-content-secondary hover:text-content-primary"
                 >
                   <LogOut className="w-4 h-4" />
                   <span>יציאה</span>

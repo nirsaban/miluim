@@ -94,25 +94,25 @@ export function PWAInstallPrompt({ onClose }: PWAInstallPromptProps) {
   if (!shouldShow) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-slide-up">
+    <div className="fixed inset-0 z-50 bg-overlay flex items-end sm:items-center justify-center p-4">
+      <div className="bg-elevated rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-border animate-slide-up">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b bg-military-50">
+        <div className="flex items-center justify-between p-4 border-b border-border bg-surface">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-military-600 rounded-xl flex items-center justify-center">
+            <div className="w-12 h-12 bg-accent rounded-xl flex items-center justify-center">
               <Download className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h3 className="font-bold text-military-700">התקן את האפליקציה</h3>
-              <p className="text-sm text-gray-600">לחוויה טובה יותר</p>
+              <h3 className="font-bold text-content-primary">התקן את האפליקציה</h3>
+              <p className="text-sm text-content-secondary">לחוויה טובה יותר</p>
             </div>
           </div>
           <button
             onClick={handleDismiss}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 hover:bg-surface-2 rounded-lg transition-colors"
             aria-label="סגור"
           >
-            <X className="w-5 h-5 text-gray-500" />
+            <X className="w-5 h-5 text-content-muted" />
           </button>
         </div>
 
@@ -120,22 +120,22 @@ export function PWAInstallPrompt({ onClose }: PWAInstallPromptProps) {
         <div className="p-4">
           {platform === 'ios' && (
             <div className="space-y-4">
-              <p className="text-gray-700 text-center mb-4">
+              <p className="text-content-secondary text-center mb-4">
                 הוסף את האפליקציה למסך הבית שלך לגישה מהירה וקלה
               </p>
 
               <div className="space-y-3">
                 {/* Step 1 */}
-                <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl">
-                  <div className="w-8 h-8 bg-military-100 text-military-700 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">
+                <div className="flex items-start gap-3 p-3 bg-surface rounded-xl border border-border-subtle">
+                  <div className="w-8 h-8 bg-accent/20 text-accent rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">
                     1
                   </div>
                   <div className="flex-1">
-                    <p className="font-medium text-gray-900">לחץ על כפתור השיתוף</p>
-                    <p className="text-sm text-gray-600 mt-1">
+                    <p className="font-medium text-content-primary">לחץ על כפתור השיתוף</p>
+                    <p className="text-sm text-content-secondary mt-1">
                       הכפתור נמצא בתחתית המסך בספארי
                     </p>
-                    <div className="mt-2 flex items-center gap-2 text-blue-600">
+                    <div className="mt-2 flex items-center gap-2 text-accent">
                       <Share className="w-5 h-5" />
                       <span className="text-sm">Share</span>
                     </div>
@@ -143,16 +143,16 @@ export function PWAInstallPrompt({ onClose }: PWAInstallPromptProps) {
                 </div>
 
                 {/* Step 2 */}
-                <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl">
-                  <div className="w-8 h-8 bg-military-100 text-military-700 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">
+                <div className="flex items-start gap-3 p-3 bg-surface rounded-xl border border-border-subtle">
+                  <div className="w-8 h-8 bg-accent/20 text-accent rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">
                     2
                   </div>
                   <div className="flex-1">
-                    <p className="font-medium text-gray-900">בחר &quot;הוסף למסך הבית&quot;</p>
-                    <p className="text-sm text-gray-600 mt-1">
+                    <p className="font-medium text-content-primary">בחר &quot;הוסף למסך הבית&quot;</p>
+                    <p className="text-sm text-content-secondary mt-1">
                       גלול למטה בתפריט ולחץ על האפשרות
                     </p>
-                    <div className="mt-2 flex items-center gap-2 text-gray-700">
+                    <div className="mt-2 flex items-center gap-2 text-content-primary">
                       <Plus className="w-5 h-5" />
                       <span className="text-sm">Add to Home Screen</span>
                     </div>
@@ -160,13 +160,13 @@ export function PWAInstallPrompt({ onClose }: PWAInstallPromptProps) {
                 </div>
 
                 {/* Step 3 */}
-                <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl">
-                  <div className="w-8 h-8 bg-military-100 text-military-700 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">
+                <div className="flex items-start gap-3 p-3 bg-surface rounded-xl border border-border-subtle">
+                  <div className="w-8 h-8 bg-accent/20 text-accent rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">
                     3
                   </div>
                   <div className="flex-1">
-                    <p className="font-medium text-gray-900">לחץ על &quot;הוסף&quot;</p>
-                    <p className="text-sm text-gray-600 mt-1">
+                    <p className="font-medium text-content-primary">לחץ על &quot;הוסף&quot;</p>
+                    <p className="text-sm text-content-secondary mt-1">
                       האפליקציה תופיע במסך הבית שלך
                     </p>
                   </div>
@@ -177,38 +177,38 @@ export function PWAInstallPrompt({ onClose }: PWAInstallPromptProps) {
 
           {platform === 'android' && (
             <div className="space-y-4">
-              <p className="text-gray-700 text-center mb-4">
+              <p className="text-content-secondary text-center mb-4">
                 הוסף את האפליקציה למסך הבית שלך לגישה מהירה וקלה
               </p>
 
               <div className="space-y-3">
                 {/* Step 1 */}
-                <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl">
-                  <div className="w-8 h-8 bg-military-100 text-military-700 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">
+                <div className="flex items-start gap-3 p-3 bg-surface rounded-xl border border-border-subtle">
+                  <div className="w-8 h-8 bg-accent/20 text-accent rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">
                     1
                   </div>
                   <div className="flex-1">
-                    <p className="font-medium text-gray-900">לחץ על תפריט הדפדפן</p>
-                    <p className="text-sm text-gray-600 mt-1">
+                    <p className="font-medium text-content-primary">לחץ על תפריט הדפדפן</p>
+                    <p className="text-sm text-content-secondary mt-1">
                       שלוש נקודות בפינה הימנית העליונה
                     </p>
-                    <div className="mt-2 flex items-center gap-2 text-gray-700">
+                    <div className="mt-2 flex items-center gap-2 text-content-primary">
                       <MoreVertical className="w-5 h-5" />
                     </div>
                   </div>
                 </div>
 
                 {/* Step 2 */}
-                <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl">
-                  <div className="w-8 h-8 bg-military-100 text-military-700 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">
+                <div className="flex items-start gap-3 p-3 bg-surface rounded-xl border border-border-subtle">
+                  <div className="w-8 h-8 bg-accent/20 text-accent rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">
                     2
                   </div>
                   <div className="flex-1">
-                    <p className="font-medium text-gray-900">בחר &quot;התקן אפליקציה&quot;</p>
-                    <p className="text-sm text-gray-600 mt-1">
+                    <p className="font-medium text-content-primary">בחר &quot;התקן אפליקציה&quot;</p>
+                    <p className="text-sm text-content-secondary mt-1">
                       או &quot;הוסף למסך הבית&quot;
                     </p>
-                    <div className="mt-2 flex items-center gap-2 text-gray-700">
+                    <div className="mt-2 flex items-center gap-2 text-content-primary">
                       <Download className="w-5 h-5" />
                       <span className="text-sm">Install app</span>
                     </div>
@@ -216,13 +216,13 @@ export function PWAInstallPrompt({ onClose }: PWAInstallPromptProps) {
                 </div>
 
                 {/* Step 3 */}
-                <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl">
-                  <div className="w-8 h-8 bg-military-100 text-military-700 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">
+                <div className="flex items-start gap-3 p-3 bg-surface rounded-xl border border-border-subtle">
+                  <div className="w-8 h-8 bg-accent/20 text-accent rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">
                     3
                   </div>
                   <div className="flex-1">
-                    <p className="font-medium text-gray-900">אשר את ההתקנה</p>
-                    <p className="text-sm text-gray-600 mt-1">
+                    <p className="font-medium text-content-primary">אשר את ההתקנה</p>
+                    <p className="text-sm text-content-secondary mt-1">
                       האפליקציה תופיע במסך הבית שלך
                     </p>
                   </div>
@@ -233,7 +233,7 @@ export function PWAInstallPrompt({ onClose }: PWAInstallPromptProps) {
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t bg-gray-50 flex gap-3">
+        <div className="p-4 border-t border-border bg-surface flex gap-3">
           <Button
             variant="secondary"
             onClick={handleDismiss}
