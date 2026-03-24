@@ -35,7 +35,14 @@
       "Bash(for size in 72 96 128 144 152 192 384 512)",
       "Bash(do )",
       "Bash(echo:*)",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(ls:*)",
+      "Bash(rsvg-convert:*)",
+      "Bash(convert:*)",
+      "Bash(qlmanage:*)",
+      "Bash(do sips -z $size $size logo.svg.png --out icon-$sizex$size.png)",
+      "Bash(open http://localhost:3000/auth/login)",
+      "Bash(do sips -z $size $size new.png --out icon-$sizex$size.png)"
     ]
   }
 }

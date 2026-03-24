@@ -1,17 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Bell, LogOut, User, Settings, Menu, X, Users } from 'lucide-react';
 import { useState } from 'react';
-import { useAuth, useIsFullAdmin } from '@/hooks/useAuth';
-import { cn } from '@/lib/utils';
+import { useAuth, useIsFullAdmin, useIsSystemTech } from '@/hooks/useAuth';
 
 export function Header() {
   const router = useRouter();
   const { user, logout } = useAuth();
   const isFullAdmin = useIsFullAdmin();
+  const isSystemTech = useIsSystemTech();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Show admin link for ADMIN, LOGISTICS, and admin-level military roles (not OFFICER)
@@ -29,17 +28,15 @@ export function Header() {
     <header className="bg-military-700 text-white shadow-lg sticky top-0 z-50">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-14 sm:h-16">
-          <Link href="/dashboard" className="flex items-center gap-2 sm:gap-3">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 bg-white rounded-full flex items-center justify-center shadow-sm overflow-hidden">
-              <Image
-                src="/icons/gemini_logo2.png"
-                alt="לוגו מילטק"
-                width={40}
-                height={40}
-                className="w-7 h-7 sm:w-8 sm:h-8 object-contain"
+          <Link href="/dashboard" className="flex items-center">
+            <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full overflow-hidden bg-white">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/icons/logo.png"
+                alt="מילטק"
+                className="h-full w-full object-cover"
               />
             </div>
-            <span className="text-lg sm:text-xl font-bold hidden sm:block">מילטק</span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-6">
@@ -64,6 +61,15 @@ export function Header() {
                 className="hover:text-military-200 transition-colors"
               >
                 ניהול
+              </Link>
+            )}
+            {isSystemTech && (
+              <Link
+                href="/system"
+                className="hover:text-military-200 transition-colors flex items-center gap-1"
+              >
+                <Settings className="w-4 h-4" />
+                מערכת
               </Link>
             )}
           </nav>
@@ -131,6 +137,16 @@ export function Header() {
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   ניהול
+                </Link>
+              )}
+              {isSystemTech && (
+                <Link
+                  href="/system"
+                  className="px-4 py-2 hover:bg-military-600 rounded-lg transition-colors flex items-center gap-2"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <Settings className="w-4 h-4" />
+                  מערכת
                 </Link>
               )}
               <div className="border-t border-military-600 mt-2 pt-2">
