@@ -31,7 +31,11 @@
       "Bash(docker ps:*)",
       "Bash(find:*)",
       "Bash(identify:*)",
-      "Bash(sips:*)"
+      "Bash(sips:*)",
+      "Bash(for size in 72 96 128 144 152 192 384 512)",
+      "Bash(do )",
+      "Bash(echo:*)",
+      "Bash(done)"
     ]
   }
 }

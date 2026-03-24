@@ -186,7 +186,7 @@ export default function AdminServiceCyclesPage() {
                   label="שם הסבב"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="יוגב – אילת – מרץ 2026"
+                  placeholder="מילטק – אילת – מרץ 2026"
                   required
                 />
                 <Input

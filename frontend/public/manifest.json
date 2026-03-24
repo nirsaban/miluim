@@ -1,7 +1,7 @@
 {
-  "name": "מערכת ניהול פלוגת יוגב",
-  "short_name": "יוגב",
-  "description": "מערכת תפעול פלוגתית - פלוגת יוגב",
+  "name": "מילטק - מילואים של העתיד",
+  "short_name": "מילטק",
+  "description": "מילטק - מערכת ניהול מילואים חכמה",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f3f4f6",

@@ -413,7 +413,7 @@ export default function HomePage() {
                   ברוך שובך, {user?.fullName?.split(' ')[0]}
                 </h1>
                 <p className="text-sm text-gray-500">
-                  {user?.militaryRole ? MILITARY_ROLE_LABELS[user.militaryRole] : 'מערכת יוגב'}
+                  {user?.militaryRole ? MILITARY_ROLE_LABELS[user.militaryRole] : 'מילטק'}
                 </p>
                 {currentCycle?.status === 'ACTIVE' && myAttendance?.attendanceStatus === 'ARRIVED' && (
                   <div className="flex items-center gap-1.5 mt-1">

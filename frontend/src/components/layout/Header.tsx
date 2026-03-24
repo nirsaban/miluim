@@ -32,14 +32,14 @@ export function Header() {
           <Link href="/dashboard" className="flex items-center gap-2 sm:gap-3">
             <div className="w-9 h-9 sm:w-10 sm:h-10 bg-white rounded-full flex items-center justify-center shadow-sm overflow-hidden">
               <Image
-                src="/icons/gemini_logo.png"
-                alt="לוגו"
+                src="/icons/gemini_logo2.png"
+                alt="לוגו מילטק"
                 width={40}
                 height={40}
                 className="w-7 h-7 sm:w-8 sm:h-8 object-contain"
               />
             </div>
-            <span className="text-lg sm:text-xl font-bold hidden sm:block">מערכת ניהול - פלוגת יוגב</span>
+            <span className="text-lg sm:text-xl font-bold hidden sm:block">מילטק</span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-6">
