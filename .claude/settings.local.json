@@ -29,7 +29,9 @@
       "Bash(docker exec:*)",
       "Bash(docker restart:*)",
       "Bash(docker ps:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(identify:*)",
+      "Bash(sips:*)"
     ]
   }
 }

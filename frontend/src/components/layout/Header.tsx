@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Bell, LogOut, User, Settings, Menu, X, Users } from 'lucide-react';
 import { useState } from 'react';
@@ -29,8 +30,14 @@ export function Header() {
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-14 sm:h-16">
           <Link href="/dashboard" className="flex items-center gap-2 sm:gap-3">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 bg-white rounded-full flex items-center justify-center shadow-sm">
-              <span className="text-military-700 font-bold text-base sm:text-lg">י</span>
+            <div className="w-9 h-9 sm:w-10 sm:h-10 bg-white rounded-full flex items-center justify-center shadow-sm overflow-hidden">
+              <Image
+                src="/icons/gemini_logo.png"
+                alt="לוגו"
+                width={40}
+                height={40}
+                className="w-7 h-7 sm:w-8 sm:h-8 object-contain"
+              />
             </div>
             <span className="text-lg sm:text-xl font-bold hidden sm:block">מערכת ניהול - פלוגת יוגב</span>
           </Link>
