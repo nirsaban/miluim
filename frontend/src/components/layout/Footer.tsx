@@ -4,7 +4,7 @@ export function Footer() {
   return (
     <footer className="bg-military-800 text-white py-6 mt-auto">
       <div className="container mx-auto px-4 text-center">
-        <p className="text-lg font-bold">מילטק – מילואים של העתיד</p>
+        <p className="text-lg font-bold">מילטק – העתיד של המילואים</p>
         <p className="text-sm text-military-300 mt-2">
           מילטק &copy; {new Date().getFullYear()}
         </p>

@@ -7,7 +7,7 @@ import { ServiceWorkerRegister } from '@/components/ServiceWorkerRegister';
 const rubik = Rubik({ subsets: ['latin', 'hebrew'] });
 
 export const metadata: Metadata = {
-  title: 'מילטק - מילואים של העתיד',
+  title: 'מילטק - העתיד של המילואים',
   description: 'מילטק - מערכת ניהול מילואים חכמה',
   manifest: '/manifest.json',
   appleWebApp: {

@@ -22,13 +22,13 @@ export function AuthLayout({ children }: AuthLayoutProps) {
                 />
               </div>
             </div>
-            <p className="text-military-200 text-sm sm:text-base">מילואים של העתיד</p>
+            <p className="text-military-200 text-sm sm:text-base">העתיד של המילואים</p>
           </div>
           <div className="bg-white rounded-2xl shadow-xl p-5 sm:p-6">{children}</div>
         </div>
       </div>
       <div className="text-center py-4 text-military-300 text-sm">
-        <p>מילטק - מילואים של העתיד</p>
+        <p>מילטק - העתיד של המילואים</p>
       </div>
     </div>
   );
