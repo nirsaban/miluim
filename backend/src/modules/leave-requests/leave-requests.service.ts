@@ -239,6 +239,35 @@ export class LeaveRequestsService {
     this.logger.log(`Leave request push notifications: sent=${sent}, failed=${failed}`);
   }
 
+  /**
+   * Send push notification to soldier when their leave request is approved or rejected
+   */
+  private async notifySoldierOfRequestDecision(
+    soldierId: string,
+    decision: 'approved' | 'rejected',
+    leaveType: LeaveType,
+    adminNote?: string,
+  ) {
+    const leaveTypeName = leaveType === 'SHORT' ? 'יציאה קצרה' : 'יציאה הביתה';
+    const isApproved = decision === 'approved';
+
+    const payload = {
+      title: isApproved ? 'בקשת יציאה אושרה ✅' : 'בקשת יציאה נדחתה ❌',
+      body: isApproved
+        ? `בקשת ה${leaveTypeName} שלך אושרה${adminNote ? ` - ${adminNote}` : ''}`
+        : `בקשת ה${leaveTypeName} שלך נדחתה${adminNote ? ` - ${adminNote}` : ''}`,
+      url: '/dashboard/requests',
+      tag: `leave-decision-${soldierId}-${Date.now()}`,
+    };
+
+    try {
+      await this.pushService.sendToUser(soldierId, payload);
+      this.logger.log(`Sent ${decision} notification to soldier ${soldierId}`);
+    } catch (err) {
+      this.logger.error(`Failed to send ${decision} notification to soldier ${soldierId}`, err);
+    }
+  }
+
   async findPending(userId: string, userRole: UserRole, militaryRole?: MilitaryRole) {
     const soldierIds = await this.getDepartmentSoldierIds(userId, userRole, militaryRole);
 
@@ -492,7 +521,7 @@ export class LeaveRequestsService {
     const exitTime = new Date(requestData!.exitTime);
     const newStatus: LeaveStatus = exitTime <= now ? 'ACTIVE' : 'APPROVED';
 
-    return this.prisma.leaveRequest.update({
+    const updatedRequest = await this.prisma.leaveRequest.update({
       where: { id },
       data: {
         status: newStatus,
@@ -501,6 +530,18 @@ export class LeaveRequestsService {
       },
       include: this.includeRelations,
     });
+
+    // Send push notification to soldier
+    this.notifySoldierOfRequestDecision(
+      updatedRequest.soldierId,
+      'approved',
+      updatedRequest.type,
+      adminNote,
+    ).catch((err) => {
+      this.logger.error('Failed to send approval notification', err);
+    });
+
+    return updatedRequest;
   }
 
   async reject(
@@ -530,7 +571,7 @@ export class LeaveRequestsService {
       }
     }
 
-    return this.prisma.leaveRequest.update({
+    const updatedRequest = await this.prisma.leaveRequest.update({
       where: { id },
       data: {
         status: 'REJECTED',
@@ -539,6 +580,18 @@ export class LeaveRequestsService {
       },
       include: this.includeRelations,
     });
+
+    // Send push notification to soldier
+    this.notifySoldierOfRequestDecision(
+      updatedRequest.soldierId,
+      'rejected',
+      updatedRequest.type,
+      adminNote,
+    ).catch((err) => {
+      this.logger.error('Failed to send rejection notification', err);
+    });
+
+    return updatedRequest;
   }
 
   async markActive(

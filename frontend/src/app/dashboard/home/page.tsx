@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { MessageSquare, Bell, Calendar, MapPin, Building2, User, Phone, ChevronLeft, ChevronRight, CheckCircle2, Image, FlaskConical, RotateCcw, Copy, Check, BellRing, Timer, AlertCircle, Info, Megaphone } from 'lucide-react';
+import { MessageSquare, Bell, Calendar, MapPin, Building2, User, Phone, ChevronLeft, ChevronRight, CheckCircle2, Image, FlaskConical, RotateCcw, Copy, Check, BellRing, Timer, AlertCircle, Info, Megaphone, FileText, Utensils, PartyPopper, ClipboardList, Shield } from 'lucide-react';
 import { PushNotificationToggle } from '@/components/ui/PushNotificationToggle';
 import { PWAInstallPrompt, usePWAInstall } from '@/components/ui/PWAInstallPrompt';
 import Link from 'next/link';
@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/hooks/useAuth';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import api from '@/lib/api';
-import { MILITARY_ROLE_LABELS, MilitaryRole, MessageTargetAudience, ShiftType, SHIFT_TYPE_LABELS, ReserveServiceCycle, ServiceAttendance } from '@/types';
+import { MILITARY_ROLE_LABELS, MilitaryRole, MessageTargetAudience, ShiftType, SHIFT_TYPE_LABELS, ReserveServiceCycle, ServiceAttendance, MessageType, MESSAGE_TYPE_LABELS } from '@/types';
 import { formatWhatsAppLink, formatDate, cn } from '@/lib/utils';
 
 interface TestUser {
@@ -133,6 +133,75 @@ function calculateDaysSinceStart(startDate: string): number {
   const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
   return diffDays + 1; // +1 to count the first day
 }
+
+// Message type configuration for display
+const MESSAGE_TYPE_CONFIG: Record<MessageType, {
+  icon: React.ComponentType<{ className?: string }>;
+  bgColor: string;
+  borderColor: string;
+  iconBgColor: string;
+  iconColor: string;
+  titleColor: string;
+}> = {
+  GENERAL: {
+    icon: Megaphone,
+    bgColor: 'bg-gray-50',
+    borderColor: 'border-gray-200',
+    iconBgColor: 'bg-gray-100',
+    iconColor: 'text-gray-600',
+    titleColor: 'text-gray-800',
+  },
+  OPERATIONAL: {
+    icon: Shield,
+    bgColor: 'bg-red-50',
+    borderColor: 'border-red-200',
+    iconBgColor: 'bg-red-100',
+    iconColor: 'text-red-600',
+    titleColor: 'text-red-800',
+  },
+  OPERATIONAL_GUIDELINES: {
+    icon: ClipboardList,
+    bgColor: 'bg-orange-50',
+    borderColor: 'border-orange-200',
+    iconBgColor: 'bg-orange-100',
+    iconColor: 'text-orange-600',
+    titleColor: 'text-orange-800',
+  },
+  CONDUCT_GUIDELINES: {
+    icon: FileText,
+    bgColor: 'bg-blue-50',
+    borderColor: 'border-blue-200',
+    iconBgColor: 'bg-blue-100',
+    iconColor: 'text-blue-600',
+    titleColor: 'text-blue-800',
+  },
+  FOOD_AND_OPERATIONS: {
+    icon: Utensils,
+    bgColor: 'bg-green-50',
+    borderColor: 'border-green-200',
+    iconBgColor: 'bg-green-100',
+    iconColor: 'text-green-600',
+    titleColor: 'text-green-800',
+  },
+  HAPPY_UPDATES: {
+    icon: PartyPopper,
+    bgColor: 'bg-purple-50',
+    borderColor: 'border-purple-200',
+    iconBgColor: 'bg-purple-100',
+    iconColor: 'text-purple-600',
+    titleColor: 'text-purple-800',
+  },
+};
+
+// Order of message type sections (top to bottom)
+const MESSAGE_TYPE_ORDER: MessageType[] = [
+  'OPERATIONAL',
+  'OPERATIONAL_GUIDELINES',
+  'CONDUCT_GUIDELINES',
+  'FOOD_AND_OPERATIONS',
+  'HAPPY_UPDATES',
+  'GENERAL',
+];
 
 // Inline Carousel Component for Messages
 interface CarouselMessage {
@@ -349,8 +418,7 @@ export default function HomePage() {
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 
-  // Carousel hooks for messages
-  const messagesCarousel = useCarousel(messages.length, 6000);
+  // Carousel hook for notifications
   const notificationsCarousel = useCarousel(notifications.length, 5000);
 
   // Calculate days in service
@@ -765,142 +833,111 @@ export default function HomePage() {
         </CardContent>
       </Card>
 
-      {/* Daily Messages - Carousel */}
-      <Card className="mb-4">
-        <CardHeader className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+      {/* Daily Messages - Grouped by Type */}
+      {homeLoading ? (
+        <Card className="mb-4">
+          <CardHeader className="flex items-center gap-2">
             <Megaphone className="w-5 h-5 text-military-600" />
             <span>הודעות יומיות</span>
-            {messages.length > 0 && (
-              <span className="bg-military-100 text-military-700 text-xs px-2 py-0.5 rounded-full">
-                {messages.length}
-              </span>
-            )}
-          </div>
-          {messages.length > 1 && (
-            <div className="flex items-center gap-1">
-              <span className="text-xs text-gray-400">{messagesCarousel.currentIndex + 1}/{messages.length}</span>
-            </div>
-          )}
-        </CardHeader>
-        <CardContent>
-          {homeLoading ? (
+          </CardHeader>
+          <CardContent>
             <div className="flex justify-center py-4">
               <Spinner />
             </div>
-          ) : messages.length === 0 ? (
+          </CardContent>
+        </Card>
+      ) : messages.length === 0 ? (
+        <Card className="mb-4">
+          <CardHeader className="flex items-center gap-2">
+            <Megaphone className="w-5 h-5 text-military-600" />
+            <span>הודעות יומיות</span>
+          </CardHeader>
+          <CardContent>
             <p className="text-center text-gray-500 py-4">אין הודעות חדשות</p>
-          ) : (
-            <div className="relative">
-              {/* Carousel Container - LTR for proper slide behavior */}
-              <div className="overflow-hidden rounded-xl" dir="ltr">
-                <div
-                  className="flex transition-transform duration-300 ease-in-out"
-                  style={{ transform: `translateX(-${messagesCarousel.currentIndex * 100}%)` }}
-                >
-                  {messages.map((message) => (
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-4 mb-4">
+          {MESSAGE_TYPE_ORDER.map((messageType) => {
+            const typeMessages = messages.filter((m) => m.type === messageType);
+            if (typeMessages.length === 0) return null;
+
+            const config = MESSAGE_TYPE_CONFIG[messageType];
+            const TypeIcon = config.icon;
+
+            return (
+              <Card key={messageType} className={cn("border", config.borderColor)}>
+                <CardHeader className={cn("flex items-center justify-between", config.bgColor)}>
+                  <div className="flex items-center gap-2">
+                    <div className={cn("p-1.5 rounded-lg", config.iconBgColor)}>
+                      <TypeIcon className={cn("w-5 h-5", config.iconColor)} />
+                    </div>
+                    <span className={cn("font-bold", config.titleColor)}>
+                      {MESSAGE_TYPE_LABELS[messageType]}
+                    </span>
+                    <span className={cn("text-xs px-2 py-0.5 rounded-full", config.iconBgColor, config.iconColor)}>
+                      {typeMessages.length}
+                    </span>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {typeMessages.map((message) => (
                     <div
                       key={message.id}
-                      className="w-full flex-shrink-0"
-                      style={{ minWidth: '100%' }}
+                      className={cn(
+                        "p-4 rounded-xl border-r-4",
+                        message.priority === 'CRITICAL'
+                          ? 'bg-red-50 border-red-500'
+                          : message.priority === 'HIGH'
+                            ? 'bg-orange-50 border-orange-500'
+                            : cn(config.bgColor, config.borderColor.replace('border-', 'border-r-'))
+                      )}
                     >
-                      {/* Content wrapper with RTL */}
-                      <div
-                        dir="rtl"
-                        className={cn(
-                          "p-4 rounded-xl border-r-4 min-h-[100px]",
-                          message.priority === 'CRITICAL'
-                            ? 'bg-red-50 border-red-500'
-                            : message.priority === 'HIGH'
-                              ? 'bg-orange-50 border-orange-500'
-                              : 'bg-military-50 border-military-400'
-                        )}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              {message.priority === 'CRITICAL' && (
-                                <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
-                              )}
-                              {message.priority === 'HIGH' && (
-                                <Info className="w-4 h-4 text-orange-500 flex-shrink-0" />
-                              )}
-                              <h4 className="font-bold text-sm text-gray-900 truncate">{message.title}</h4>
-                            </div>
-                            <p className="text-sm text-gray-700 line-clamp-3">{message.content}</p>
-                            <p className="text-xs text-gray-400 mt-2">
-                              {formatDate(message.createdAt, 'dd/MM/yyyy HH:mm')}
-                            </p>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            {message.priority === 'CRITICAL' && (
+                              <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+                            )}
+                            {message.priority === 'HIGH' && (
+                              <Info className="w-4 h-4 text-orange-500 flex-shrink-0" />
+                            )}
+                            <h4 className="font-bold text-sm text-gray-900">{message.title}</h4>
                           </div>
-                          {message.requiresConfirmation && (
-                            <div className="flex-shrink-0">
-                              {message.isConfirmed ? (
-                                <span className="inline-flex items-center gap-1 text-xs text-green-600 bg-green-100 px-2.5 py-1.5 rounded-lg">
-                                  <CheckCircle2 className="w-3.5 h-3.5" />
-                                  אושר
-                                </span>
-                              ) : (
-                                <Button
-                                  size="sm"
-                                  onClick={() => confirmMessageMutation.mutate(message.id)}
-                                  isLoading={confirmMessageMutation.isPending}
-                                  className="text-xs"
-                                >
-                                  <CheckCircle2 className="w-3.5 h-3.5 ml-1" />
-                                  אשר קריאה
-                                </Button>
-                              )}
-                            </div>
-                          )}
+                          <p className="text-sm text-gray-700 whitespace-pre-wrap">{message.content}</p>
+                          <p className="text-xs text-gray-400 mt-2">
+                            {formatDate(message.createdAt, 'dd/MM/yyyy HH:mm')}
+                          </p>
                         </div>
+                        {message.requiresConfirmation && (
+                          <div className="flex-shrink-0">
+                            {message.isConfirmed ? (
+                              <span className="inline-flex items-center gap-1 text-xs text-green-600 bg-green-100 px-2.5 py-1.5 rounded-lg">
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                אושר
+                              </span>
+                            ) : (
+                              <Button
+                                size="sm"
+                                onClick={() => confirmMessageMutation.mutate(message.id)}
+                                isLoading={confirmMessageMutation.isPending}
+                                className="text-xs"
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5 ml-1" />
+                                אשר קריאה
+                              </Button>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
-                </div>
-              </div>
-
-              {/* Navigation Arrows - RTL: Left=Next, Right=Prev */}
-              {messages.length > 1 && (
-                <>
-                  <button
-                    onClick={messagesCarousel.goToPrev}
-                    className="absolute top-1/2 right-0 -translate-y-1/2 translate-x-1 w-8 h-8 bg-white/90 shadow-md rounded-full flex items-center justify-center hover:bg-white transition-colors z-10"
-                    aria-label="הודעה קודמת"
-                  >
-                    <ChevronRight className="w-5 h-5 text-gray-600" />
-                  </button>
-                  <button
-                    onClick={messagesCarousel.goToNext}
-                    className="absolute top-1/2 left-0 -translate-y-1/2 -translate-x-1 w-8 h-8 bg-white/90 shadow-md rounded-full flex items-center justify-center hover:bg-white transition-colors z-10"
-                    aria-label="הודעה הבאה"
-                  >
-                    <ChevronLeft className="w-5 h-5 text-gray-600" />
-                  </button>
-                </>
-              )}
-
-              {/* Dots Indicator */}
-              {messages.length > 1 && (
-                <div className="flex items-center justify-center gap-1.5 mt-3">
-                  {messages.map((_, index) => (
-                    <button
-                      key={index}
-                      onClick={() => messagesCarousel.goToIndex(index)}
-                      className={cn(
-                        "w-2 h-2 rounded-full transition-all",
-                        index === messagesCarousel.currentIndex
-                          ? "bg-military-600 w-4"
-                          : "bg-gray-300 hover:bg-gray-400"
-                      )}
-                      aria-label={`עבור להודעה ${index + 1}`}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
 
       {/* Test Setup Section - Only for personalId 1234567 */}
       {user?.personalId === '1234567' && (

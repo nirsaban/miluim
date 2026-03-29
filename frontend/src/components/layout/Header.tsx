@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Bell, LogOut, User, Settings, Menu, X, Users } from 'lucide-react';
+import { Bell, LogOut, User, Settings, Menu, X, Users, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth, useIsFullAdmin, useIsSystemTech } from '@/hooks/useAuth';
 
@@ -75,6 +75,14 @@ export function Header() {
           </nav>
 
           <div className="flex items-center gap-4">
+            <button
+              onClick={() => window.location.reload()}
+              className="p-2 hover:bg-military-600 rounded-full transition-colors"
+              title="רענון"
+            >
+              <RefreshCw className="w-5 h-5" />
+            </button>
+
             <Link
               href="/dashboard#notifications"
               className="relative p-2 hover:bg-military-600 rounded-full transition-colors"

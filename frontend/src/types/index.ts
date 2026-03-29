@@ -221,7 +221,7 @@ export interface Message {
   createdAt: string;
 }
 
-export type MessageType = 'GENERAL' | 'FOOD' | 'URGENT' | 'ANNOUNCEMENT' | 'OPERATIONAL';
+export type MessageType = 'GENERAL' | 'OPERATIONAL' | 'OPERATIONAL_GUIDELINES' | 'CONDUCT_GUIDELINES' | 'FOOD_AND_OPERATIONS' | 'HAPPY_UPDATES';
 export type MessagePriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 
 export interface ShiftPost {
@@ -507,10 +507,11 @@ export const PRIORITY_LABELS: Record<MessagePriority, string> = {
 
 export const MESSAGE_TYPE_LABELS: Record<MessageType, string> = {
   GENERAL: 'כללי',
-  FOOD: 'מזון',
-  URGENT: 'דחוף',
-  ANNOUNCEMENT: 'הודעה',
   OPERATIONAL: 'מבצעי',
+  OPERATIONAL_GUIDELINES: 'הנחיות מבצעיות',
+  CONDUCT_GUIDELINES: 'הנחיות התנהלות',
+  FOOD_AND_OPERATIONS: 'מזון ואופרציה',
+  HAPPY_UPDATES: 'הודעות משמחות',
 };
 
 export const LEAVE_TYPE_LABELS: Record<LeaveType, string> = {
