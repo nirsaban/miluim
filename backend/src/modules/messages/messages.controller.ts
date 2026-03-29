@@ -23,7 +23,7 @@ export class MessagesController {
 
   @Get('food')
   findFoodMessages() {
-    return this.messagesService.findByType(MessageType.FOOD);
+    return this.messagesService.findByType(MessageType.FOOD_AND_OPERATIONS);
   }
 
   @Get('operational')

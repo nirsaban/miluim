@@ -511,7 +511,7 @@ export class TestSetupService {
         data: {
           title: '[TEST] הודעה דחופה - חובה לאשר קריאה',
           content: 'הודעה זו נשלחה כחלק מבדיקת המערכת. יש לאשר קריאה.',
-          type: 'URGENT',
+          type: 'OPERATIONAL',
           priority: 'CRITICAL',
           requiresConfirmation: true,
           isActive: true,
@@ -533,7 +533,7 @@ export class TestSetupService {
         data: {
           title: '[TEST] עדכון ארוחות',
           content: 'ארוחת צהריים: 12:00-14:00\nארוחת ערב: 18:00-20:00',
-          type: 'FOOD',
+          type: 'FOOD_AND_OPERATIONS',
           priority: 'LOW',
           requiresConfirmation: false,
           isActive: true,

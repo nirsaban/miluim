@@ -152,13 +152,13 @@ async function main() {
     {
       title: 'ברוכים הבאים למערכת ניהול - פלוגת יוגב',
       content: 'מערכת התפעול הפלוגתית החדשה שלנו מוכנה לשימוש. נא לעדכן פרטים אישיים.',
-      type: MessageType.ANNOUNCEMENT,
+      type: MessageType.GENERAL,
       priority: MessagePriority.HIGH,
     },
     {
       title: 'סידור מזון - שבוע קרוב',
       content: 'ארוחת בוקר: 07:00-08:30\nארוחת צהריים: 12:00-14:00\nארוחת ערב: 18:00-20:00',
-      type: MessageType.FOOD,
+      type: MessageType.FOOD_AND_OPERATIONS,
       priority: MessagePriority.MEDIUM,
     },
   ];

@@ -291,10 +291,11 @@ export class MessagesService {
   private getMessageTypeLabel(type: MessageType): string {
     const labels: Record<MessageType, string> = {
       GENERAL: 'הודעה כללית',
-      FOOD: 'הודעת אוכל',
-      URGENT: 'הודעה דחופה',
-      ANNOUNCEMENT: 'הכרזה',
       OPERATIONAL: 'הודעה מבצעית',
+      OPERATIONAL_GUIDELINES: 'הנחיות מבצעיות',
+      CONDUCT_GUIDELINES: 'הנחיות התנהגות',
+      FOOD_AND_OPERATIONS: 'אוכל ומבצעים',
+      HAPPY_UPDATES: 'עדכונים שמחים',
     };
     return labels[type] || 'הודעה חדשה';
   }
