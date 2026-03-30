@@ -436,16 +436,14 @@ export class UsersService {
       orderBy: { name: 'asc' },
     });
 
-    // Get department commander (SQUAD_COMMANDER or DUTY_OFFICER in same department)
-    let departmentCommander = null;
+    // Get department officer (UserRole OFFICER in same department)
+    let departmentOfficer = null;
     if (user.departmentId) {
-      departmentCommander = await this.prisma.user.findFirst({
+      departmentOfficer = await this.prisma.user.findFirst({
         where: {
           isActive: true,
           departmentId: user.departmentId,
-          militaryRole: {
-            in: ['SQUAD_COMMANDER', 'DUTY_OFFICER'],
-          },
+          role: 'OFFICER',
         },
         select: {
           id: true,
@@ -455,24 +453,6 @@ export class UsersService {
         },
       });
     }
-
-    // If no department commander, get platoon commander
-    const platoonCommander = await this.prisma.user.findFirst({
-      where: {
-        isActive: true,
-        militaryRole: {
-          in: ['PLATOON_COMMANDER', 'SERGEANT_MAJOR'],
-        },
-      },
-      select: {
-        id: true,
-        fullName: true,
-        phone: true,
-        militaryRole: true,
-      },
-    });
-
-    const commander = departmentCommander || platoonCommander;
 
     // Get today's date range
     const today = new Date();
@@ -630,7 +610,7 @@ export class UsersService {
       user: {
         ...user,
         activeZone,
-        commander,
+        departmentOfficer,
       },
       currentShift: formatShift(currentShift),
       nextShift: formatShift(nextShift),

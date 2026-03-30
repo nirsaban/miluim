@@ -90,7 +90,7 @@ interface HomeData {
       id: string;
       name: string;
     } | null;
-    commander?: {
+    departmentOfficer?: {
       id: string;
       fullName: string;
       phone: string;
@@ -529,20 +529,20 @@ export default function HomePage() {
                   <span className="font-medium text-gray-900 text-xs truncate block">{homeData?.user?.department?.name || user?.department?.name || 'לא מוגדר'}</span>
                 </div>
               </div>
-              {homeData?.user?.commander && (
+              {homeData?.user?.departmentOfficer && (
                 <div className="flex items-center gap-2 p-2.5 bg-green-50 rounded-xl col-span-2 sm:col-span-2">
                   <div className="p-1.5 bg-green-100 rounded-lg">
                     <Phone className="w-3.5 h-3.5 text-green-600" />
                   </div>
                   <div className="min-w-0">
-                    <span className="text-gray-400 text-[10px] block">מפקד</span>
+                    <span className="text-gray-400 text-[10px] block">קצין מחלקה</span>
                     <a
-                      href={formatWhatsAppLink(homeData.user.commander.phone)}
+                      href={formatWhatsAppLink(homeData.user.departmentOfficer.phone)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="font-medium text-green-600 hover:underline text-xs truncate block"
                     >
-                      {homeData.user.commander.fullName}
+                      {homeData.user.departmentOfficer.fullName}
                     </a>
                   </div>
                 </div>
@@ -551,7 +551,7 @@ export default function HomePage() {
               {currentCycle?.status === 'ACTIVE' && (
                 <div className={cn(
                   "flex items-center gap-2 p-2.5 rounded-xl",
-                  homeData?.user?.commander ? "col-span-2 sm:col-span-4" : "col-span-2",
+                  homeData?.user?.departmentOfficer ? "col-span-2 sm:col-span-4" : "col-span-2",
                   "bg-military-50 border border-military-100"
                 )}>
                   <div className="p-1.5 bg-military-100 rounded-lg">
