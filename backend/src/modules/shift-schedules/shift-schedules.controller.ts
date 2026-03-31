@@ -11,6 +11,7 @@ import { ShiftSchedulesService } from './shift-schedules.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { parseIsraelDate } from '../../common/utils/timezone';
 
 @Controller('shift-schedules')
 @UseGuards(JwtAuthGuard)
@@ -23,9 +24,10 @@ export class ShiftSchedulesController {
     @Query('endDate') endDate: string,
     @Query('zoneId') zoneId?: string,
   ) {
+    // Parse date strings as Israel midnight for consistent date handling
     return this.shiftSchedulesService.findByDateRange(
-      new Date(startDate),
-      new Date(endDate),
+      parseIsraelDate(startDate),
+      parseIsraelDate(endDate),
       zoneId && zoneId !== 'undefined' ? zoneId : undefined,
     );
   }
@@ -36,7 +38,7 @@ export class ShiftSchedulesController {
     @Query('zoneId') zoneId?: string,
   ) {
     return this.shiftSchedulesService.getScheduleStatus(
-      new Date(date),
+      parseIsraelDate(date),
       zoneId && zoneId !== 'undefined' ? zoneId : undefined,
     );
   }
@@ -47,7 +49,7 @@ export class ShiftSchedulesController {
     @Query('zoneId') zoneId?: string,
   ) {
     return this.shiftSchedulesService.findByDate(
-      new Date(date),
+      parseIsraelDate(date),
       zoneId && zoneId !== 'undefined' ? zoneId : undefined,
     );
   }
@@ -57,7 +59,7 @@ export class ShiftSchedulesController {
     @Query('date') date: string,
     @Query('zoneId') zoneId?: string,
   ) {
-    return this.shiftSchedulesService.findOrCreate(new Date(date), zoneId && zoneId !== 'undefined' ? zoneId : undefined);
+    return this.shiftSchedulesService.findOrCreate(parseIsraelDate(date), zoneId && zoneId !== 'undefined' ? zoneId : undefined);
   }
 
   @Post('publish')
@@ -71,7 +73,7 @@ export class ShiftSchedulesController {
     @Request() req: any,
   ) {
     return this.shiftSchedulesService.publish(
-      new Date(date),
+      parseIsraelDate(date),
       zoneId && zoneId !== 'undefined' ? zoneId : undefined,
       req.user.id,
       shiftTemplateId && shiftTemplateId !== 'undefined' ? shiftTemplateId : undefined,
@@ -86,6 +88,6 @@ export class ShiftSchedulesController {
     @Query('zoneId') zoneId?: string,
     @Body() _body?: any,
   ) {
-    return this.shiftSchedulesService.unpublish(new Date(date), zoneId && zoneId !== 'undefined' ? zoneId : undefined);
+    return this.shiftSchedulesService.unpublish(parseIsraelDate(date), zoneId && zoneId !== 'undefined' ? zoneId : undefined);
   }
 }

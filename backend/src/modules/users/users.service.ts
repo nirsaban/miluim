@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ConflictException } from '@nestjs/common
 import { PrismaService } from '../../prisma/prisma.service';
 import { UserRole, MilitaryRole } from '@prisma/client';
 import { CreatePreapprovedUserDto } from './dto';
+import { getIsraelTodayStart, getIsraelTomorrowStart, isIsraelToday, isAfterIsraelToday } from '../../common/utils/timezone';
 
 @Injectable()
 export class UsersService {
@@ -455,10 +456,8 @@ export class UsersService {
     }
 
     // Get today's date range
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    const today = getIsraelTodayStart();
+    const tomorrow = getIsraelTomorrowStart();
 
     // Get all my shifts for today and future (to find current and next)
     const myShifts = await this.prisma.shiftAssignment.findMany({
@@ -495,17 +494,9 @@ export class UsersService {
     });
 
     // Find current shift (today) and next shift
-    const todayShifts = myShifts.filter(s => {
-      const shiftDate = new Date(s.date);
-      shiftDate.setHours(0, 0, 0, 0);
-      return shiftDate.getTime() === today.getTime();
-    });
+    const todayShifts = myShifts.filter(s => isIsraelToday(new Date(s.date)));
 
-    const futureShifts = myShifts.filter(s => {
-      const shiftDate = new Date(s.date);
-      shiftDate.setHours(0, 0, 0, 0);
-      return shiftDate.getTime() > today.getTime();
-    });
+    const futureShifts = myShifts.filter(s => isAfterIsraelToday(new Date(s.date)));
 
     // Current shift is today's first shift
     const currentShift = todayShifts.length > 0 ? todayShifts[0] : null;
@@ -736,10 +727,8 @@ export class UsersService {
     });
 
     // Get today's shifts for department soldiers
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    const today = getIsraelTodayStart();
+    const tomorrow = getIsraelTomorrowStart();
 
     const todayShifts = await this.prisma.shiftAssignment.count({
       where: {
@@ -952,10 +941,8 @@ export class UsersService {
     const usersOnShortLeave = usersOnLeave.filter(l => l.type === 'SHORT');
 
     // Today's shifts
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    const today = getIsraelTodayStart();
+    const tomorrow = getIsraelTomorrowStart();
 
     const todayShifts = await this.prisma.shiftAssignment.count({
       where: {

@@ -15,6 +15,7 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { LeaveRequestsService } from './leave-requests.service';
 import { LeaveType, LeaveStatus } from '@prisma/client';
+import { smartParseDatetime } from '../../common/utils/timezone';
 
 @Controller('leave-requests')
 @UseGuards(JwtAuthGuard)
@@ -39,10 +40,12 @@ export class LeaveRequestsController {
       expectedReturn: string;
     },
   ) {
+    // Parse datetime strings with timezone awareness
+    // Handles both ISO strings (with Z or offset) and naive datetime-local strings (treated as Israel time)
     return this.leaveRequestsService.create(req.user.id, {
       ...body,
-      exitTime: new Date(body.exitTime),
-      expectedReturn: new Date(body.expectedReturn),
+      exitTime: smartParseDatetime(body.exitTime),
+      expectedReturn: smartParseDatetime(body.expectedReturn),
     });
   }
 

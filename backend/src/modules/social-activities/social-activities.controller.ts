@@ -10,6 +10,7 @@ import {
 import { SocialActivitiesService } from './social-activities.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { smartParseDatetime } from '../../common/utils/timezone';
 
 @Controller('social-activities')
 @UseGuards(JwtAuthGuard)
@@ -55,13 +56,14 @@ export class SocialActivitiesController {
       maxParticipants?: number;
     },
   ) {
+    // Parse datetime strings with timezone awareness (treats naive strings as Israel time)
     return this.socialActivitiesService.create(
       {
         title: body.title,
         description: body.description,
         place: body.place,
-        startTime: new Date(body.startTime),
-        endTime: body.endTime ? new Date(body.endTime) : undefined,
+        startTime: smartParseDatetime(body.startTime),
+        endTime: body.endTime ? smartParseDatetime(body.endTime) : undefined,
         maxParticipants: body.maxParticipants,
       },
       user.id,

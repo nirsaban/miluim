@@ -26,6 +26,7 @@ services:
     container_name: yogev-backend
     restart: unless-stopped
     environment:
+      TZ: Asia/Jerusalem
       DATABASE_URL: postgresql://yogev:${POSTGRES_PASSWORD:-yogev_password}@postgres:5432/yogev_db?schema=public
       JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key}
       JWT_EXPIRATION: 12h
@@ -66,6 +67,7 @@ services:
     container_name: yogev-frontend
     restart: unless-stopped
     environment:
+      TZ: Asia/Jerusalem
       NODE_ENV: production
     depends_on:
       backend:

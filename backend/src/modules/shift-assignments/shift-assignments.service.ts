@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ShiftAssignmentStatus, FormType } from '@prisma/client';
+import { getIsraelTodayStart } from '../../common/utils/timezone';
 
 @Injectable()
 export class ShiftAssignmentsService {
@@ -410,8 +411,7 @@ export class ShiftAssignmentsService {
   // ============================================================
 
   async getTodayActiveShifts(zoneId?: string) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = getIsraelTodayStart();
 
     const where: any = {
       date: today,
@@ -577,8 +577,7 @@ export class ShiftAssignmentsService {
 
   // Shift officer confirms arrival FOR another soldier
   async confirmArrivalBySupervisor(assignmentId: string, supervisorId: string) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = getIsraelTodayStart();
 
     // Verify the supervisor is shift officer for today
     const schedule = await this.prisma.shiftSchedule.findFirst({
@@ -630,8 +629,7 @@ export class ShiftAssignmentsService {
     userId: string,
     data: { batteryLevel?: number; missingItems?: string },
   ) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = getIsraelTodayStart();
 
     const assignment = await this.prisma.shiftAssignment.findUnique({
       where: { id: assignmentId },
@@ -677,8 +675,7 @@ export class ShiftAssignmentsService {
 
   // Get current shift overview for shift officer - detailed view
   async getCurrentShiftOverview(userId: string) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = getIsraelTodayStart();
 
     // Check if user is shift officer today
     const schedule = await this.prisma.shiftSchedule.findFirst({
@@ -803,8 +800,7 @@ export class ShiftAssignmentsService {
   }
 
   async getMyTodayShift(userId: string) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = getIsraelTodayStart();
 
     const assignment = await this.prisma.shiftAssignment.findFirst({
       where: {
@@ -901,8 +897,7 @@ export class ShiftAssignmentsService {
   }
 
   async getShiftOfficerDuty(userId: string) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = getIsraelTodayStart();
 
     const schedule = await this.prisma.shiftSchedule.findFirst({
       where: {
@@ -973,8 +968,7 @@ export class ShiftAssignmentsService {
   }
 
   async findMyShifts(userId: string) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = getIsraelTodayStart();
 
     // Get shifts from 7 days ago to 14 days ahead
     const startDate = new Date(today);
@@ -1277,8 +1271,7 @@ export class ShiftAssignmentsService {
    * Get current shift overview focusing only on the active shift (not full day)
    */
   async getCurrentShiftOnlyOverview(userId: string) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = getIsraelTodayStart();
 
     // Check if user is shift officer today
     const schedule = await this.prisma.shiftSchedule.findFirst({
@@ -1429,8 +1422,7 @@ export class ShiftAssignmentsService {
    * Get all commanders in the current shift with task info
    */
   async getCurrentShiftCommanders(userId: string) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = getIsraelTodayStart();
 
     // Check if user is shift officer today
     const schedule = await this.prisma.shiftSchedule.findFirst({
@@ -1497,8 +1489,7 @@ export class ShiftAssignmentsService {
    * Update submission status (confirm receipt by shift officer)
    */
   async confirmSubmissionReceipt(submissionId: string, userId: string) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = getIsraelTodayStart();
 
     // Verify user is shift officer
     const schedule = await this.prisma.shiftSchedule.findFirst({

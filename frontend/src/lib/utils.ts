@@ -1,34 +1,34 @@
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { format, parseISO } from 'date-fns';
-import { he } from 'date-fns/locale';
+import {
+  formatDateTimeIsrael,
+  formatDateIsrael,
+  formatRelativeTimeIsrael,
+} from './timezone';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/**
+ * Format date for display - uses Israel timezone
+ */
 export function formatDate(date: string | Date, formatStr: string = 'dd/MM/yyyy') {
-  const parsedDate = typeof date === 'string' ? parseISO(date) : date;
-  return format(parsedDate, formatStr, { locale: he });
+  return formatDateIsrael(date, formatStr);
 }
 
+/**
+ * Format datetime for display - uses Israel timezone
+ */
 export function formatDateTime(date: string | Date) {
-  return formatDate(date, 'dd/MM/yyyy HH:mm');
+  return formatDateTimeIsrael(date, 'dd/MM/yyyy HH:mm');
 }
 
+/**
+ * Format relative time in Hebrew - uses Israel timezone
+ */
 export function formatRelativeTime(date: string | Date) {
-  const parsedDate = typeof date === 'string' ? parseISO(date) : date;
-  const now = new Date();
-  const diffMs = now.getTime() - parsedDate.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMins / 60);
-  const diffDays = Math.floor(diffHours / 24);
-
-  if (diffMins < 1) return 'עכשיו';
-  if (diffMins < 60) return `לפני ${diffMins} דקות`;
-  if (diffHours < 24) return `לפני ${diffHours} שעות`;
-  if (diffDays < 7) return `לפני ${diffDays} ימים`;
-  return formatDate(parsedDate);
+  return formatRelativeTimeIsrael(date);
 }
 
 export function truncateText(text: string, maxLength: number) {

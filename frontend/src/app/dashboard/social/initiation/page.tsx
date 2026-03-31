@@ -26,6 +26,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Spinner } from '@/components/ui/Spinner';
 import api from '@/lib/api';
 import { formatDate, cn } from '@/lib/utils';
+import { dateTimeLocalToISO } from '@/lib/timezone';
 import { useAuth } from '@/hooks/useAuth';
 import {
   SocialActivity,
@@ -157,12 +158,13 @@ export default function SocialInitiationPage() {
       return;
     }
 
+    // Convert datetime-local values to ISO strings (treating input as Israel time)
     createMutation.mutate({
       title: title.trim(),
       description: description.trim() || undefined,
       place: place.trim(),
-      startTime: new Date(startTime).toISOString(),
-      endTime: endTime ? new Date(endTime).toISOString() : undefined,
+      startTime: dateTimeLocalToISO(startTime),
+      endTime: endTime ? dateTimeLocalToISO(endTime) : undefined,
       maxParticipants: maxParticipants ? parseInt(maxParticipants) : undefined,
     });
   };

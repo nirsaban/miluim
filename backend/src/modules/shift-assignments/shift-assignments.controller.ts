@@ -16,6 +16,7 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ShiftAssignmentStatus } from '@prisma/client';
+import { parseIsraelDate } from '../../common/utils/timezone';
 
 @Controller('shift-assignments')
 @UseGuards(JwtAuthGuard)
@@ -116,15 +117,15 @@ export class ShiftAssignmentsController {
     @Query('zoneId') zoneId?: string,
   ) {
     return this.shiftAssignmentsService.findByDateRange(
-      new Date(startDate),
-      new Date(endDate),
+      parseIsraelDate(startDate),
+      parseIsraelDate(endDate),
       zoneId && zoneId !== 'undefined' ? zoneId : undefined,
     );
   }
 
   @Get('date/:date')
   findByDate(@Param('date') date: string, @Query('zoneId') zoneId?: string) {
-    return this.shiftAssignmentsService.findByDate(new Date(date), zoneId && zoneId !== 'undefined' ? zoneId : undefined);
+    return this.shiftAssignmentsService.findByDate(parseIsraelDate(date), zoneId && zoneId !== 'undefined' ? zoneId : undefined);
   }
 
   @Get('available-soldiers')
@@ -134,7 +135,7 @@ export class ShiftAssignmentsController {
     @Query('taskId') taskId?: string,
   ) {
     return this.shiftAssignmentsService.getAvailableSoldiers(
-      new Date(date),
+      parseIsraelDate(date),
       shiftTemplateId,
       taskId,
     );
@@ -147,7 +148,7 @@ export class ShiftAssignmentsController {
     @Query('taskId') taskId: string,
   ) {
     return this.shiftAssignmentsService.getTaskFulfillment(
-      new Date(date),
+      parseIsraelDate(date),
       shiftTemplateId,
       taskId,
     );
@@ -169,7 +170,7 @@ export class ShiftAssignmentsController {
   ) {
     return this.shiftAssignmentsService.create({
       ...data,
-      date: new Date(data.date),
+      date: parseIsraelDate(data.date),
     });
   }
 
@@ -191,7 +192,7 @@ export class ShiftAssignmentsController {
     return this.shiftAssignmentsService.bulkCreate(
       data.assignments.map((a) => ({
         ...a,
-        date: new Date(a.date),
+        date: parseIsraelDate(a.date),
       })),
     );
   }
@@ -222,7 +223,7 @@ export class ShiftAssignmentsController {
       id,
       data.newTaskId,
       data.newShiftTemplateId,
-      data.newDate ? new Date(data.newDate) : undefined,
+      data.newDate ? parseIsraelDate(data.newDate) : undefined,
     );
   }
 
@@ -241,7 +242,7 @@ export class ShiftAssignmentsController {
     @Query('soldierId') soldierId: string,
   ) {
     return this.validationService.validateAssignment(
-      new Date(date),
+      parseIsraelDate(date),
       shiftTemplateId,
       taskId,
       soldierId,
@@ -253,7 +254,7 @@ export class ShiftAssignmentsController {
     @Query('date') date: string,
     @Query('zoneId') zoneId?: string,
   ) {
-    return this.validationService.validateDaySchedule(new Date(date), zoneId && zoneId !== 'undefined' ? zoneId : undefined);
+    return this.validationService.validateDaySchedule(parseIsraelDate(date), zoneId && zoneId !== 'undefined' ? zoneId : undefined);
   }
 
   // ============================================================
@@ -269,8 +270,8 @@ export class ShiftAssignmentsController {
     @Query('departmentId') departmentId?: string,
   ) {
     return this.shiftAssignmentsService.getWorkloadsSummary({
-      startDate: startDate ? new Date(startDate) : undefined,
-      endDate: endDate ? new Date(endDate) : undefined,
+      startDate: startDate ? parseIsraelDate(startDate) : undefined,
+      endDate: endDate ? parseIsraelDate(endDate) : undefined,
       departmentId: departmentId && departmentId !== 'undefined' ? departmentId : undefined,
     });
   }
@@ -282,8 +283,8 @@ export class ShiftAssignmentsController {
     @Query('endDate') endDate?: string,
   ) {
     return this.shiftAssignmentsService.getUserWorkload(user.id, {
-      startDate: startDate ? new Date(startDate) : undefined,
-      endDate: endDate ? new Date(endDate) : undefined,
+      startDate: startDate ? parseIsraelDate(startDate) : undefined,
+      endDate: endDate ? parseIsraelDate(endDate) : undefined,
     });
   }
 }

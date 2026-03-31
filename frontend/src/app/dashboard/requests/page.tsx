@@ -12,6 +12,11 @@ import { Modal } from '@/components/ui/Modal';
 import { Spinner } from '@/components/ui/Spinner';
 import api from '@/lib/api';
 import { formatDateTime, cn } from '@/lib/utils';
+import {
+  getIsraelDateTimeLocalRounded,
+  getIsraelDateTimeLocalRoundedPlusHours,
+  dateTimeLocalToISO,
+} from '@/lib/timezone';
 import { FormType, FORM_TYPE_LABELS, LeaveCategory, LeaveType, LEAVE_TYPE_LABELS, LeaveStatus } from '@/types';
 
 interface LeaveRequest {
@@ -138,17 +143,13 @@ export default function RequestsPage() {
     setReason('');
   };
 
+  // Use Israel timezone for default times
   const getDefaultExitTime = () => {
-    const now = new Date();
-    now.setMinutes(Math.ceil(now.getMinutes() / 15) * 15);
-    return now.toISOString().slice(0, 16);
+    return getIsraelDateTimeLocalRounded();
   };
 
   const getDefaultReturnTime = () => {
-    const now = new Date();
-    now.setHours(now.getHours() + 2);
-    now.setMinutes(Math.ceil(now.getMinutes() / 15) * 15);
-    return now.toISOString().slice(0, 16);
+    return getIsraelDateTimeLocalRoundedPlusHours(2);
   };
 
   const openLeaveModal = (type: LeaveType) => {
@@ -178,18 +179,18 @@ export default function RequestsPage() {
       toast.error('נא לבחור קטגוריה');
       return;
     }
-    const exitDate = new Date(exitTime);
-    const returnDate = new Date(expectedReturn);
-    if (returnDate <= exitDate) {
+    // Compare times using simple string comparison (both are in same format)
+    if (expectedReturn <= exitTime) {
       toast.error('זמן החזרה חייב להיות אחרי זמן היציאה');
       return;
     }
+    // Convert datetime-local values to ISO strings (treating input as Israel time)
     leaveRequestMutation.mutate({
       type: leaveType,
       categoryId: leaveType === 'SHORT' ? categoryId : undefined,
       reason: reason || undefined,
-      exitTime,
-      expectedReturn,
+      exitTime: dateTimeLocalToISO(exitTime),
+      expectedReturn: dateTimeLocalToISO(expectedReturn),
     });
   };
 
