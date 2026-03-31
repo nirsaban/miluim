@@ -257,8 +257,11 @@ export interface LeaveRequest {
     fullName: string;
     phone: string;
     armyNumber: string;
+    departmentId?: string | null;
+    department?: { id: string; name: string } | null;
   };
   type: LeaveType;
+  categoryId?: string | null;
   category?: LeaveCategory;
   reason?: string;
   exitTime: string;
@@ -810,4 +813,67 @@ export interface SocialActivity {
   };
   createdAt: string;
   updatedAt: string;
+}
+
+// ============================================================
+// EMERGENCY CHECK-IN - בדיקת מצב חירום
+// ============================================================
+
+export type EmergencyEventStatus = 'ACTIVE' | 'EXPIRED' | 'CANCELLED';
+
+export const EMERGENCY_EVENT_STATUS_LABELS: Record<EmergencyEventStatus, string> = {
+  ACTIVE: 'פעיל',
+  EXPIRED: 'פג תוקף',
+  CANCELLED: 'בוטל',
+};
+
+export interface EmergencyUser {
+  id: string;
+  fullName: string;
+  phone: string;
+  armyNumber: string;
+  department?: {
+    id: string;
+    name: string;
+  } | null;
+  reportedAt?: string;
+}
+
+export interface EmergencyEvent {
+  id: string;
+  title: string | null;
+  serviceCycleId: string | null;
+  serviceCycle?: {
+    id: string;
+    name: string;
+  } | null;
+  createdById: string;
+  createdBy?: {
+    id: string;
+    fullName: string;
+  };
+  startedAt: string;
+  expiresAt: string;
+  status: EmergencyEventStatus;
+  targetUserIds: string[];
+  stats: {
+    totalTargetUsers: number;
+    reportedCount: number;
+    notReportedCount: number;
+  };
+  reportedUsers?: EmergencyUser[];
+  notReportedUsers?: EmergencyUser[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EmergencyUserStatus {
+  hasActiveEmergency: boolean;
+  emergencyId?: string;
+  title?: string;
+  startedAt?: string;
+  expiresAt?: string;
+  isTargetUser?: boolean;
+  hasReported?: boolean;
+  reportedAt?: string | null;
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Users,
@@ -21,6 +21,8 @@ import {
   ChevronDown,
   ChevronUp,
   AlertTriangle,
+  UserCheck,
+  UserX,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { UserLayout } from '@/components/layout/UserLayout';
@@ -31,6 +33,8 @@ import { Spinner } from '@/components/ui/Spinner';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
+import { StatUsersModal, StatUser } from '@/components/ui/StatUsersModal';
+import { ClickableStatCard } from '@/components/ui/ClickableStatCard';
 import api from '@/lib/api';
 import { MilitaryRole, MILITARY_ROLE_LABELS, MessageType, MessagePriority, LeaveStatus, LeaveType, LEAVE_STATUS_LABELS, LEAVE_TYPE_LABELS } from '@/types';
 import { useAuth, useIsFullAdmin } from '@/hooks/useAuth';
@@ -120,6 +124,18 @@ interface DepartmentMessage {
 
 type TabType = 'overview' | 'requests' | 'soldiers' | 'messages';
 
+// Stat modal types for department page
+type DepartmentStatModalType =
+  | 'onLeave'
+  | 'atHome'
+  | 'shortLeave'
+  | 'arrived'
+  | 'notComing'
+  | 'pending'
+  | 'late'
+  | 'inBase'
+  | null;
+
 const ATTENDANCE_STATUS_LABELS: Record<string, string> = {
   ARRIVED: 'הגיע',
   NOT_COMING: 'לא מגיע',
@@ -182,13 +198,17 @@ export default function DepartmentPage() {
     },
   });
 
+  // Stat modal state
+  const [statModal, setStatModal] = useState<DepartmentStatModalType>(null);
+
   const { data: soldiers, isLoading: isLoadingSoldiers } = useQuery<SoldierWithStatus[]>({
     queryKey: ['department-soldiers'],
     queryFn: async () => {
       const response = await api.get('/users/department/soldiers-with-status');
       return response.data;
     },
-    enabled: activeTab === 'soldiers',
+    // Fetch soldiers on both overview and soldiers tabs for stat modals
+    enabled: activeTab === 'soldiers' || activeTab === 'overview',
   });
 
   const { data: leaveRequests, isLoading: isLoadingRequests, refetch: refetchRequests } = useQuery<LeaveRequest[]>({
@@ -275,6 +295,128 @@ export default function DepartmentPage() {
       toast.error('שגיאה בסימון חזרה');
     },
   });
+
+  // Helper: Convert soldier to StatUser format
+  const soldierToStatUser = (soldier: SoldierWithStatus, additionalInfo?: string): StatUser => ({
+    id: soldier.id,
+    fullName: soldier.fullName,
+    phone: soldier.phone,
+    armyNumber: soldier.armyNumber,
+    additionalInfo,
+  });
+
+  // Helper: Convert leave user to StatUser format
+  const leaveUserToStatUser = (user: { id: string; name: string; phone: string; expectedReturn: string; category?: string }, additionalInfo?: string): StatUser => ({
+    id: user.id,
+    fullName: user.name,
+    phone: user.phone,
+    additionalInfo: additionalInfo || (user.category ? `${user.category} - חזרה: ${formatDateTime(user.expectedReturn)}` : `חזרה: ${formatDateTime(user.expectedReturn)}`),
+  });
+
+  // Derive filtered user lists from stats and soldiers data
+  const statModalUsers = useMemo((): { users: StatUser[]; title: string; emptyMessage: string; icon: React.ReactNode; headerColor: string } => {
+    if (!statModal) {
+      return { users: [], title: '', emptyMessage: '', icon: null, headerColor: '' };
+    }
+
+    switch (statModal) {
+      case 'onLeave':
+        // Combined users on any leave
+        const allOnLeave = [
+          ...(stats?.leaves.usersAtHome.map(u => leaveUserToStatUser(u, 'יציאה הביתה')) || []),
+          ...(stats?.leaves.usersOnShortLeave.map(u => leaveUserToStatUser(u)) || []),
+        ];
+        return {
+          users: allOnLeave,
+          title: 'ביציאה',
+          emptyMessage: 'אין חיילים ביציאה',
+          icon: <LogOut className="w-5 h-5" />,
+          headerColor: 'bg-orange-50 text-orange-800',
+        };
+
+      case 'atHome':
+        return {
+          users: stats?.leaves.usersAtHome.map(u => leaveUserToStatUser(u, 'יציאה הביתה')) || [],
+          title: 'יציאה הביתה',
+          emptyMessage: 'אין חיילים ביציאה הביתה',
+          icon: <Home className="w-5 h-5" />,
+          headerColor: 'bg-blue-50 text-blue-800',
+        };
+
+      case 'shortLeave':
+        return {
+          users: stats?.leaves.usersOnShortLeave.map(u => leaveUserToStatUser(u)) || [],
+          title: 'יציאה קצרה',
+          emptyMessage: 'אין חיילים ביציאה קצרה',
+          icon: <LogOut className="w-5 h-5" />,
+          headerColor: 'bg-orange-50 text-orange-800',
+        };
+
+      case 'inBase':
+        // Soldiers who arrived and are not on leave
+        const inBaseSoldiers = soldiers?.filter(s =>
+          !s.activeLeave && s.attendance?.attendanceStatus === 'ARRIVED'
+        ) || [];
+        return {
+          users: inBaseSoldiers.map(s => soldierToStatUser(s, 'בבסיס')),
+          title: 'בבסיס',
+          emptyMessage: 'אין חיילים בבסיס',
+          icon: <CheckCircle className="w-5 h-5" />,
+          headerColor: 'bg-green-50 text-green-800',
+        };
+
+      case 'arrived':
+        const arrivedSoldiers = soldiers?.filter(s =>
+          s.attendance?.attendanceStatus === 'ARRIVED'
+        ) || [];
+        return {
+          users: arrivedSoldiers.map(s => soldierToStatUser(s, 'הגיע')),
+          title: 'הגיעו',
+          emptyMessage: 'אין חיילים שהגיעו',
+          icon: <UserCheck className="w-5 h-5" />,
+          headerColor: 'bg-green-50 text-green-800',
+        };
+
+      case 'notComing':
+        const notComingSoldiers = soldiers?.filter(s =>
+          s.attendance?.attendanceStatus === 'NOT_COMING'
+        ) || [];
+        return {
+          users: notComingSoldiers.map(s => soldierToStatUser(s, 'לא מגיע')),
+          title: 'לא מגיעים',
+          emptyMessage: 'אין חיילים שלא מגיעים',
+          icon: <UserX className="w-5 h-5" />,
+          headerColor: 'bg-red-50 text-red-800',
+        };
+
+      case 'pending':
+        const pendingSoldiers = soldiers?.filter(s =>
+          s.attendance?.attendanceStatus === 'PENDING'
+        ) || [];
+        return {
+          users: pendingSoldiers.map(s => soldierToStatUser(s, 'ממתין')),
+          title: 'ממתינים',
+          emptyMessage: 'אין ממתינים',
+          icon: <Clock className="w-5 h-5" />,
+          headerColor: 'bg-yellow-50 text-yellow-800',
+        };
+
+      case 'late':
+        const lateSoldiers = soldiers?.filter(s =>
+          s.attendance?.attendanceStatus === 'LATE'
+        ) || [];
+        return {
+          users: lateSoldiers.map(s => soldierToStatUser(s, 'איחור')),
+          title: 'באיחור',
+          emptyMessage: 'אין חיילים באיחור',
+          icon: <AlertTriangle className="w-5 h-5" />,
+          headerColor: 'bg-orange-50 text-orange-800',
+        };
+
+      default:
+        return { users: [], title: '', emptyMessage: '', icon: null, headerColor: '' };
+    }
+  }, [statModal, stats, soldiers]);
 
   // Helpers
   const resetMessageForm = () => {
@@ -408,6 +550,7 @@ export default function DepartmentPage() {
             setShowAtHome={setShowAtHome}
             showShortLeave={showShortLeave}
             setShowShortLeave={setShowShortLeave}
+            setStatModal={setStatModal}
           />
         )}
 
@@ -578,6 +721,17 @@ export default function DepartmentPage() {
           </div>
         )}
       </Modal>
+
+      {/* Stat Users Modal - Shows users when clicking on stat cards */}
+      <StatUsersModal
+        isOpen={!!statModal}
+        onClose={() => setStatModal(null)}
+        title={statModalUsers.title}
+        users={statModalUsers.users}
+        emptyMessage={statModalUsers.emptyMessage}
+        icon={statModalUsers.icon}
+        headerColorClass={statModalUsers.headerColor}
+      />
     </UserLayout>
   );
 }
@@ -590,6 +744,7 @@ function OverviewTab({
   setShowAtHome,
   showShortLeave,
   setShowShortLeave,
+  setStatModal,
 }: {
   stats: DepartmentStats | undefined;
   isLoading: boolean;
@@ -597,6 +752,7 @@ function OverviewTab({
   setShowAtHome: (v: boolean) => void;
   showShortLeave: boolean;
   setShowShortLeave: (v: boolean) => void;
+  setStatModal: (v: DepartmentStatModalType) => void;
 }) {
   if (isLoading) {
     return (
@@ -612,6 +768,7 @@ function OverviewTab({
     <div className="space-y-6">
       {/* Overview Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        {/* Total Users - Not clickable */}
         <Card>
           <CardContent className="p-4 text-center">
             <Users className="w-8 h-8 mx-auto text-military-600 mb-2" />
@@ -620,22 +777,35 @@ function OverviewTab({
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="p-4 text-center">
-            <CheckCircle className="w-8 h-8 mx-auto text-green-600 mb-2" />
-            <p className="text-2xl font-bold text-green-700">{stats.overview.inBase}</p>
-            <p className="text-sm text-gray-600">בבסיס</p>
-          </CardContent>
-        </Card>
+        {/* In Base - Clickable */}
+        <ClickableStatCard
+          onClick={() => setStatModal('inBase')}
+          disabled={stats.overview.inBase === 0}
+        >
+          <Card>
+            <CardContent className="p-4 text-center">
+              <CheckCircle className="w-8 h-8 mx-auto text-green-600 mb-2" />
+              <p className="text-2xl font-bold text-green-700">{stats.overview.inBase}</p>
+              <p className="text-sm text-gray-600">בבסיס</p>
+            </CardContent>
+          </Card>
+        </ClickableStatCard>
 
-        <Card>
-          <CardContent className="p-4 text-center">
-            <LogOut className="w-8 h-8 mx-auto text-orange-600 mb-2" />
-            <p className="text-2xl font-bold text-orange-700">{stats.overview.onLeave}</p>
-            <p className="text-sm text-gray-600">ביציאה</p>
-          </CardContent>
-        </Card>
+        {/* On Leave - Clickable */}
+        <ClickableStatCard
+          onClick={() => setStatModal('onLeave')}
+          disabled={stats.overview.onLeave === 0}
+        >
+          <Card>
+            <CardContent className="p-4 text-center">
+              <LogOut className="w-8 h-8 mx-auto text-orange-600 mb-2" />
+              <p className="text-2xl font-bold text-orange-700">{stats.overview.onLeave}</p>
+              <p className="text-sm text-gray-600">ביציאה</p>
+            </CardContent>
+          </Card>
+        </ClickableStatCard>
 
+        {/* Pending Requests - Not clickable (no user list data) */}
         <Card>
           <CardContent className="p-4 text-center">
             <Clock className="w-8 h-8 mx-auto text-yellow-600 mb-2" />
@@ -644,6 +814,7 @@ function OverviewTab({
           </CardContent>
         </Card>
 
+        {/* Today's Shifts - Not clickable */}
         <Card>
           <CardContent className="p-4 text-center">
             <Calendar className="w-8 h-8 mx-auto text-blue-600 mb-2" />
@@ -660,34 +831,57 @@ function OverviewTab({
           <CardHeader>סטטוס נוכחות בסבב</CardHeader>
           <CardContent>
             <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full bg-green-500"></span>
-                  <span>הגיעו</span>
+              <ClickableStatCard
+                onClick={() => setStatModal('arrived')}
+                disabled={stats.attendance.arrived === 0}
+              >
+                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg hover:bg-green-100 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full bg-green-500"></span>
+                    <span>הגיעו</span>
+                  </div>
+                  <span className="font-bold text-green-700">{stats.attendance.arrived}</span>
                 </div>
-                <span className="font-bold text-green-700">{stats.attendance.arrived}</span>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full bg-yellow-500"></span>
-                  <span>ממתינים לאישור</span>
+              </ClickableStatCard>
+
+              <ClickableStatCard
+                onClick={() => setStatModal('pending')}
+                disabled={stats.attendance.pending === 0}
+              >
+                <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg hover:bg-yellow-100 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full bg-yellow-500"></span>
+                    <span>ממתינים לאישור</span>
+                  </div>
+                  <span className="font-bold text-yellow-700">{stats.attendance.pending}</span>
                 </div>
-                <span className="font-bold text-yellow-700">{stats.attendance.pending}</span>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full bg-red-500"></span>
-                  <span>לא מגיעים</span>
+              </ClickableStatCard>
+
+              <ClickableStatCard
+                onClick={() => setStatModal('notComing')}
+                disabled={stats.attendance.notComing === 0}
+              >
+                <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg hover:bg-red-100 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full bg-red-500"></span>
+                    <span>לא מגיעים</span>
+                  </div>
+                  <span className="font-bold text-red-700">{stats.attendance.notComing}</span>
                 </div>
-                <span className="font-bold text-red-700">{stats.attendance.notComing}</span>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-orange-50 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full bg-orange-500"></span>
-                  <span>באיחור</span>
+              </ClickableStatCard>
+
+              <ClickableStatCard
+                onClick={() => setStatModal('late')}
+                disabled={stats.attendance.late === 0}
+              >
+                <div className="flex items-center justify-between p-3 bg-orange-50 rounded-lg hover:bg-orange-100 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full bg-orange-500"></span>
+                    <span>באיחור</span>
+                  </div>
+                  <span className="font-bold text-orange-700">{stats.attendance.late}</span>
                 </div>
-                <span className="font-bold text-orange-700">{stats.attendance.late}</span>
-              </div>
+              </ClickableStatCard>
             </div>
           </CardContent>
         </Card>

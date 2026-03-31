@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Users,
@@ -25,6 +25,8 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
+import { StatUsersModal, StatUser } from '@/components/ui/StatUsersModal';
+import { ClickableStatCard } from '@/components/ui/ClickableStatCard';
 import api from '@/lib/api';
 import {
   ServiceCycleSummary,
@@ -35,10 +37,21 @@ import {
   MilitaryRole,
 } from '@/types';
 
+// Stat modal types for current service
+type ServiceStatModalType =
+  | 'total'
+  | 'arrived'
+  | 'notComing'
+  | 'pending'
+  | 'withGun'
+  | 'withRoom'
+  | null;
+
 export default function AdminCurrentServicePage() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<ServiceAttendanceStatus | ''>('');
+  const [statModal, setStatModal] = useState<ServiceStatModalType>(null);
 
   // Get current cycle summary
   const { data: summary, isLoading: summaryLoading } = useQuery<ServiceCycleSummary | null>({
@@ -86,6 +99,86 @@ export default function AdminCurrentServicePage() {
     const matchesStatus = !statusFilter || a.attendanceStatus === statusFilter;
     return matchesSearch && matchesStatus;
   });
+
+  // Helper: Convert attendance to StatUser format
+  const attendanceToStatUser = (attendance: ServiceAttendance, additionalInfo?: string): StatUser => ({
+    id: attendance.user?.id || attendance.id,
+    fullName: attendance.user?.fullName || 'לא ידוע',
+    phone: attendance.user?.phone || '',
+    personalId: attendance.user?.personalId,
+    department: attendance.user?.department ? { name: attendance.user.department.name } : null,
+    additionalInfo,
+  });
+
+  // Derive filtered user lists from attendances data (same source as counts)
+  const statModalUsers = useMemo((): { users: StatUser[]; title: string; emptyMessage: string; icon: React.ReactNode; headerColor: string } => {
+    if (!attendances || !statModal) {
+      return { users: [], title: '', emptyMessage: '', icon: null, headerColor: '' };
+    }
+
+    switch (statModal) {
+      case 'total':
+        return {
+          users: attendances.map((a) => attendanceToStatUser(a, SERVICE_ATTENDANCE_STATUS_LABELS[a.attendanceStatus])),
+          title: 'כל החיילים',
+          emptyMessage: 'אין חיילים',
+          icon: <Users className="w-5 h-5" />,
+          headerColor: 'bg-blue-50 text-blue-800',
+        };
+      case 'arrived':
+        return {
+          users: attendances
+            .filter((a) => a.attendanceStatus === 'ARRIVED' || a.attendanceStatus === 'LATE')
+            .map((a) => attendanceToStatUser(a, a.attendanceStatus === 'LATE' ? 'הגיע באיחור' : 'הגיע')),
+          title: 'הגיעו',
+          emptyMessage: 'אף אחד לא הגיע עדיין',
+          icon: <UserCheck className="w-5 h-5" />,
+          headerColor: 'bg-green-50 text-green-800',
+        };
+      case 'notComing':
+        return {
+          users: attendances
+            .filter((a) => a.attendanceStatus === 'NOT_COMING')
+            .map((a) => attendanceToStatUser(a, a.cannotAttendReason || 'לא מגיע')),
+          title: 'לא מגיעים',
+          emptyMessage: 'אין חיילים שלא מגיעים',
+          icon: <UserX className="w-5 h-5" />,
+          headerColor: 'bg-red-50 text-red-800',
+        };
+      case 'pending':
+        return {
+          users: attendances
+            .filter((a) => a.attendanceStatus === 'PENDING')
+            .map((a) => attendanceToStatUser(a, 'ממתין לעדכון')),
+          title: 'ממתינים',
+          emptyMessage: 'אין ממתינים',
+          icon: <Clock className="w-5 h-5" />,
+          headerColor: 'bg-yellow-50 text-yellow-800',
+        };
+      case 'withGun':
+        return {
+          users: attendances
+            .filter((a) => a.onboardGunNumber)
+            .map((a) => attendanceToStatUser(a, `נשק: ${a.onboardGunNumber}`)),
+          title: 'עם נשק',
+          emptyMessage: 'אין חיילים עם נשק משויך',
+          icon: <Shield className="w-5 h-5" />,
+          headerColor: 'bg-purple-50 text-purple-800',
+        };
+      case 'withRoom':
+        return {
+          users: attendances
+            .filter((a) => a.hotelRoomNumber)
+            .map((a) => attendanceToStatUser(a, `חדר: ${a.hotelRoomNumber}`)),
+          title: 'עם חדר',
+          emptyMessage: 'אין חיילים עם חדר משויך',
+          icon: <Hotel className="w-5 h-5" />,
+          headerColor: 'bg-indigo-50 text-indigo-800',
+        };
+      default:
+        return { users: [], title: '', emptyMessage: '', icon: null, headerColor: '' };
+    }
+  }, [attendances, statModal]);
 
   if (isLoading) {
     return (
@@ -160,60 +253,77 @@ export default function AdminCurrentServicePage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 mb-6">
-        <Card className="hover:shadow-card-hover">
-          <CardContent className="py-4 px-3 text-center">
-            <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center mx-auto mb-2">
-              <Users className="w-5 h-5 text-blue-600" />
-            </div>
-            <div className="text-xl sm:text-2xl font-bold">{stats.totalSoldiers}</div>
-            <div className="text-xs sm:text-sm text-gray-500">סה״כ חיילים</div>
-          </CardContent>
-        </Card>
-        <Card className="hover:shadow-card-hover">
-          <CardContent className="py-4 px-3 text-center">
-            <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center mx-auto mb-2">
-              <UserCheck className="w-5 h-5 text-green-600" />
-            </div>
-            <div className="text-xl sm:text-2xl font-bold text-green-600">{stats.arrived}</div>
-            <div className="text-xs sm:text-sm text-gray-500">הגיעו</div>
-          </CardContent>
-        </Card>
-        <Card className="hover:shadow-card-hover">
-          <CardContent className="py-4 px-3 text-center">
-            <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center mx-auto mb-2">
-              <UserX className="w-5 h-5 text-red-600" />
-            </div>
-            <div className="text-xl sm:text-2xl font-bold text-red-600">{stats.notComing}</div>
-            <div className="text-xs sm:text-sm text-gray-500">לא מגיעים</div>
-          </CardContent>
-        </Card>
-        <Card className="hover:shadow-card-hover">
-          <CardContent className="py-4 px-3 text-center">
-            <div className="w-10 h-10 bg-yellow-100 rounded-xl flex items-center justify-center mx-auto mb-2">
-              <Clock className="w-5 h-5 text-yellow-600" />
-            </div>
-            <div className="text-xl sm:text-2xl font-bold text-yellow-600">{stats.pending}</div>
-            <div className="text-xs sm:text-sm text-gray-500">ממתינים</div>
-          </CardContent>
-        </Card>
-        <Card className="hover:shadow-card-hover">
-          <CardContent className="py-4 px-3 text-center">
-            <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center mx-auto mb-2">
-              <Shield className="w-5 h-5 text-purple-600" />
-            </div>
-            <div className="text-xl sm:text-2xl font-bold">{stats.withGunAssigned}</div>
-            <div className="text-xs sm:text-sm text-gray-500">עם נשק</div>
-          </CardContent>
-        </Card>
-        <Card className="hover:shadow-card-hover">
-          <CardContent className="py-4 px-3 text-center">
-            <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center mx-auto mb-2">
-              <Hotel className="w-5 h-5 text-indigo-600" />
-            </div>
-            <div className="text-xl sm:text-2xl font-bold">{stats.withRoomAssigned}</div>
-            <div className="text-xs sm:text-sm text-gray-500">עם חדר</div>
-          </CardContent>
-        </Card>
+        <ClickableStatCard onClick={() => setStatModal('total')}>
+          <Card className="hover:shadow-card-hover">
+            <CardContent className="py-4 px-3 text-center">
+              <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center mx-auto mb-2">
+                <Users className="w-5 h-5 text-blue-600" />
+              </div>
+              <div className="text-xl sm:text-2xl font-bold">{stats.totalSoldiers}</div>
+              <div className="text-xs sm:text-sm text-gray-500">סה״כ חיילים</div>
+            </CardContent>
+          </Card>
+        </ClickableStatCard>
+
+        <ClickableStatCard onClick={() => setStatModal('arrived')} disabled={stats.arrived === 0}>
+          <Card className="hover:shadow-card-hover">
+            <CardContent className="py-4 px-3 text-center">
+              <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center mx-auto mb-2">
+                <UserCheck className="w-5 h-5 text-green-600" />
+              </div>
+              <div className="text-xl sm:text-2xl font-bold text-green-600">{stats.arrived}</div>
+              <div className="text-xs sm:text-sm text-gray-500">הגיעו</div>
+            </CardContent>
+          </Card>
+        </ClickableStatCard>
+
+        <ClickableStatCard onClick={() => setStatModal('notComing')} disabled={stats.notComing === 0}>
+          <Card className="hover:shadow-card-hover">
+            <CardContent className="py-4 px-3 text-center">
+              <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center mx-auto mb-2">
+                <UserX className="w-5 h-5 text-red-600" />
+              </div>
+              <div className="text-xl sm:text-2xl font-bold text-red-600">{stats.notComing}</div>
+              <div className="text-xs sm:text-sm text-gray-500">לא מגיעים</div>
+            </CardContent>
+          </Card>
+        </ClickableStatCard>
+
+        <ClickableStatCard onClick={() => setStatModal('pending')} disabled={stats.pending === 0}>
+          <Card className="hover:shadow-card-hover">
+            <CardContent className="py-4 px-3 text-center">
+              <div className="w-10 h-10 bg-yellow-100 rounded-xl flex items-center justify-center mx-auto mb-2">
+                <Clock className="w-5 h-5 text-yellow-600" />
+              </div>
+              <div className="text-xl sm:text-2xl font-bold text-yellow-600">{stats.pending}</div>
+              <div className="text-xs sm:text-sm text-gray-500">ממתינים</div>
+            </CardContent>
+          </Card>
+        </ClickableStatCard>
+
+        <ClickableStatCard onClick={() => setStatModal('withGun')} disabled={stats.withGunAssigned === 0}>
+          <Card className="hover:shadow-card-hover">
+            <CardContent className="py-4 px-3 text-center">
+              <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center mx-auto mb-2">
+                <Shield className="w-5 h-5 text-purple-600" />
+              </div>
+              <div className="text-xl sm:text-2xl font-bold">{stats.withGunAssigned}</div>
+              <div className="text-xs sm:text-sm text-gray-500">עם נשק</div>
+            </CardContent>
+          </Card>
+        </ClickableStatCard>
+
+        <ClickableStatCard onClick={() => setStatModal('withRoom')} disabled={stats.withRoomAssigned === 0}>
+          <Card className="hover:shadow-card-hover">
+            <CardContent className="py-4 px-3 text-center">
+              <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center mx-auto mb-2">
+                <Hotel className="w-5 h-5 text-indigo-600" />
+              </div>
+              <div className="text-xl sm:text-2xl font-bold">{stats.withRoomAssigned}</div>
+              <div className="text-xs sm:text-sm text-gray-500">עם חדר</div>
+            </CardContent>
+          </Card>
+        </ClickableStatCard>
       </div>
 
       {/* Checklist Progress & Reasons */}
@@ -419,6 +529,17 @@ export default function AdminCurrentServicePage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Stat Users Modal - Shows users when clicking on stat cards */}
+      <StatUsersModal
+        isOpen={!!statModal}
+        onClose={() => setStatModal(null)}
+        title={statModalUsers.title}
+        users={statModalUsers.users}
+        emptyMessage={statModalUsers.emptyMessage}
+        icon={statModalUsers.icon}
+        headerColorClass={statModalUsers.headerColor}
+      />
     </AdminLayout>
   );
 }

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Bell, LogOut, User, Settings, Menu, X, Users, RefreshCw } from 'lucide-react';
+import { LogOut, User, Settings, Menu, X, Users, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth, useIsFullAdmin, useIsSystemTech } from '@/hooks/useAuth';
 
@@ -28,7 +28,7 @@ export function Header() {
     <header className="bg-military-700 text-white shadow-lg sticky top-0 z-50">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-14 sm:h-16">
-          <Link href="/dashboard" className="flex items-center">
+          <Link href="/dashboard/home" className="flex items-center">
             <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full overflow-hidden bg-white">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -41,7 +41,7 @@ export function Header() {
 
           <nav className="hidden md:flex items-center gap-6">
             <Link
-              href="/dashboard"
+              href="/dashboard/home"
               className="hover:text-military-200 transition-colors"
             >
               ראשי
@@ -57,7 +57,7 @@ export function Header() {
             )}
             {showAdminLink && (
               <Link
-                href="/admin/messages"
+                href="/admin/status"
                 className="hover:text-military-200 transition-colors"
               >
                 ניהול
@@ -84,10 +84,11 @@ export function Header() {
             </button>
 
             <Link
-              href="/dashboard#notifications"
-              className="relative p-2 hover:bg-military-600 rounded-full transition-colors"
+              href="/dashboard/profile"
+              className="p-2 hover:bg-military-600 rounded-full transition-colors"
+              title="פרופיל"
             >
-              <Bell className="w-5 h-5" />
+              <User className="w-5 h-5" />
             </Link>
 
             <div className="hidden md:flex items-center gap-2">
@@ -122,7 +123,7 @@ export function Header() {
           <div className="md:hidden py-4 border-t border-military-600">
             <nav className="flex flex-col gap-2">
               <Link
-                href="/dashboard"
+                href="/dashboard/home"
                 className="px-4 py-2 hover:bg-military-600 rounded-lg transition-colors"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
@@ -140,7 +141,7 @@ export function Header() {
               )}
               {showAdminLink && (
                 <Link
-                  href="/admin/messages"
+                  href="/admin/status"
                   className="px-4 py-2 hover:bg-military-600 rounded-lg transition-colors"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >

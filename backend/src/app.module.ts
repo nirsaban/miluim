@@ -33,6 +33,7 @@ import { WebAuthnModule } from './modules/webauthn/webauthn.module';
 import { TestSetupModule } from './modules/test-setup/test-setup.module';
 import { SystemModule } from './modules/system/system.module';
 import { SocialActivitiesModule } from './modules/social-activities/social-activities.module';
+import { EmergencyModule } from './modules/emergency/emergency.module';
 
 @Module({
   imports: [
@@ -78,6 +79,7 @@ import { SocialActivitiesModule } from './modules/social-activities/social-activ
     TestSetupModule,
     SystemModule,
     SocialActivitiesModule,
+    EmergencyModule,
   ],
 })
 export class AppModule {}

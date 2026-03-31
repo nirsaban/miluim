@@ -236,7 +236,7 @@ export default function CurrentServicePage() {
                 <Button
                   onClick={() => handleStatusChange('ARRIVED')}
                   variant={myAttendance?.attendanceStatus === 'ARRIVED' ? 'primary' : 'secondary'}
-                  className="flex items-center justify-center gap-2"
+                  className="flex items-center justify-center gap-2 border-l-blue-300"
                   isLoading={updateAttendanceMutation.isPending}
                 >
                   <UserCheck className="w-4 h-4" />

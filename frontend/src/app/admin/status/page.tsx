@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Users,
@@ -14,9 +14,9 @@ import {
   RefreshCw,
   BarChart3,
   Calendar,
+  Home,
   Shield,
-  MessageSquare,
-  Bell,
+  UserMinus,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { AdminLayout } from '@/components/layout/AdminLayout';
@@ -24,13 +24,17 @@ import { Card, CardHeader, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Spinner } from '@/components/ui/Spinner';
+import { StatUsersModal, StatUser } from '@/components/ui/StatUsersModal';
+import { ClickableStatCard } from '@/components/ui/ClickableStatCard';
 import { AttendanceCharts } from '@/components/charts/AttendanceCharts';
+import { EmergencyAdminPanel } from '@/components/emergency';
 import api from '@/lib/api';
 import {
   LeaveRequest,
   LeaveRequestDashboard,
   LEAVE_TYPE_LABELS,
   LEAVE_STATUS_LABELS,
+  ShiftAssignment,
 } from '@/types';
 import { cn, formatDate } from '@/lib/utils';
 
@@ -73,12 +77,66 @@ function TimeRemaining({ expectedReturn, isOverdue }: { expectedReturn: string; 
 
 type TabType = 'leaves' | 'attendance';
 
+// Type for stat modal content
+type StatModalType =
+  | 'homeLeave'
+  | 'shortLeave'
+  | 'currentShift'
+  | 'freeToday'
+  | null;
+
+// Extended shift assignment with soldier details
+interface ShiftAssignmentWithSoldier {
+  id: string;
+  soldier: {
+    id: string;
+    fullName: string;
+    phone: string;
+    armyNumber: string;
+  };
+  shiftTemplate: {
+    displayName: string;
+    startTime: string;
+    endTime: string;
+  };
+  task: {
+    name: string;
+    zone?: { name: string };
+  };
+  arrivedAt?: string;
+}
+
+// Today's shift overview data
+interface TodayShiftOverview {
+  total: number;
+  confirmed: number;
+  pending: number;
+  arrived: number;
+  currentShiftAssignments: ShiftAssignmentWithSoldier[];
+  allTodayAssignments: ShiftAssignmentWithSoldier[];
+}
+
+// Service attendance with user details
+interface ServiceAttendanceWithUser {
+  id: string;
+  userId: string;
+  attendanceStatus: string;
+  user: {
+    id: string;
+    fullName: string;
+    phone: string;
+    armyNumber: string;
+    department?: { id: string; name: string } | null;
+  };
+}
+
 export default function AdminStatusPage() {
   const queryClient = useQueryClient();
   const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
   const [adminNote, setAdminNote] = useState('');
   const [actionType, setActionType] = useState<'approve' | 'reject' | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('leaves');
+  const [statModal, setStatModal] = useState<StatModalType>(null);
 
   const { data: dashboard, isLoading, refetch } = useQuery<LeaveRequestDashboard>({
     queryKey: ['leave-dashboard'],
@@ -89,40 +147,171 @@ export default function AdminStatusPage() {
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 
-  // Fetch today's shift overview
-  const { data: shiftOverview } = useQuery({
-    queryKey: ['shift-overview-today'],
+  // Fetch today's shift overview with soldier details
+  const { data: shiftOverview } = useQuery<TodayShiftOverview>({
+    queryKey: ['shift-overview-today-detailed'],
     queryFn: async () => {
       const today = new Date().toISOString().split('T')[0];
       const response = await api.get(`/shift-assignments/date/${today}`);
-      const assignments = response.data || [];
+      const assignments: ShiftAssignmentWithSoldier[] = response.data || [];
+
+      // Get current time to determine current shift
+      const now = new Date();
+      const currentHour = now.getHours();
+      const currentMinutes = now.getMinutes();
+      const currentTimeStr = `${currentHour.toString().padStart(2, '0')}:${currentMinutes.toString().padStart(2, '0')}`;
+
+      // Filter assignments for current shift (time-based)
+      const currentShiftAssignments = assignments.filter((a: any) => {
+        if (!a.shiftTemplate) return false;
+        const startTime = a.shiftTemplate.startTime;
+        const endTime = a.shiftTemplate.endTime;
+
+        // Handle overnight shifts (e.g., 22:00 - 06:00)
+        if (endTime < startTime) {
+          return currentTimeStr >= startTime || currentTimeStr < endTime;
+        }
+        return currentTimeStr >= startTime && currentTimeStr < endTime;
+      });
 
       // Calculate stats
-      const stats = {
+      const stats: TodayShiftOverview = {
         total: assignments.length,
         confirmed: assignments.filter((a: any) => a.status === 'CONFIRMED').length,
         pending: assignments.filter((a: any) => a.status === 'PENDING').length,
         arrived: assignments.filter((a: any) => a.arrivedAt).length,
+        currentShiftAssignments,
+        allTodayAssignments: assignments,
       };
       return stats;
     },
     refetchInterval: 60000, // Refresh every minute
   });
 
-  // Fetch unconfirmed messages count
-  const { data: messagesStats } = useQuery({
-    queryKey: ['messages-stats'],
+  // Fetch all soldiers in the current service cycle (arrived)
+  const { data: cycleAttendances } = useQuery<ServiceAttendanceWithUser[]>({
+    queryKey: ['service-attendances-current'],
     queryFn: async () => {
-      const response = await api.get('/messages');
-      const messages = response.data || [];
-      const requireConfirmation = messages.filter((m: any) => m.requiresConfirmation && m.isActive);
-      return {
-        total: messages.length,
-        requireConfirmation: requireConfirmation.length,
-      };
+      const response = await api.get('/service-attendance/current');
+      return response.data || [];
     },
-    refetchInterval: 60000,
+    refetchInterval: 60000, // Refresh every minute
   });
+
+  // Helper: Convert leave request to StatUser format
+  const leaveToStatUser = (leave: LeaveRequest, additionalInfo?: string): StatUser => ({
+    id: leave.soldier.id,
+    fullName: leave.soldier.fullName,
+    phone: leave.soldier.phone,
+    armyNumber: leave.soldier.armyNumber,
+    department: leave.soldier.department,
+    additionalInfo,
+  });
+
+  // Helper: Convert shift assignment to StatUser format
+  const shiftToStatUser = (assignment: ShiftAssignmentWithSoldier): StatUser => ({
+    id: assignment.soldier.id,
+    fullName: assignment.soldier.fullName,
+    phone: assignment.soldier.phone,
+    armyNumber: assignment.soldier.armyNumber,
+    additionalInfo: `${assignment.shiftTemplate.displayName} - ${assignment.task.name}`,
+  });
+
+  // Helper: Convert service attendance to StatUser format
+  const attendanceToStatUser = (attendance: ServiceAttendanceWithUser, additionalInfo?: string): StatUser => ({
+    id: attendance.user.id,
+    fullName: attendance.user.fullName,
+    phone: attendance.user.phone,
+    armyNumber: attendance.user.armyNumber,
+    department: attendance.user.department,
+    additionalInfo,
+  });
+
+  // Derive filtered lists for stat modals
+  const homeLeaves = useMemo(() => {
+    return dashboard?.activeLeaves.filter(l => l.type === 'HOME') || [];
+  }, [dashboard?.activeLeaves]);
+
+  const shortLeaves = useMemo(() => {
+    return dashboard?.activeLeaves.filter(l => l.type === 'SHORT') || [];
+  }, [dashboard?.activeLeaves]);
+
+  // Soldiers in current shift
+  const currentShiftSoldiers = useMemo(() => {
+    return shiftOverview?.currentShiftAssignments || [];
+  }, [shiftOverview?.currentShiftAssignments]);
+
+  // Calculate soldiers "free today" - in base, no shift scheduled today
+  const freeTodaySoldiers = useMemo((): StatUser[] => {
+    if (!cycleAttendances || !dashboard || !shiftOverview) return [];
+
+    // Get IDs of soldiers who are out (have active leave)
+    const outSoldierIds = new Set(dashboard.activeLeaves.map(l => l.soldier.id));
+
+    // Get IDs of soldiers who have shifts today
+    const shiftSoldierIds = new Set(
+      shiftOverview.allTodayAssignments.map(a => a.soldier.id)
+    );
+
+    // Filter: soldiers who arrived, are not on leave, and don't have a shift today
+    const arrivedSoldiers = cycleAttendances.filter(
+      a => a.attendanceStatus === 'ARRIVED' || a.attendanceStatus === 'LATE'
+    );
+
+    return arrivedSoldiers
+      .filter(a => !outSoldierIds.has(a.userId) && !shiftSoldierIds.has(a.userId))
+      .map(a => attendanceToStatUser(a, 'בבסיס ללא משמרת'));
+  }, [cycleAttendances, dashboard, shiftOverview]);
+
+  // Stat modal users derived from same data source as counts
+  const statModalUsers = useMemo((): { users: StatUser[]; title: string; emptyMessage: string; icon: React.ReactNode; headerColor: string } => {
+    if (!statModal) {
+      return { users: [], title: '', emptyMessage: '', icon: null, headerColor: '' };
+    }
+
+    switch (statModal) {
+      case 'homeLeave':
+        return {
+          users: homeLeaves.map(leave => leaveToStatUser(leave, 'יציאה הביתה')),
+          title: 'מי בחופשה בבית',
+          emptyMessage: 'אין חיילים ביציאה הביתה',
+          icon: <Home className="w-5 h-5" />,
+          headerColor: 'bg-green-50 text-green-800',
+        };
+
+      case 'shortLeave':
+        return {
+          users: shortLeaves.map(leave =>
+            leaveToStatUser(leave, leave.category?.displayName || 'יציאה קצרה')
+          ),
+          title: 'יציאה קצרה פעילה',
+          emptyMessage: 'אין חיילים ביציאה קצרה',
+          icon: <LogOut className="w-5 h-5" />,
+          headerColor: 'bg-blue-50 text-blue-800',
+        };
+
+      case 'currentShift':
+        return {
+          users: currentShiftSoldiers.map(shiftToStatUser),
+          title: 'במשמרת כרגע',
+          emptyMessage: 'אין חיילים במשמרת כרגע',
+          icon: <Shield className="w-5 h-5" />,
+          headerColor: 'bg-purple-50 text-purple-800',
+        };
+
+      case 'freeToday':
+        return {
+          users: freeTodaySoldiers,
+          title: 'באוויר היום ללא משמרת',
+          emptyMessage: 'אין חיילים ללא משמרת היום',
+          icon: <UserMinus className="w-5 h-5" />,
+          headerColor: 'bg-orange-50 text-orange-800',
+        };
+
+      default:
+        return { users: [], title: '', emptyMessage: '', icon: null, headerColor: '' };
+    }
+  }, [statModal, homeLeaves, shortLeaves, currentShiftSoldiers, freeTodaySoldiers]);
 
   const approveMutation = useMutation({
     mutationFn: async ({ id, adminNote }: { id: string; adminNote?: string }) => {
@@ -200,7 +389,7 @@ export default function AdminStatusPage() {
     <AdminLayout>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-military-700">סטטוס חיילים - בזמן אמת</h1>
+          <h1 className="text-2xl font-bold text-military-700">סטטוס מבצעי - בזמן אמת</h1>
           {dashboard?.currentCycle ? (
             <p className="text-gray-600 mt-1">
               סבב נוכחי: <span className="font-semibold text-military-600">{dashboard.currentCycle.name}</span>
@@ -215,84 +404,116 @@ export default function AdminStatusPage() {
         </Button>
       </div>
 
-      {/* Quick System Overview */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-        {/* Today's Shifts */}
-        <div className="bg-gradient-to-br from-military-50 to-military-100 rounded-lg p-4 border border-military-200">
+      {/* Emergency Check-In Panel */}
+      <EmergencyAdminPanel className="mb-6" />
+
+      {/* Main Operational Stats - New Design */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+        {/* 1. Total soldiers active in current reserve cycle */}
+        <div className="bg-gradient-to-br from-military-50 to-military-100 rounded-xl p-4 border border-military-200 shadow-sm">
           <div className="flex items-center gap-2 mb-2">
-            <Calendar className="w-5 h-5 text-military-600" />
-            <span className="text-sm font-medium text-military-700">משמרות היום</span>
+            <Users className="w-5 h-5 text-military-600" />
+            <span className="text-xs font-medium text-military-700">סה״כ בסבב</span>
           </div>
-          <div className="flex items-baseline gap-1">
-            <span className="text-2xl font-bold text-military-800">{shiftOverview?.arrived || 0}</span>
-            <span className="text-sm text-military-600">/ {shiftOverview?.total || 0}</span>
-          </div>
-          <p className="text-xs text-military-500 mt-1">הגיעו למשמרת</p>
+          <p className="text-3xl font-bold text-military-800">{dashboard?.stats.totalSoldiers || 0}</p>
+          <p className="text-xs text-military-500 mt-1">חיילים פעילים</p>
         </div>
 
-        {/* Pending Shift Confirmations */}
-        <div className={cn(
-          "rounded-lg p-4 border",
-          shiftOverview?.pending && shiftOverview.pending > 0
-            ? "bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200"
-            : "bg-gray-50 border-gray-200"
-        )}>
-          <div className="flex items-center gap-2 mb-2">
-            <Shield className="w-5 h-5 text-orange-600" />
-            <span className="text-sm font-medium text-orange-700">ממתינים למשמרת</span>
+        {/* 2. מי בחופשה בבית - HOME leave, clickable */}
+        <ClickableStatCard
+          onClick={() => setStatModal('homeLeave')}
+          disabled={homeLeaves.length === 0}
+        >
+          <div className={cn(
+            "rounded-xl p-4 border shadow-sm h-full",
+            homeLeaves.length > 0
+              ? "bg-gradient-to-br from-green-50 to-green-100 border-green-300"
+              : "bg-gray-50 border-gray-200"
+          )}>
+            <div className="flex items-center gap-2 mb-2">
+              <Home className={cn("w-5 h-5", homeLeaves.length > 0 ? "text-green-600" : "text-gray-400")} />
+              <span className={cn("text-xs font-medium", homeLeaves.length > 0 ? "text-green-700" : "text-gray-500")}>בחופשה בבית</span>
+            </div>
+            <p className={cn("text-3xl font-bold", homeLeaves.length > 0 ? "text-green-700" : "text-gray-400")}>
+              {homeLeaves.length}
+            </p>
+            {homeLeaves.length > 0 && (
+              <p className="text-xs text-green-600 mt-1">לחץ לצפייה</p>
+            )}
           </div>
-          <div className="flex items-baseline gap-1">
-            <span className={cn(
-              "text-2xl font-bold",
-              shiftOverview?.pending && shiftOverview.pending > 0 ? "text-orange-700" : "text-gray-400"
-            )}>{shiftOverview?.pending || 0}</span>
-          </div>
-          <p className="text-xs text-orange-500 mt-1">טרם אישרו הגעה</p>
-        </div>
+        </ClickableStatCard>
 
-        {/* Messages Requiring Confirmation */}
-        <div className={cn(
-          "rounded-lg p-4 border",
-          messagesStats?.requireConfirmation && messagesStats.requireConfirmation > 0
-            ? "bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200"
-            : "bg-gray-50 border-gray-200"
-        )}>
-          <div className="flex items-center gap-2 mb-2">
-            <MessageSquare className="w-5 h-5 text-purple-600" />
-            <span className="text-sm font-medium text-purple-700">הודעות לאישור</span>
+        {/* 3. Short active leave - clickable */}
+        <ClickableStatCard
+          onClick={() => setStatModal('shortLeave')}
+          disabled={shortLeaves.length === 0}
+        >
+          <div className={cn(
+            "rounded-xl p-4 border shadow-sm h-full",
+            shortLeaves.length > 0
+              ? "bg-gradient-to-br from-blue-50 to-blue-100 border-blue-300"
+              : "bg-gray-50 border-gray-200"
+          )}>
+            <div className="flex items-center gap-2 mb-2">
+              <LogOut className={cn("w-5 h-5", shortLeaves.length > 0 ? "text-blue-600" : "text-gray-400")} />
+              <span className={cn("text-xs font-medium", shortLeaves.length > 0 ? "text-blue-700" : "text-gray-500")}>יציאה קצרה</span>
+            </div>
+            <p className={cn("text-3xl font-bold", shortLeaves.length > 0 ? "text-blue-700" : "text-gray-400")}>
+              {shortLeaves.length}
+            </p>
+            {shortLeaves.length > 0 && (
+              <p className="text-xs text-blue-600 mt-1">לחץ לצפייה</p>
+            )}
           </div>
-          <div className="flex items-baseline gap-1">
-            <span className={cn(
-              "text-2xl font-bold",
-              messagesStats?.requireConfirmation && messagesStats.requireConfirmation > 0 ? "text-purple-700" : "text-gray-400"
-            )}>{messagesStats?.requireConfirmation || 0}</span>
-          </div>
-          <p className="text-xs text-purple-500 mt-1">הודעות פעילות</p>
-        </div>
+        </ClickableStatCard>
 
-        {/* Service Cycle Status */}
-        <div className={cn(
-          "rounded-lg p-4 border",
-          dashboard?.currentCycle
-            ? "bg-gradient-to-br from-green-50 to-green-100 border-green-200"
-            : "bg-gray-50 border-gray-200"
-        )}>
-          <div className="flex items-center gap-2 mb-2">
-            <Bell className="w-5 h-5 text-green-600" />
-            <span className="text-sm font-medium text-green-700">סבב מילואים</span>
+        {/* 4. Soldiers in current active shift now - clickable */}
+        <ClickableStatCard
+          onClick={() => setStatModal('currentShift')}
+          disabled={currentShiftSoldiers.length === 0}
+        >
+          <div className={cn(
+            "rounded-xl p-4 border shadow-sm h-full",
+            currentShiftSoldiers.length > 0
+              ? "bg-gradient-to-br from-purple-50 to-purple-100 border-purple-300"
+              : "bg-gray-50 border-gray-200"
+          )}>
+            <div className="flex items-center gap-2 mb-2">
+              <Shield className={cn("w-5 h-5", currentShiftSoldiers.length > 0 ? "text-purple-600" : "text-gray-400")} />
+              <span className={cn("text-xs font-medium", currentShiftSoldiers.length > 0 ? "text-purple-700" : "text-gray-500")}>במשמרת כרגע</span>
+            </div>
+            <p className={cn("text-3xl font-bold", currentShiftSoldiers.length > 0 ? "text-purple-700" : "text-gray-400")}>
+              {currentShiftSoldiers.length}
+            </p>
+            {currentShiftSoldiers.length > 0 && (
+              <p className="text-xs text-purple-600 mt-1">לחץ לצפייה</p>
+            )}
           </div>
-          {dashboard?.currentCycle ? (
-            <>
-              <p className="text-sm font-bold text-green-800 truncate">{dashboard.currentCycle.name}</p>
-              <p className="text-xs text-green-500 mt-1">פעיל</p>
-            </>
-          ) : (
-            <>
-              <p className="text-sm text-gray-500">אין סבב פעיל</p>
-              <p className="text-xs text-gray-400 mt-1">-</p>
-            </>
-          )}
-        </div>
+        </ClickableStatCard>
+
+        {/* 5. In base without shift today - clickable */}
+        <ClickableStatCard
+          onClick={() => setStatModal('freeToday')}
+          disabled={freeTodaySoldiers.length === 0}
+        >
+          <div className={cn(
+            "rounded-xl p-4 border shadow-sm h-full",
+            freeTodaySoldiers.length > 0
+              ? "bg-gradient-to-br from-orange-50 to-orange-100 border-orange-300"
+              : "bg-gray-50 border-gray-200"
+          )}>
+            <div className="flex items-center gap-2 mb-2">
+              <UserMinus className={cn("w-5 h-5", freeTodaySoldiers.length > 0 ? "text-orange-600" : "text-gray-400")} />
+              <span className={cn("text-xs font-medium", freeTodaySoldiers.length > 0 ? "text-orange-700" : "text-gray-500")}>באוויר ללא משמרת</span>
+            </div>
+            <p className={cn("text-3xl font-bold", freeTodaySoldiers.length > 0 ? "text-orange-700" : "text-gray-400")}>
+              {freeTodaySoldiers.length}
+            </p>
+            {freeTodaySoldiers.length > 0 && (
+              <p className="text-xs text-orange-600 mt-1">לחץ לצפייה</p>
+            )}
+          </div>
+        </ClickableStatCard>
       </div>
 
       {/* Tabs */}
@@ -335,82 +556,7 @@ export default function AdminStatusPage() {
         </div>
       ) : dashboard ? (
         <>
-          {/* Stats Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-            <div className="bg-white rounded-lg shadow p-4 text-center">
-              <Users className="w-6 h-6 mx-auto text-military-600 mb-2" />
-              <p className="text-sm text-gray-500">{dashboard.currentCycle ? 'הגיעו לסבב' : 'סה"כ חיילים'}</p>
-              <p className="text-2xl font-bold text-gray-700">{dashboard.stats.totalSoldiers}</p>
-            </div>
-            <div className="bg-green-50 rounded-lg shadow p-4 text-center border-2 border-green-200">
-              <LogIn className="w-6 h-6 mx-auto text-green-600 mb-2" />
-              <p className="text-sm text-green-600">בבסיס</p>
-              <p className="text-2xl font-bold text-green-700">{dashboard.stats.inBase}</p>
-            </div>
-            <div className={cn(
-              "rounded-lg shadow p-4 text-center border-2",
-              dashboard.stats.overdue > 0
-                ? "bg-red-50 border-red-300"
-                : "bg-gray-50 border-gray-200"
-            )}>
-              <AlertTriangle className={cn(
-                "w-6 h-6 mx-auto mb-2",
-                dashboard.stats.overdue > 0 ? "text-red-600" : "text-gray-400"
-              )} />
-              <p className={cn(
-                "text-sm",
-                dashboard.stats.overdue > 0 ? "text-red-600" : "text-gray-500"
-              )}>באיחור</p>
-              <p className={cn(
-                "text-2xl font-bold",
-                dashboard.stats.overdue > 0 ? "text-red-700" : "text-gray-400"
-              )}>{dashboard.stats.overdue}</p>
-            </div>
-            <div className={cn(
-              "rounded-lg shadow p-4 text-center border-2",
-              dashboard.stats.pending > 0
-                ? "bg-yellow-50 border-yellow-300"
-                : "bg-gray-50 border-gray-200"
-            )}>
-              <Clock className={cn(
-                "w-6 h-6 mx-auto mb-2",
-                dashboard.stats.pending > 0 ? "text-yellow-600" : "text-gray-400"
-              )} />
-              <p className={cn(
-                "text-sm",
-                dashboard.stats.pending > 0 ? "text-yellow-600" : "text-gray-500"
-              )}>ממתינים לאישור</p>
-              <p className={cn(
-                "text-2xl font-bold",
-                dashboard.stats.pending > 0 ? "text-yellow-700" : "text-gray-400"
-              )}>{dashboard.stats.pending}</p>
-            </div>
-          </div>
-
-          {/* Category Breakdown - Who is OUT */}
-          {dashboard.stats.outOfBase > 0 && (
-            <div className="bg-blue-50 rounded-lg shadow p-4 mb-6 border-2 border-blue-200">
-              <div className="flex items-center gap-2 mb-3">
-                <LogOut className="w-5 h-5 text-blue-600" />
-                <span className="font-bold text-blue-800">בחוץ ({dashboard.stats.outOfBase})</span>
-              </div>
-              <div className="flex flex-wrap gap-3">
-                {dashboard.categoryBreakdown.map((cat, idx) => (
-                  <div
-                    key={idx}
-                    className={cn(
-                      "flex items-center gap-2 px-3 py-2 rounded-lg",
-                      cat.type === 'HOME' ? "bg-green-100" : "bg-white"
-                    )}
-                  >
-                    <span className="text-2xl font-bold text-blue-700">{cat.count}</span>
-                    <span className="text-sm text-gray-600">{cat.displayName}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
+          {/* Direct request lists - no summary cards */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Active Leaves - Soldiers currently OUT */}
             <Card>
@@ -418,7 +564,7 @@ export default function AdminStatusPage() {
                 <LogOut className="w-5 h-5 text-blue-600" />
                 <span className="text-blue-800">חיילים בחוץ כרגע ({dashboard.activeLeaves.length})</span>
               </CardHeader>
-              <CardContent className="max-h-[400px] overflow-y-auto">
+              <CardContent className="max-h-[500px] overflow-y-auto">
                 {dashboard.activeLeaves.length === 0 ? (
                   <p className="text-center text-gray-500 py-4">כל החיילים בבסיס</p>
                 ) : (
@@ -440,11 +586,19 @@ export default function AdminStatusPage() {
                               ({leave.soldier.armyNumber})
                             </span>
                           </div>
-                          {leave.isOverdue && (
-                            <span className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded-full font-bold">
-                              באיחור!
+                          <div className="flex items-center gap-2">
+                            {leave.isOverdue && (
+                              <span className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded-full font-bold">
+                                באיחור!
+                              </span>
+                            )}
+                            <span className={cn(
+                              "px-2 py-1 text-xs rounded-full",
+                              leave.type === 'HOME' ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"
+                            )}>
+                              {LEAVE_TYPE_LABELS[leave.type]}
                             </span>
-                          )}
+                          </div>
                         </div>
                         <div className="grid grid-cols-2 gap-2 text-sm mb-2">
                           <div>
@@ -499,7 +653,7 @@ export default function AdminStatusPage() {
                 <Clock className="w-5 h-5 text-yellow-600" />
                 <span className="text-yellow-800">בקשות ממתינות ({dashboard.pendingRequests.length})</span>
               </CardHeader>
-              <CardContent className="max-h-[400px] overflow-y-auto">
+              <CardContent className="max-h-[500px] overflow-y-auto">
                 {dashboard.pendingRequests.length === 0 ? (
                   <p className="text-center text-gray-500 py-4">אין בקשות ממתינות</p>
                 ) : (
@@ -644,6 +798,17 @@ export default function AdminStatusPage() {
           </div>
         )}
       </Modal>
+
+      {/* Stat Users Modal - Shows users when clicking on stat cards */}
+      <StatUsersModal
+        isOpen={!!statModal}
+        onClose={() => setStatModal(null)}
+        title={statModalUsers.title}
+        users={statModalUsers.users}
+        emptyMessage={statModalUsers.emptyMessage}
+        icon={statModalUsers.icon}
+        headerColorClass={statModalUsers.headerColor}
+      />
     </AdminLayout>
   );
 }

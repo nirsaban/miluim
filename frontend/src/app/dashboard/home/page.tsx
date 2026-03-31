@@ -20,6 +20,7 @@ import { formatDate, cn } from '@/lib/utils';
 import { QuickLeaveActions } from '@/components/dashboard/QuickLeaveActions';
 import { SocialSection } from '@/components/dashboard/SocialSection';
 import { FriendsSection } from '@/components/dashboard/FriendsSection';
+import { EmergencySafeButton } from '@/components/emergency';
 
 interface TestUser {
   personalId: string;
@@ -468,6 +469,9 @@ export default function HomePage() {
           </div>
         </div>
       )}
+
+      {/* Emergency Safe Button - Shown when emergency is active */}
+      <EmergencySafeButton className="mb-4" />
 
       {/* Welcome Section - Improved Structure */}
       <div className="mb-5 sm:mb-6">

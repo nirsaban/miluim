@@ -135,7 +135,7 @@ function getMobileNavItems(userRole: UserRole): NavItem[] {
       { href: '/dashboard/home', label: 'בית', icon: Home },
       { href: '/dashboard/shifts', label: 'משמרות', icon: Calendar },
       { href: '/dashboard/department', label: 'מחלקה', icon: Building2 },
-      { href: '/dashboard/profile', label: 'פרופיל', icon: User },
+      { href: '/dashboard/operational', label: 'מידע מבצעי', icon: Shield },
     ];
   }
 
@@ -144,7 +144,7 @@ function getMobileNavItems(userRole: UserRole): NavItem[] {
     { href: '/dashboard/home', label: 'בית', icon: Home },
     { href: '/dashboard/shifts', label: 'משמרות', icon: Calendar },
     { href: '/dashboard/requests', label: 'בקשות וטפסים', icon: FileText },
-    { href: '/dashboard/profile', label: 'פרופיל', icon: User },
+    { href: '/dashboard/operational', label: 'מידע מבצעי', icon: Shield },
   ];
 }
 

@@ -207,6 +207,10 @@ model User {
   createdSocialActivities   SocialActivity[]             @relation("SocialActivityCreator")
   socialActivityParticipations SocialActivityParticipant[] @relation("SocialActivityParticipant")
 
+  // Emergency Check-in relations
+  createdEmergencies        EmergencyEvent[]             @relation("EmergencyCreator")
+  emergencyAcknowledgements EmergencyAcknowledgement[]   @relation("EmergencyAcknowledgements")
+
   @@map("users")
 }
 
@@ -640,6 +644,7 @@ model ReserveServiceCycle {
   attendances        ServiceAttendance[]
   adminChecklists    ServiceAdminChecklist[]
   vehicles           ServiceVehicle[]
+  emergencyEvents    EmergencyEvent[]
 
   @@map("reserve_service_cycles")
 }
@@ -772,4 +777,50 @@ model SocialActivityParticipant {
 
   @@unique([activityId, userId])
   @@map("social_activity_participants")
+}
+
+// ============================================================
+// EMERGENCY CHECK-IN - בדיקת מצב חירום
+// ============================================================
+
+enum EmergencyEventStatus {
+  ACTIVE    // פעיל
+  EXPIRED   // פג תוקף
+  CANCELLED // בוטל
+}
+
+// אירוע חירום
+model EmergencyEvent {
+  id              String               @id @default(uuid())
+  title           String?              // כותרת/תיאור אופציונלי
+  serviceCycleId  String?              // סבב מילואים משויך
+  serviceCycle    ReserveServiceCycle? @relation(fields: [serviceCycleId], references: [id])
+  createdById     String
+  createdBy       User                 @relation("EmergencyCreator", fields: [createdById], references: [id])
+  startedAt       DateTime             @default(now())
+  expiresAt       DateTime             // startedAt + 30 דקות
+  status          EmergencyEventStatus @default(ACTIVE)
+
+  // Snapshot of target users at creation time (users who need to report)
+  targetUserIds   String[]             // רשימת מזהי משתמשים שצריכים לדווח
+
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  acknowledgements EmergencyAcknowledgement[]
+
+  @@map("emergency_events")
+}
+
+// דיווח "אני בטוח" של משתמש
+model EmergencyAcknowledgement {
+  id               String         @id @default(uuid())
+  emergencyEventId String
+  emergencyEvent   EmergencyEvent @relation(fields: [emergencyEventId], references: [id], onDelete: Cascade)
+  userId           String
+  user             User           @relation("EmergencyAcknowledgements", fields: [userId], references: [id], onDelete: Cascade)
+  reportedAt       DateTime       @default(now())
+
+  @@unique([emergencyEventId, userId])
+  @@map("emergency_acknowledgements")
 }
