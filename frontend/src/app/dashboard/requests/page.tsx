@@ -2,22 +2,17 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { FileText, Send, Clock, Home, LogOut, CheckCircle, XCircle, AlertCircle, CornerDownLeft } from 'lucide-react';
+import { FileText, Send, Clock, CheckCircle, XCircle, AlertCircle, CornerDownLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { UserLayout } from '@/components/layout/UserLayout';
 import { Card, CardHeader, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Select } from '@/components/ui/Select';
 import { Modal } from '@/components/ui/Modal';
 import { Spinner } from '@/components/ui/Spinner';
+import { QuickLeaveActions } from '@/components/dashboard/QuickLeaveActions';
 import api from '@/lib/api';
 import { formatDateTime, cn } from '@/lib/utils';
-import {
-  getIsraelDateTimeLocalRounded,
-  getIsraelDateTimeLocalRoundedPlusHours,
-  dateTimeLocalToISO,
-} from '@/lib/timezone';
-import { FormType, FORM_TYPE_LABELS, LeaveCategory, LeaveType, LEAVE_TYPE_LABELS, LeaveStatus } from '@/types';
+import { FormType, FORM_TYPE_LABELS, LeaveStatus, LEAVE_TYPE_LABELS, LeaveType } from '@/types';
 
 interface LeaveRequest {
   id: string;
@@ -59,25 +54,11 @@ export default function RequestsPage() {
   const queryClient = useQueryClient();
   const [selectedForm, setSelectedForm] = useState<FormType | null>(null);
   const [formContent, setFormContent] = useState('');
-  const [showLeaveModal, setShowLeaveModal] = useState(false);
-  const [leaveType, setLeaveType] = useState<LeaveType>('SHORT');
-  const [categoryId, setCategoryId] = useState('');
-  const [exitTime, setExitTime] = useState('');
-  const [expectedReturn, setExpectedReturn] = useState('');
-  const [reason, setReason] = useState('');
 
   const { data: leaveRequests, isLoading: leaveLoading } = useQuery<LeaveRequest[]>({
     queryKey: ['my-leave-requests'],
     queryFn: async () => {
       const response = await api.get('/leave-requests/my');
-      return response.data;
-    },
-  });
-
-  const { data: categories } = useQuery<LeaveCategory[]>({
-    queryKey: ['leave-categories'],
-    queryFn: async () => {
-      const response = await api.get('/leave-categories');
       return response.data;
     },
   });
@@ -97,28 +78,6 @@ export default function RequestsPage() {
     },
   });
 
-  const leaveRequestMutation = useMutation({
-    mutationFn: async (data: {
-      type: LeaveType;
-      categoryId?: string;
-      reason?: string;
-      exitTime: string;
-      expectedReturn: string;
-    }) => {
-      const response = await api.post('/leave-requests', data);
-      return response.data;
-    },
-    onSuccess: () => {
-      toast.success('בקשת היציאה נשלחה בהצלחה');
-      resetLeaveForm();
-      queryClient.invalidateQueries({ queryKey: ['my-leave-requests'] });
-    },
-    onError: (error: any) => {
-      const message = error.response?.data?.message || 'שגיאה בשליחת הבקשה';
-      toast.error(message);
-    },
-  });
-
   const confirmReturnMutation = useMutation({
     mutationFn: async (id: string) => {
       const response = await api.patch(`/leave-requests/my/${id}/return`);
@@ -134,31 +93,6 @@ export default function RequestsPage() {
     },
   });
 
-  const resetLeaveForm = () => {
-    setShowLeaveModal(false);
-    setLeaveType('SHORT');
-    setCategoryId('');
-    setExitTime('');
-    setExpectedReturn('');
-    setReason('');
-  };
-
-  // Use Israel timezone for default times
-  const getDefaultExitTime = () => {
-    return getIsraelDateTimeLocalRounded();
-  };
-
-  const getDefaultReturnTime = () => {
-    return getIsraelDateTimeLocalRoundedPlusHours(2);
-  };
-
-  const openLeaveModal = (type: LeaveType) => {
-    setLeaveType(type);
-    setExitTime(getDefaultExitTime());
-    setExpectedReturn(getDefaultReturnTime());
-    setShowLeaveModal(true);
-  };
-
   const handleSubmitForm = () => {
     if (!selectedForm || !formContent.trim()) {
       toast.error('נא למלא את כל השדות');
@@ -170,35 +104,6 @@ export default function RequestsPage() {
     });
   };
 
-  const handleSubmitLeave = () => {
-    if (!exitTime || !expectedReturn) {
-      toast.error('נא למלא זמן יציאה וזמן חזרה צפוי');
-      return;
-    }
-    if (leaveType === 'SHORT' && !categoryId) {
-      toast.error('נא לבחור קטגוריה');
-      return;
-    }
-    // Compare times using simple string comparison (both are in same format)
-    if (expectedReturn <= exitTime) {
-      toast.error('זמן החזרה חייב להיות אחרי זמן היציאה');
-      return;
-    }
-    // Convert datetime-local values to ISO strings (treating input as Israel time)
-    leaveRequestMutation.mutate({
-      type: leaveType,
-      categoryId: leaveType === 'SHORT' ? categoryId : undefined,
-      reason: reason || undefined,
-      exitTime: dateTimeLocalToISO(exitTime),
-      expectedReturn: dateTimeLocalToISO(expectedReturn),
-    });
-  };
-
-  const categoryOptions = categories?.map((cat) => ({
-    value: cat.id,
-    label: cat.displayName,
-  })) || [];
-
   return (
     <UserLayout>
       <div className="mb-6">
@@ -206,31 +111,8 @@ export default function RequestsPage() {
         <p className="text-gray-600 mt-1">הגשת בקשות יציאה וטפסים</p>
       </div>
 
-      {/* Quick Actions */}
-      <Card className="mb-6">
-        <CardHeader className="flex items-center gap-2">
-          <FileText className="w-5 h-5 text-military-600" />
-          <span>בקשות יציאה</span>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-4">
-            <button
-              onClick={() => openLeaveModal('SHORT')}
-              className="p-4 bg-blue-50 border-2 border-blue-200 rounded-xl text-center hover:bg-blue-100 hover:border-blue-300 transition-colors"
-            >
-              <LogOut className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-              <span className="font-medium text-blue-700">יציאה קצרה</span>
-            </button>
-            <button
-              onClick={() => openLeaveModal('HOME')}
-              className="p-4 bg-green-50 border-2 border-green-200 rounded-xl text-center hover:bg-green-100 hover:border-green-300 transition-colors"
-            >
-              <Home className="w-8 h-8 text-green-600 mx-auto mb-2" />
-              <span className="font-medium text-green-700">יציאה הביתה</span>
-            </button>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Quick Leave Actions */}
+      <QuickLeaveActions className="mb-6" />
 
       {/* Other Forms */}
       <Card className="mb-6">
@@ -352,69 +234,6 @@ export default function RequestsPage() {
                 setFormContent('');
               }}
             >
-              ביטול
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Leave Request Modal */}
-      <Modal
-        isOpen={showLeaveModal}
-        onClose={resetLeaveForm}
-        title={LEAVE_TYPE_LABELS[leaveType]}
-        size="md"
-      >
-        <div className="space-y-4">
-          {leaveType === 'SHORT' && (
-            <Select
-              label="קטגוריה"
-              value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
-              options={[{ value: '', label: 'בחר קטגוריה...' }, ...categoryOptions]}
-              required
-            />
-          )}
-          <div>
-            <label className="label">זמן יציאה</label>
-            <input
-              type="datetime-local"
-              value={exitTime}
-              onChange={(e) => setExitTime(e.target.value)}
-              className="input"
-              required
-            />
-          </div>
-          <div>
-            <label className="label">זמן חזרה צפוי</label>
-            <input
-              type="datetime-local"
-              value={expectedReturn}
-              onChange={(e) => setExpectedReturn(e.target.value)}
-              className="input"
-              required
-            />
-          </div>
-          <div>
-            <label className="label">סיבה (אופציונלי)</label>
-            <textarea
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="פרטים נוספים..."
-              className="input min-h-[80px] resize-none"
-              rows={3}
-            />
-          </div>
-          <div className="flex gap-3 pt-2">
-            <Button
-              onClick={handleSubmitLeave}
-              isLoading={leaveRequestMutation.isPending}
-              className="flex-1"
-            >
-              <Clock className="w-4 h-4 ml-2" />
-              שלח בקשה
-            </Button>
-            <Button variant="secondary" onClick={resetLeaveForm}>
               ביטול
             </Button>
           </div>

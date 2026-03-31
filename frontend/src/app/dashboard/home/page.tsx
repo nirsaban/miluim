@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { MessageSquare, Bell, Calendar, MapPin, Building2, User, Phone, ChevronLeft, ChevronRight, CheckCircle2, Image, FlaskConical, RotateCcw, Copy, Check, BellRing, Timer, AlertCircle, Info, Megaphone, FileText, Utensils, PartyPopper, ClipboardList, Shield } from 'lucide-react';
+import { MessageSquare, Bell, Calendar, ChevronLeft, ChevronRight, CheckCircle2, Image, FlaskConical, RotateCcw, Copy, Check, BellRing, Timer, AlertCircle, Info, Megaphone, FileText, Utensils, PartyPopper, ClipboardList, Shield } from 'lucide-react';
 import { PushNotificationToggle } from '@/components/ui/PushNotificationToggle';
 import { PWAInstallPrompt, usePWAInstall } from '@/components/ui/PWAInstallPrompt';
 import Link from 'next/link';
@@ -16,7 +16,10 @@ import { useAuth } from '@/hooks/useAuth';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import api from '@/lib/api';
 import { MILITARY_ROLE_LABELS, MilitaryRole, MessageTargetAudience, ShiftType, SHIFT_TYPE_LABELS, ReserveServiceCycle, ServiceAttendance, MessageType, MESSAGE_TYPE_LABELS } from '@/types';
-import { formatWhatsAppLink, formatDate, cn } from '@/lib/utils';
+import { formatDate, cn } from '@/lib/utils';
+import { QuickLeaveActions } from '@/components/dashboard/QuickLeaveActions';
+import { SocialSection } from '@/components/dashboard/SocialSection';
+import { FriendsSection } from '@/components/dashboard/FriendsSection';
 
 interface TestUser {
   personalId: string;
@@ -502,72 +505,6 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* User Info Card - Compact */}
-      <Card className="mb-4">
-        <CardContent className="py-3 sm:py-4">
-          {homeLoading ? (
-            <div className="flex justify-center py-4">
-              <Spinner />
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
-              <div className="flex items-center gap-2 p-2.5 bg-gray-50 rounded-xl">
-                <div className="p-1.5 bg-military-100 rounded-lg">
-                  <MapPin className="w-3.5 h-3.5 text-military-600" />
-                </div>
-                <div className="min-w-0">
-                  <span className="text-gray-400 text-[10px] block">אזור</span>
-                  <span className="font-medium text-gray-900 text-xs truncate block">{homeData?.user?.activeZone?.name || 'לא מוגדר'}</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 p-2.5 bg-gray-50 rounded-xl">
-                <div className="p-1.5 bg-military-100 rounded-lg">
-                  <Building2 className="w-3.5 h-3.5 text-military-600" />
-                </div>
-                <div className="min-w-0">
-                  <span className="text-gray-400 text-[10px] block">מחלקה</span>
-                  <span className="font-medium text-gray-900 text-xs truncate block">{homeData?.user?.department?.name || user?.department?.name || 'לא מוגדר'}</span>
-                </div>
-              </div>
-              {homeData?.user?.departmentOfficer && (
-                <div className="flex items-center gap-2 p-2.5 bg-green-50 rounded-xl col-span-2 sm:col-span-2">
-                  <div className="p-1.5 bg-green-100 rounded-lg">
-                    <Phone className="w-3.5 h-3.5 text-green-600" />
-                  </div>
-                  <div className="min-w-0">
-                    <span className="text-gray-400 text-[10px] block">קצין מחלקה</span>
-                    <a
-                      href={formatWhatsAppLink(homeData.user.departmentOfficer.phone)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-medium text-green-600 hover:underline text-xs truncate block"
-                    >
-                      {homeData.user.departmentOfficer.fullName}
-                    </a>
-                  </div>
-                </div>
-              )}
-              {/* Service cycle info when active */}
-              {currentCycle?.status === 'ACTIVE' && (
-                <div className={cn(
-                  "flex items-center gap-2 p-2.5 rounded-xl",
-                  homeData?.user?.departmentOfficer ? "col-span-2 sm:col-span-4" : "col-span-2",
-                  "bg-military-50 border border-military-100"
-                )}>
-                  <div className="p-1.5 bg-military-100 rounded-lg">
-                    <Timer className="w-3.5 h-3.5 text-military-600" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <span className="text-gray-400 text-[10px] block">סבב נוכחי</span>
-                    <span className="font-medium text-military-700 text-xs truncate block">{currentCycle.name}</span>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
       {/* My Shifts Summary - Improved Visibility */}
       <Card className="mb-4 border-military-200 shadow-card">
         <CardHeader className="flex items-center justify-between bg-gradient-to-l from-military-50 to-transparent">
@@ -678,6 +615,9 @@ export default function HomePage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Quick Leave Actions */}
+      <QuickLeaveActions className="mb-4" />
 
       {/* Shift Posts Section */}
       {shiftPosts && shiftPosts.length > 0 && (
@@ -938,6 +878,12 @@ export default function HomePage() {
           })}
         </div>
       )}
+
+      {/* Social Section */}
+      <SocialSection className="mb-4" />
+
+      {/* Friends Section */}
+      <FriendsSection className="mb-4" limit={5} />
 
       {/* Test Setup Section - Only for personalId 1234567 */}
       {user?.personalId === '1234567' && (

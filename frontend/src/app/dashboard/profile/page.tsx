@@ -9,9 +9,10 @@ import { Card, CardHeader, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
+import { UserInfoCard } from '@/components/dashboard/UserInfoCard';
 import api from '@/lib/api';
 import { formatDate } from '@/lib/utils';
-import { MILITARY_ROLE_LABELS, MilitaryRole } from '@/types';
+import { MILITARY_ROLE_LABELS, MilitaryRole, ReserveServiceCycle, ServiceAttendance } from '@/types';
 import {
   checkWebAuthnSupport,
   getPasskeyStatus,
@@ -42,6 +43,19 @@ interface UserProfile {
   createdAt: string;
 }
 
+interface HomeData {
+  user: {
+    activeZone?: { id: string; name: string } | null;
+    department?: { id: string; name: string } | null;
+    departmentOfficer?: {
+      id: string;
+      fullName: string;
+      phone: string;
+      militaryRole?: MilitaryRole;
+    } | null;
+  };
+}
+
 export default function ProfilePage() {
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
@@ -68,6 +82,24 @@ export default function ProfilePage() {
     queryKey: ['my-profile'],
     queryFn: async () => {
       const response = await api.get('/users/me');
+      return response.data;
+    },
+  });
+
+  // Fetch home data for UserInfoCard
+  const { data: homeData, isLoading: homeLoading } = useQuery<HomeData>({
+    queryKey: ['home-data'],
+    queryFn: async () => {
+      const response = await api.get('/users/me/home');
+      return response.data;
+    },
+  });
+
+  // Fetch current service cycle
+  const { data: currentCycle } = useQuery<ReserveServiceCycle | null>({
+    queryKey: ['current-service-cycle'],
+    queryFn: async () => {
+      const response = await api.get('/service-cycles/current');
       return response.data;
     },
   });
@@ -207,6 +239,16 @@ export default function ProfilePage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* User Info Card - Zone, Department, Officer */}
+      <UserInfoCard
+        isLoading={homeLoading}
+        activeZone={homeData?.user?.activeZone}
+        department={homeData?.user?.department || profile?.department}
+        departmentOfficer={homeData?.user?.departmentOfficer}
+        activeCycle={currentCycle}
+        className="mb-6"
+      />
 
       {/* Read-Only Info */}
       <Card className="mb-6">
