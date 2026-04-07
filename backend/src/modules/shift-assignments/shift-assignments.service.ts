@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ShiftAssignmentStatus, FormType } from '@prisma/client';
-import { getIsraelTodayStart } from '../../common/utils/timezone';
+import { getIsraelTodayStart, getCurrentIsraelTime } from '../../common/utils/timezone';
 
 @Injectable()
 export class ShiftAssignmentsService {
@@ -579,10 +579,20 @@ export class ShiftAssignmentsService {
   async confirmArrivalBySupervisor(assignmentId: string, supervisorId: string) {
     const today = getIsraelTodayStart();
 
-    // Verify the supervisor is shift officer for today
+    // Get current shift template to determine effective date
+    const currentShiftData = await this.getCurrentShiftTemplate();
+    const dateOffset = currentShiftData?.dateOffset || 0;
+
+    // Use the correct date based on offset
+    const effectiveDate = new Date(today);
+    if (dateOffset !== 0) {
+      effectiveDate.setDate(effectiveDate.getDate() + dateOffset);
+    }
+
+    // Verify the supervisor is shift officer for the effective date
     const schedule = await this.prisma.shiftSchedule.findFirst({
       where: {
-        date: today,
+        date: effectiveDate,
         shiftOfficerId: supervisorId,
       },
     });
@@ -1053,14 +1063,17 @@ export class ShiftAssignmentsService {
     departmentId?: string;
   }) {
     const where: any = {
-      status: ShiftAssignmentStatus.COMPLETED,
+      status: { in: [ShiftAssignmentStatus.COMPLETED, ShiftAssignmentStatus.CONFIRMED] },
     };
 
-    if (params.startDate && params.endDate) {
-      where.date = {
-        gte: params.startDate,
-        lte: params.endDate,
-      };
+    if (params.startDate || params.endDate) {
+      where.date = {};
+      if (params.startDate) {
+        where.date.gte = params.startDate;
+      }
+      if (params.endDate) {
+        where.date.lte = params.endDate;
+      }
     }
 
     // Get all assignments with soldier and shift template info
@@ -1153,14 +1166,17 @@ export class ShiftAssignmentsService {
   ) {
     const where: any = {
       soldierId: userId,
-      status: ShiftAssignmentStatus.COMPLETED,
+      status: { in: [ShiftAssignmentStatus.COMPLETED, ShiftAssignmentStatus.CONFIRMED] },
     };
 
-    if (params.startDate && params.endDate) {
-      where.date = {
-        gte: params.startDate,
-        lte: params.endDate,
-      };
+    if (params.startDate || params.endDate) {
+      where.date = {};
+      if (params.startDate) {
+        where.date.gte = params.startDate;
+      }
+      if (params.endDate) {
+        where.date.lte = params.endDate;
+      }
     }
 
     // Get all completed assignments for this user
@@ -1232,9 +1248,8 @@ export class ShiftAssignmentsService {
    * Get the current active shift template based on current time
    */
   async getCurrentShiftTemplate() {
-    const now = new Date();
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
+    const israelTime = getCurrentIsraelTime(); // "HH:MM"
+    const [currentHour, currentMinute] = israelTime.split(':').map(Number);
     const currentTimeMinutes = currentHour * 60 + currentMinute;
 
     const templates = await this.prisma.shiftTemplate.findMany({
@@ -1253,18 +1268,21 @@ export class ShiftAssignmentsService {
       if (endMinutes < startMinutes) {
         // If current time is after start OR before end, it's in this shift
         if (currentTimeMinutes >= startMinutes || currentTimeMinutes < endMinutes) {
-          return template;
+          return {
+            template,
+            dateOffset: currentTimeMinutes < endMinutes ? -1 : 0
+          };
         }
       } else {
         // Normal shift
         if (currentTimeMinutes >= startMinutes && currentTimeMinutes < endMinutes) {
-          return template;
+          return { template, dateOffset: 0 };
         }
       }
     }
 
     // If no exact match, return the next upcoming shift
-    return templates[0] || null;
+    return templates[0] ? { template: templates[0], dateOffset: 0 } : null;
   }
 
   /**
@@ -1273,10 +1291,23 @@ export class ShiftAssignmentsService {
   async getCurrentShiftOnlyOverview(userId: string) {
     const today = getIsraelTodayStart();
 
-    // Check if user is shift officer today
+    // Get current shift template
+    const currentShiftData = await this.getCurrentShiftTemplate();
+    if (!currentShiftData) {
+      return null;
+    }
+    const { template: currentTemplate, dateOffset } = currentShiftData;
+
+    // Use the correct date based on offset
+    const effectiveDate = new Date(today);
+    if (dateOffset !== 0) {
+      effectiveDate.setDate(effectiveDate.getDate() + dateOffset);
+    }
+
+    // Check if user is shift officer for the effective date
     const schedule = await this.prisma.shiftSchedule.findFirst({
       where: {
-        date: today,
+        date: effectiveDate,
         shiftOfficerId: userId,
       },
       include: {
@@ -1295,15 +1326,9 @@ export class ShiftAssignmentsService {
       return null;
     }
 
-    // Get current shift template
-    const currentTemplate = await this.getCurrentShiftTemplate();
-    if (!currentTemplate) {
-      return null;
-    }
-
     // Build where clause
     const whereClause: any = {
-      date: today,
+      date: effectiveDate,
       shiftTemplateId: currentTemplate.id,
     };
     if (schedule.zoneId) {
@@ -1373,7 +1398,7 @@ export class ShiftAssignmentsService {
       where: {
         type: FormType.SHIFT_REQUEST,
         createdAt: {
-          gte: today,
+          gte: today, // Still use today for submissions list (full day)
         },
       },
       include: {
@@ -1389,7 +1414,7 @@ export class ShiftAssignmentsService {
     });
 
     return {
-      date: today,
+      date: effectiveDate,
       schedule: {
         id: schedule.id,
         zone: schedule.zone,
@@ -1424,10 +1449,23 @@ export class ShiftAssignmentsService {
   async getCurrentShiftCommanders(userId: string) {
     const today = getIsraelTodayStart();
 
-    // Check if user is shift officer today
+    // Get current shift template
+    const currentShiftData = await this.getCurrentShiftTemplate();
+    if (!currentShiftData) {
+      return [];
+    }
+    const { template: currentTemplate, dateOffset } = currentShiftData;
+
+    // Use the correct date based on offset
+    const effectiveDate = new Date(today);
+    if (dateOffset !== 0) {
+      effectiveDate.setDate(effectiveDate.getDate() + dateOffset);
+    }
+
+    // Check if user is shift officer for the effective date
     const schedule = await this.prisma.shiftSchedule.findFirst({
       where: {
-        date: today,
+        date: effectiveDate,
         shiftOfficerId: userId,
       },
     });
@@ -1436,15 +1474,9 @@ export class ShiftAssignmentsService {
       return [];
     }
 
-    // Get current shift template
-    const currentTemplate = await this.getCurrentShiftTemplate();
-    if (!currentTemplate) {
-      return [];
-    }
-
     // Build where clause for commanders only
     const whereClause: any = {
-      date: today,
+      date: effectiveDate,
       shiftTemplateId: currentTemplate.id,
       soldier: {
         OR: [
@@ -1491,10 +1523,20 @@ export class ShiftAssignmentsService {
   async confirmSubmissionReceipt(submissionId: string, userId: string) {
     const today = getIsraelTodayStart();
 
-    // Verify user is shift officer
+    // Get current shift template to determine effective date
+    const currentShiftData = await this.getCurrentShiftTemplate();
+    const dateOffset = currentShiftData?.dateOffset || 0;
+
+    // Use the correct date based on offset
+    const effectiveDate = new Date(today);
+    if (dateOffset !== 0) {
+      effectiveDate.setDate(effectiveDate.getDate() + dateOffset);
+    }
+
+    // Verify user is shift officer for the effective date
     const schedule = await this.prisma.shiftSchedule.findFirst({
       where: {
-        date: today,
+        date: effectiveDate,
         shiftOfficerId: userId,
       },
     });

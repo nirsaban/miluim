@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { MessageSquare, Bell, Calendar, ChevronLeft, ChevronRight, CheckCircle2, Image, FlaskConical, RotateCcw, Copy, Check, BellRing, Timer, AlertCircle, Info, Megaphone, FileText, Utensils, PartyPopper, ClipboardList, Shield } from 'lucide-react';
+import { MessageSquare, Bell, Calendar, ChevronLeft, ChevronRight, CheckCircle2, Image, FlaskConical, RotateCcw, Copy, Check, BellRing, Timer, AlertCircle, Info, Megaphone, FileText, Utensils, PartyPopper, ClipboardList, Shield, X, ZoomIn } from 'lucide-react';
 import { PushNotificationToggle } from '@/components/ui/PushNotificationToggle';
 import { PWAInstallPrompt, usePWAInstall } from '@/components/ui/PWAInstallPrompt';
 import Link from 'next/link';
@@ -280,6 +280,9 @@ export default function HomePage() {
   const [testResults, setTestResults] = useState<TestSetupResult | null>(null);
   const [rollbackResults, setRollbackResults] = useState<RollbackResult | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // State for fullscreen image viewing
+  const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
 
   // Check and show push notification prompt
   useEffect(() => {
@@ -645,13 +648,19 @@ export default function HomePage() {
                 <div
                   key={post.id}
                   className="relative rounded-lg overflow-hidden border border-gray-200 group cursor-pointer"
+                  onClick={() => post.imageUrl && setFullscreenImage(post.imageUrl)}
                 >
                   {post.imageUrl ? (
-                    <img
-                      src={post.imageUrl}
-                      alt={`סידור משמרת ${formatDate(post.date, 'dd/MM')}`}
-                      className="w-full h-32 object-cover group-hover:scale-105 transition-transform"
-                    />
+                    <>
+                      <img
+                        src={post.imageUrl}
+                        alt={`סידור משמרת ${formatDate(post.date, 'dd/MM')}`}
+                        className="w-full h-32 object-cover group-hover:scale-105 transition-transform"
+                      />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-center justify-center">
+                        <ZoomIn className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
+                    </>
                   ) : (
                     <div className="w-full h-32 bg-gray-100 flex items-center justify-center">
                       <Image className="w-8 h-8 text-gray-400" />
@@ -1071,6 +1080,32 @@ export default function HomePage() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Fullscreen Image Modal */}
+      {fullscreenImage && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4 cursor-pointer"
+          onClick={() => setFullscreenImage(null)}
+        >
+          <button
+            className="absolute top-6 right-6 p-2 text-white hover:bg-white/20 rounded-full transition-colors z-[110]"
+            onClick={() => setFullscreenImage(null)}
+          >
+            <X className="w-8 h-8" />
+          </button>
+          <div className="relative w-full h-full max-w-6xl max-h-[90vh] flex items-center justify-center">
+            <img
+              src={fullscreenImage}
+              alt="סידור משמרות מורחב"
+              className="max-w-full max-h-full object-contain shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+          <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 text-white text-center">
+            <p className="text-sm opacity-75">לחץ במקום כלשהו לסגירה</p>
+          </div>
+        </div>
       )}
     </UserLayout>
   );

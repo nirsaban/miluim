@@ -52,7 +52,25 @@ export function parseIsraelDate(dateStr: string): Date {
   if (!dateStr) {
     throw new Error('Invalid date string');
   }
-  return fromZonedTime(new Date(`${dateStr}T00:00:00`), ISRAEL_TIMEZONE);
+
+  // Extract just the date part (YYYY-MM-DD)
+  // This handles YYYY-MM-DD, ISO strings (YYYY-MM-DDTHH:mm...), and trailing Ts
+  const dateMatch = dateStr.match(/^(\d{4}-\d{2}-\d{2})/);
+  
+  if (dateMatch) {
+    const cleanDate = dateMatch[1];
+    return fromZonedTime(new Date(`${cleanDate}T00:00:00`), ISRAEL_TIMEZONE);
+  }
+
+  // Fallback for other formats
+  const fallback = new Date(dateStr);
+  if (isNaN(fallback.getTime())) {
+    throw new Error(`Invalid date format: ${dateStr}. Expected YYYY-MM-DD`);
+  }
+  
+  // Convert fallback to Israel date string and then to midnight
+  const dateOnly = formatInTimeZone(fallback, ISRAEL_TIMEZONE, 'yyyy-MM-dd');
+  return fromZonedTime(new Date(`${dateOnly}T00:00:00`), ISRAEL_TIMEZONE);
 }
 
 /**
