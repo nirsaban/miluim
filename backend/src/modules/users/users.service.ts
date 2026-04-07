@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, ConflictException } from '@nestjs/common
 import { PrismaService } from '../../prisma/prisma.service';
 import { UserRole, MilitaryRole } from '@prisma/client';
 import { CreatePreapprovedUserDto } from './dto';
-import { getIsraelTodayStart, getIsraelTomorrowStart, isIsraelToday, isAfterIsraelToday } from '../../common/utils/timezone';
+import { getIsraelTodayStart, getIsraelTomorrowStart, isIsraelToday, isAfterIsraelToday, getCurrentIsraelTime, getDateString, getTodayIsraelString } from '../../common/utils/timezone';
 
 @Injectable()
 export class UsersService {
@@ -455,21 +455,69 @@ export class UsersService {
       });
     }
 
-    // Get today's date range
-    const today = getIsraelTodayStart();
-    const tomorrow = getIsraelTomorrowStart();
+    // Get current shift identification using the robust logic from Active Shift endpoints
+    const shiftAssignmentsService = new (require('../shift-assignments/shift-assignments.service').ShiftAssignmentsService)(this.prisma);
+    const currentShiftData = await shiftAssignmentsService.getCurrentShiftTemplate();
+    const todayStart = getIsraelTodayStart();
+    const currentTime = getCurrentIsraelTime();
+    const [currH, currM] = currentTime.split(':').map(Number);
+    const currTotalMinutes = currH * 60 + currM;
 
-    // Get all my shifts for today and future (to find current and next)
-    const myShifts = await this.prisma.shiftAssignment.findMany({
+    let currentShift = null;
+    let nextShift = null;
+    let effectiveDate = todayStart;
+
+    if (currentShiftData) {
+      const { template: currentTemplate, dateOffset } = currentShiftData;
+      
+      effectiveDate = new Date(todayStart);
+      if (dateOffset !== 0) {
+        effectiveDate.setDate(effectiveDate.getDate() + dateOffset);
+      }
+
+      // Find if I have an assignment for this effective date and template
+      currentShift = await this.prisma.shiftAssignment.findFirst({
+        where: {
+          soldierId: userId,
+          date: effectiveDate,
+          shiftTemplateId: currentTemplate.id,
+        },
+        include: {
+          shiftTemplate: {
+            select: {
+              id: true,
+              displayName: true,
+              startTime: true,
+              endTime: true,
+              sortOrder: true,
+            },
+          },
+          task: {
+            include: {
+              zone: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+      });
+    }
+
+    // Get all my shifts from effectiveDate to future to find next/upcoming shifts
+    const myFutureShifts = await this.prisma.shiftAssignment.findMany({
       where: {
         soldierId: userId,
         date: {
-          gte: today,
+          gte: effectiveDate,
         },
       },
       include: {
         shiftTemplate: {
           select: {
+            id: true,
             displayName: true,
             startTime: true,
             endTime: true,
@@ -493,18 +541,21 @@ export class UsersService {
       ],
     });
 
-    // Find current shift (today) and next shift
-    const todayShifts = myShifts.filter(s => isIsraelToday(new Date(s.date)));
+    // Find next shift (the first one after current shift or after current time if no current shift)
+    for (const shift of myFutureShifts) {
+      if (currentShift && shift.id === currentShift.id) continue;
 
-    const futureShifts = myShifts.filter(s => isAfterIsraelToday(new Date(s.date)));
+      const [startH, startM] = shift.shiftTemplate.startTime.split(':').map(Number);
+      const startMinutes = startH * 60 + startM;
+      const shiftDateStr = getDateString(shift.date);
+      const effectiveDateStr = getDateString(effectiveDate);
 
-    // Current shift is today's first shift
-    const currentShift = todayShifts.length > 0 ? todayShifts[0] : null;
-
-    // Next shift is either today's second shift or first future shift
-    const nextShift = todayShifts.length > 1
-      ? todayShifts[1]
-      : (futureShifts.length > 0 ? futureShifts[0] : null);
+      // If shift is in the future relative to effectiveDate OR it's today but starts later
+      if (shiftDateStr > effectiveDateStr || (shiftDateStr === effectiveDateStr && startMinutes > currTotalMinutes)) {
+        nextShift = shift;
+        break;
+      }
+    }
 
     // Get notifications for user
     const notifications = await this.prisma.notification.findMany({
@@ -583,6 +634,18 @@ export class UsersService {
       departmentName: message.department?.name || null,
     }));
 
+    // Get top 3 upcoming shifts (excluding current and next)
+    const upcomingShifts = myFutureShifts
+      .filter(s => s.id !== currentShift?.id && s.id !== nextShift?.id)
+      .filter(s => {
+        const shiftDateStr = getDateString(s.date);
+        const effectiveDateStr = getDateString(effectiveDate);
+        const [startH, startM] = s.shiftTemplate.startTime.split(':').map(Number);
+        const startMinutes = startH * 60 + startM;
+        return shiftDateStr > effectiveDateStr || (shiftDateStr === effectiveDateStr && startMinutes > currTotalMinutes);
+      })
+      .slice(0, 3);
+
     const formatShift = (shift: any) => shift ? {
       id: shift.id,
       date: shift.date,
@@ -605,6 +668,7 @@ export class UsersService {
       },
       currentShift: formatShift(currentShift),
       nextShift: formatShift(nextShift),
+      upcomingShifts: upcomingShifts.map(formatShift),
       notifications,
       messages: messagesWithConfirmation,
     };

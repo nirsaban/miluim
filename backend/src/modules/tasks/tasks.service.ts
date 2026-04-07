@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { ShiftType } from '@prisma/client';
 
 interface TaskRequirementInput {
   skillId: string;
@@ -76,6 +77,7 @@ export class TasksService {
   async create(data: {
     zoneId: string;
     name: string;
+    type?: ShiftType;
     description?: string;
     requiredPeopleCount?: number;
     requirements?: TaskRequirementInput[];
@@ -101,6 +103,7 @@ export class TasksService {
       data: {
         zoneId: data.zoneId,
         name: data.name,
+        type: data.type || 'GUARD',
         description: data.description,
         requiredPeopleCount: data.requiredPeopleCount || 1,
         requirements: data.requirements?.length
@@ -129,6 +132,7 @@ export class TasksService {
 
   async update(id: string, data: { 
     name?: string; 
+    type?: ShiftType;
     description?: string; 
     isActive?: boolean; 
     zoneId?: string; 
@@ -196,6 +200,7 @@ export class TasksService {
       where: { id },
       data: {
         ...(data.name && { name: data.name }),
+        ...(data.type && { type: data.type }),
         ...(data.description !== undefined && { description: data.description }),
         ...(data.isActive !== undefined && { isActive: data.isActive }),
         ...(data.zoneId && { zoneId: data.zoneId }),

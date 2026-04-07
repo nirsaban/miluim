@@ -10,9 +10,10 @@ import { Card, CardHeader, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
+import { Badge } from '@/components/ui/Badge';
 import { Spinner } from '@/components/ui/Spinner';
 import api from '@/lib/api';
-import { Zone, Task, Skill, TaskRequirement } from '@/types';
+import { Zone, Task, Skill, TaskRequirement, ShiftType, SHIFT_TYPE_LABELS } from '@/types';
 
 interface RequirementInput {
   skillId: string;
@@ -39,7 +40,13 @@ export default function AdminTasksPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingRequirementsId, setEditingRequirementsId] = useState<string | null>(null);
   const [editingChecklistId, setEditingChecklistId] = useState<string | null>(null);
-  const [formData, setFormData] = useState({ name: '', description: '', zoneId: '', requiredPeopleCount: 1 });
+  const [formData, setFormData] = useState({ 
+    name: '', 
+    type: 'GUARD' as ShiftType,
+    description: '', 
+    zoneId: '', 
+    requiredPeopleCount: 1 
+  });
   const [requirements, setRequirements] = useState<RequirementInput[]>([]);
   const [checklistItems, setChecklistItems] = useState<ChecklistItemInput[]>([]);
 
@@ -80,6 +87,7 @@ export default function AdminTasksPage() {
   const createMutation = useMutation({
     mutationFn: async (data: { 
       name: string; 
+      type: ShiftType;
       description?: string; 
       zoneId: string; 
       requiredPeopleCount?: number; 
@@ -94,7 +102,7 @@ export default function AdminTasksPage() {
       queryClient.invalidateQueries({ queryKey: ['zones-admin'] });
       toast.success('משימה נוספה בהצלחה');
       setIsAdding(false);
-      setFormData({ name: '', description: '', zoneId: '', requiredPeopleCount: 1 });
+      setFormData({ name: '', type: 'GUARD', description: '', zoneId: '', requiredPeopleCount: 1 });
       setRequirements([]);
       setChecklistItems([]);
     },
@@ -142,6 +150,7 @@ export default function AdminTasksPage() {
     }
     createMutation.mutate({
       name: formData.name,
+      type: formData.type,
       description: formData.description || undefined,
       zoneId: formData.zoneId,
       requiredPeopleCount: formData.requiredPeopleCount || 1,
@@ -159,6 +168,7 @@ export default function AdminTasksPage() {
       id,
       data: {
         name: formData.name,
+        type: formData.type,
         description: formData.description || undefined,
         requiredPeopleCount: formData.requiredPeopleCount,
       },
@@ -185,6 +195,7 @@ export default function AdminTasksPage() {
     setEditingId(task.id);
     setFormData({
       name: task.name,
+      type: task.type,
       description: task.description || '',
       zoneId: task.zoneId,
       requiredPeopleCount: task.requiredPeopleCount || 1,
@@ -262,6 +273,11 @@ export default function AdminTasksPage() {
     return skills?.find((s) => s.id === skillId)?.displayName || skillId;
   };
 
+  const shiftTypeOptions = Object.entries(SHIFT_TYPE_LABELS).map(([value, label]) => ({
+    value,
+    label,
+  }));
+
   return (
     <AdminLayout>
       <div className="mb-6">
@@ -315,6 +331,12 @@ export default function AdminTasksPage() {
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       className="flex-1"
+                    />
+                    <Select
+                      value={formData.type}
+                      onChange={(e) => setFormData({ ...formData, type: e.target.value as ShiftType })}
+                      options={shiftTypeOptions}
+                      className="w-32"
                     />
                     <Input
                       placeholder="תיאור (אופציונלי)"
@@ -420,7 +442,7 @@ export default function AdminTasksPage() {
                       variant="secondary"
                       onClick={() => {
                         setIsAdding(false);
-                        setFormData({ name: '', description: '', zoneId: '', requiredPeopleCount: 1 });
+                        setFormData({ name: '', type: 'GUARD', description: '', zoneId: '', requiredPeopleCount: 1 });
                         setRequirements([]);
                         setChecklistItems([]);
                       }}
@@ -452,6 +474,12 @@ export default function AdminTasksPage() {
                         onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                         className="flex-1"
                       />
+                      <Select
+                        value={formData.type}
+                        onChange={(e) => setFormData({ ...formData, type: e.target.value as ShiftType })}
+                        options={shiftTypeOptions}
+                        className="w-32"
+                      />
                       <Input
                         placeholder="תיאור"
                         value={formData.description}
@@ -480,7 +508,7 @@ export default function AdminTasksPage() {
                         variant="secondary"
                         onClick={() => {
                           setEditingId(null);
-                          setFormData({ name: '', description: '', zoneId: '', requiredPeopleCount: 1 });
+                          setFormData({ name: '', type: 'GUARD', description: '', zoneId: '', requiredPeopleCount: 1 });
                         }}
                       >
                         <X className="w-4 h-4" />
@@ -610,6 +638,9 @@ export default function AdminTasksPage() {
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <span className="font-medium">{task.name}</span>
+                          <Badge variant="info" className="text-[10px] px-1.5 py-0">
+                            {SHIFT_TYPE_LABELS[task.type]}
+                          </Badge>
                           <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
                             {task.zone?.name}
                           </span>

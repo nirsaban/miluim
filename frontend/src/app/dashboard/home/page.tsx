@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { MessageSquare, Bell, Calendar, ChevronLeft, ChevronRight, CheckCircle2, Image, FlaskConical, RotateCcw, Copy, Check, BellRing, Timer, AlertCircle, Info, Megaphone, FileText, Utensils, PartyPopper, ClipboardList, Shield, X, ZoomIn } from 'lucide-react';
+import { MessageSquare, Bell, Calendar, ChevronLeft, ChevronRight, CheckCircle2, Image, FlaskConical, RotateCcw, Copy, Check, BellRing, Timer, AlertCircle, Info, Megaphone, FileText, Utensils, PartyPopper, ClipboardList, Shield, X, ZoomIn, MapPin } from 'lucide-react';
 import { PushNotificationToggle } from '@/components/ui/PushNotificationToggle';
 import { PWAInstallPrompt, usePWAInstall } from '@/components/ui/PWAInstallPrompt';
 import Link from 'next/link';
@@ -103,6 +103,7 @@ interface HomeData {
   };
   currentShift: ShiftInfo | null;
   nextShift: ShiftInfo | null;
+  upcomingShifts: ShiftInfo[];
   notifications: Array<{
     id: string;
     title: string;
@@ -535,73 +536,117 @@ export default function HomePage() {
               <Spinner />
             </div>
           ) : homeData?.currentShift || homeData?.nextShift ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Current Shift */}
-              {homeData?.currentShift && (
-                <div className="bg-gradient-to-br from-green-50 to-green-100/50 border-2 border-green-300 rounded-xl p-4 shadow-sm">
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="px-3 py-1 bg-green-500 text-white text-xs font-bold rounded-full shadow-sm">
-                      משמרת נוכחית
-                    </span>
-                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                  </div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-bold text-lg text-green-800">
-                      {homeData.currentShift.shiftTemplate.displayName}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-green-700 bg-green-100/50 rounded-lg px-3 py-2">
-                    <Timer className="w-4 h-4" />
-                    <span className="font-medium">
-                      {homeData.currentShift.shiftTemplate.startTime} - {homeData.currentShift.shiftTemplate.endTime}
-                    </span>
-                  </div>
-                  {homeData.currentShift.task && (
-                    <div className="mt-2 text-sm text-green-700">
-                      <span className="font-medium">משימה:</span> {homeData.currentShift.task.name}
-                      {homeData.currentShift.task.zone && (
-                        <span className="text-green-600"> • {homeData.currentShift.task.zone.name}</span>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Current Shift */}
+                {homeData?.currentShift && (
+                  <Link href="/dashboard/shifts">
+                    <div className="bg-gradient-to-br from-green-50 to-green-100/50 border-2 border-green-300 rounded-xl p-4 shadow-sm hover:shadow-md transition-all active:scale-[0.98] h-full">
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="px-3 py-1 bg-green-500 text-white text-xs font-bold rounded-full shadow-sm">
+                          משמרת נוכחית
+                        </span>
+                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                      </div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-bold text-lg text-green-800">
+                          {homeData.currentShift.shiftTemplate.displayName}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-green-700 bg-green-100/50 rounded-lg px-3 py-2">
+                        <Timer className="w-4 h-4" />
+                        <span className="font-medium">
+                          {homeData.currentShift.shiftTemplate.startTime} - {homeData.currentShift.shiftTemplate.endTime}
+                        </span>
+                      </div>
+                      {homeData.currentShift.task && (
+                        <div className="mt-2 text-sm text-green-700 flex items-center gap-1">
+                          <MapPin className="w-3.5 h-3.5" />
+                          <span className="font-medium">{homeData.currentShift.task.name}</span>
+                          {homeData.currentShift.task.zone && (
+                            <span className="text-green-600"> • {homeData.currentShift.task.zone.name}</span>
+                          )}
+                        </div>
                       )}
                     </div>
-                  )}
-                </div>
-              )}
+                  </Link>
+                )}
 
-              {/* Next Shift */}
-              {homeData?.nextShift && (
-                <div className={cn(
-                  "bg-gradient-to-br from-blue-50 to-blue-100/50 border-2 border-blue-300 rounded-xl p-4 shadow-sm",
-                  !homeData?.currentShift && "sm:col-span-2"
-                )}>
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="px-3 py-1 bg-blue-500 text-white text-xs font-bold rounded-full shadow-sm">
-                      משמרת הבאה
-                    </span>
-                    {homeData.nextShift.date && (
-                      <span className="text-xs text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">
-                        {new Date(homeData.nextShift.date).toLocaleDateString('he-IL', { weekday: 'short', day: 'numeric', month: 'short' })}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-bold text-lg text-blue-800">
-                      {homeData.nextShift.shiftTemplate.displayName}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-blue-700 bg-blue-100/50 rounded-lg px-3 py-2">
-                    <Timer className="w-4 h-4" />
-                    <span className="font-medium">
-                      {homeData.nextShift.shiftTemplate.startTime} - {homeData.nextShift.shiftTemplate.endTime}
-                    </span>
-                  </div>
-                  {homeData.nextShift.task && (
-                    <div className="mt-2 text-sm text-blue-700">
-                      <span className="font-medium">משימה:</span> {homeData.nextShift.task.name}
-                      {homeData.nextShift.task.zone && (
-                        <span className="text-blue-600"> • {homeData.nextShift.task.zone.name}</span>
+                {/* Next Shift */}
+                {homeData?.nextShift && (
+                  <Link href="/dashboard/shifts">
+                    <div className={cn(
+                      "bg-gradient-to-br from-blue-50 to-blue-100/50 border-2 border-blue-300 rounded-xl p-4 shadow-sm hover:shadow-md transition-all active:scale-[0.98] h-full",
+                      !homeData?.currentShift && "sm:col-span-2"
+                    )}>
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="px-3 py-1 bg-blue-500 text-white text-xs font-bold rounded-full shadow-sm">
+                          משמרת הבאה
+                        </span>
+                        {homeData.nextShift.date && (
+                          <span className="text-xs text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">
+                            {new Date(homeData.nextShift.date).toLocaleDateString('he-IL', { weekday: 'short', day: 'numeric', month: 'short' })}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-bold text-lg text-blue-800">
+                          {homeData.nextShift.shiftTemplate.displayName}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-blue-700 bg-blue-100/50 rounded-lg px-3 py-2">
+                        <Timer className="w-4 h-4" />
+                        <span className="font-medium">
+                          {homeData.nextShift.shiftTemplate.startTime} - {homeData.nextShift.shiftTemplate.endTime}
+                        </span>
+                      </div>
+                      {homeData.nextShift.task && (
+                        <div className="mt-2 text-sm text-blue-700 flex items-center gap-1">
+                          <MapPin className="w-3.5 h-3.5" />
+                          <span className="font-medium">{homeData.nextShift.task.name}</span>
+                          {homeData.nextShift.task.zone && (
+                            <span className="text-blue-600"> • {homeData.nextShift.task.zone.name}</span>
+                          )}
+                        </div>
                       )}
                     </div>
-                  )}
+                  </Link>
+                )}
+              </div>
+
+              {/* Upcoming Shifts List */}
+              {homeData.upcomingShifts && homeData.upcomingShifts.length > 0 && (
+                <div className="pt-2 border-t border-gray-100">
+                  <h4 className="text-xs font-bold text-gray-400 mb-2 uppercase flex items-center gap-1">
+                    <Calendar className="w-3 h-3" />
+                    המשמרות הקרובות שלי
+                  </h4>
+                  <div className="space-y-2">
+                    {homeData.upcomingShifts.map((shift) => (
+                      <Link key={shift.id} href="/dashboard/shifts">
+                        <div className="flex items-center justify-between p-2.5 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors active:scale-[0.99] mb-2 last:mb-0">
+                          <div className="flex items-center gap-3">
+                            <div className="text-center min-w-[45px]">
+                              <div className="text-[10px] text-gray-500 uppercase leading-none mb-0.5">
+                                {new Date(shift.date).toLocaleDateString('he-IL', { weekday: 'short' })}
+                              </div>
+                              <div className="text-sm font-bold text-military-700 leading-none">
+                                {new Date(shift.date).toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric' })}
+                              </div>
+                            </div>
+                            <div className="h-8 w-px bg-gray-100" />
+                            <div>
+                              <div className="text-sm font-bold text-gray-800 leading-tight">{shift.shiftTemplate.displayName}</div>
+                              <div className="text-[11px] text-gray-500">{shift.task?.name}</div>
+                            </div>
+                          </div>
+                          <div className="text-[11px] font-medium text-gray-600 bg-gray-100 px-2 py-1 rounded">
+                            {shift.shiftTemplate.startTime} - {shift.shiftTemplate.endTime}
+                          </div>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

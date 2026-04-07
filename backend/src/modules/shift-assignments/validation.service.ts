@@ -32,6 +32,20 @@ export class ValidationService {
     const warnings: ValidationWarning[] = [];
     const errors: ValidationError[] = [];
 
+    // Get current task info
+    const task = await this.prisma.task.findUnique({
+      where: { id: taskId },
+      include: { requirements: { include: { skill: true } } },
+    });
+
+    if (!task) {
+      errors.push({
+        type: 'TASK_NOT_FOUND',
+        message: 'משימה לא נמצאה',
+      });
+      return { isValid: false, warnings, errors };
+    }
+
     // Get soldier info
     const soldier = await this.prisma.user.findUnique({
       where: { id: soldierId },
@@ -45,7 +59,10 @@ export class ValidationService {
               lte: new Date(date.getTime() + 24 * 60 * 60 * 1000), // Tomorrow
             },
           },
-          include: { shiftTemplate: true },
+          include: { 
+            shiftTemplate: true,
+            task: true,
+          },
         },
       },
     });
@@ -74,17 +91,34 @@ export class ValidationService {
       });
     }
 
-    // Check for double assignment in same shift
-    const sameShiftAssignment = soldier.shiftAssignments.find(
+    // Check for double assignment in same shift with SAME type
+    const sameTypeAssignment = soldier.shiftAssignments.find(
       (a) =>
         a.date.toISOString().split('T')[0] === date.toISOString().split('T')[0] &&
-        a.shiftTemplateId === shiftTemplateId,
+        a.shiftTemplateId === shiftTemplateId &&
+        a.task.type === task.type,
     );
 
-    if (sameShiftAssignment) {
+    if (sameTypeAssignment) {
       errors.push({
         type: 'ALREADY_ASSIGNED',
-        message: 'החייל כבר משובץ למשמרת זו',
+        message: `החייל כבר משובץ למשמרת ${sameTypeAssignment.shiftTemplate.displayName} מסוג ${task.type}`,
+      });
+    }
+
+    // Check for assignment in same shift with DIFFERENT type (warning)
+    const otherTypeAssignment = soldier.shiftAssignments.find(
+      (a) =>
+        a.date.toISOString().split('T')[0] === date.toISOString().split('T')[0] &&
+        a.shiftTemplateId === shiftTemplateId &&
+        a.task.type !== task.type,
+    );
+
+    if (otherTypeAssignment) {
+      warnings.push({
+        type: 'MULTIPLE_TYPES_SAME_SHIFT',
+        message: `החייל כבר משובץ למשמרת זו מסוג ${otherTypeAssignment.task.type}. משבץ גם כ${task.type}.`,
+        details: { existingType: otherTypeAssignment.task.type, newType: task.type },
       });
     }
 
@@ -103,13 +137,7 @@ export class ValidationService {
       });
     }
 
-    // Check task requirements
-    const task = await this.prisma.task.findUnique({
-      where: { id: taskId },
-      include: { requirements: { include: { skill: true } } },
-    });
-
-    if (task && task.requirements.length > 0) {
+    if (task.requirements.length > 0) {
       const soldierSkillIds = soldier.skills.map((s) => s.skillId);
       const soldierSkillNames = soldier.skills.map((s) => s.skill.name);
 

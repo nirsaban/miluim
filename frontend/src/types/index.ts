@@ -451,6 +451,7 @@ export interface Task {
   zoneId: string;
   zone?: Zone;
   name: string;
+  type: ShiftType;
   description?: string;
   requiredPeopleCount: number;
   isActive: boolean;

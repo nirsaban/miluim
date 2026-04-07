@@ -65,6 +65,20 @@ export function SoldierCard({
               )}
             </div>
           )}
+
+          {/* Current assignments in this shift */}
+          {soldier.shiftAssignments && soldier.shiftAssignments.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-1.5 pt-1.5 border-t border-gray-100">
+              {soldier.shiftAssignments.map((a) => (
+                <span
+                  key={a.id}
+                  className="inline-flex items-center px-1.5 py-0.5 text-[10px] bg-green-50 text-green-700 rounded-full border border-green-100"
+                >
+                  משובץ ל: {a.task.name}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
         {showRemove && onRemove && (
           <button

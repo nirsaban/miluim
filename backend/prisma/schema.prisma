@@ -496,6 +496,7 @@ model Task {
   zoneId               String
   zone                 Zone     @relation(fields: [zoneId], references: [id], onDelete: Cascade)
   name                 String
+  type                 ShiftType @default(GUARD)
   description          String?
   requiredPeopleCount  Int      @default(1)  // Number of soldiers required for this task
   isActive             Boolean  @default(true)

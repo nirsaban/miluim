@@ -10,6 +10,7 @@ import {
   ChevronDown,
   ChevronUp,
   CheckCircle,
+  Shield,
   Battery,
   BatteryLow,
   BatteryMedium,
@@ -175,16 +176,17 @@ export default function ShiftsPage() {
   // Check if user is a commander
   const isCommander = user?.role === 'COMMANDER' || user?.role === 'OFFICER' || user?.role === 'ADMIN';
 
-  // Get my active shift for today with detailed info
-  const { data: myActiveShift, isLoading: activeShiftLoading } = useQuery<MyTodayShift | null>({
-    queryKey: ['my-active-shift'],
+  // Get my active shifts for today with detailed info
+  const { data: myActiveShifts, isLoading: activeShiftLoading } = useQuery<MyTodayShift[]>({
+    queryKey: ['my-active-shifts'],
     queryFn: async () => {
       const response = await api.get('/shift-assignments/active/my-shift');
       return response.data;
     },
   });
 
-  // Get my shifts (for upcoming shifts)
+  const [activeShiftIndex, setActiveShiftIndex] = useState(0);
+  const myTodayShift = myActiveShifts?.[activeShiftIndex] || null;
   const { data: myShifts, isLoading: myShiftsLoading } = useQuery<MyShift[]>({
     queryKey: ['my-shifts'],
     queryFn: async () => {
@@ -381,9 +383,6 @@ export default function ShiftsPage() {
 
   const isLoading = myShiftsLoading || todayShiftsLoading || activeShiftLoading;
 
-  // Use the active shift data for today's shift display
-  const myTodayShift = myActiveShift;
-
   // Group today's shifts by shift template
   const groupedShifts = todayShifts?.reduce((acc, assignment) => {
     const templateId = assignment.shiftTemplate.id;
@@ -410,10 +409,12 @@ export default function ShiftsPage() {
     : [];
 
   // My upcoming shifts
-  const upcomingShifts = myShifts?.filter((shift) => {
-    const shiftDate = new Date(shift.date).toISOString().split('T')[0];
-    return shiftDate > todayStr;
-  }).slice(0, 5);
+  const upcomingShifts = (myShifts || [])
+    .filter((shift) => {
+      const shiftDate = new Date(shift.date).toISOString().split('T')[0];
+      return shiftDate > todayStr;
+    })
+    .slice(0, 5);
 
   return (
     <UserLayout>
@@ -429,42 +430,75 @@ export default function ShiftsPage() {
       ) : (
         <>
           {/* My Current Shift Highlight */}
-          {myTodayShift && (
-            <Card className={`mb-6 border-2 ${myTodayShift.arrivedAt ? 'border-green-400' : 'border-yellow-400'}`}>
-              <CardHeader className={`flex items-center gap-2 ${myTodayShift.arrivedAt ? 'bg-green-50' : 'bg-yellow-50'}`}>
-                <Calendar className={`w-5 h-5 ${myTodayShift.arrivedAt ? 'text-green-600' : 'text-yellow-600'}`} />
-                <span className={`font-bold ${myTodayShift.arrivedAt ? 'text-green-700' : 'text-yellow-700'}`}>
-                  המשמרת שלי היום
-                </span>
-                {myTodayShift.arrivedAt ? (
-                  <Badge variant="success" className="mr-auto">הגעה אושרה</Badge>
-                ) : (
-                  <Badge variant="warning" className="mr-auto">ממתין לאישור הגעה</Badge>
-                )}
-              </CardHeader>
-              <CardContent>
-                <div className={`rounded-lg p-4 ${myTodayShift.arrivedAt ? 'bg-green-50' : 'bg-yellow-50'}`}>
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className={`font-bold text-lg ${myTodayShift.arrivedAt ? 'text-green-700' : 'text-yellow-700'}`}>
-                      {myTodayShift.shiftTemplate.displayName}
-                    </h3>
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <Clock className="w-4 h-4" />
-                      {myTodayShift.shiftTemplate.startTime} - {myTodayShift.shiftTemplate.endTime}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4 text-sm mb-3">
-                    <div className="flex items-center gap-1">
-                      <MapPin className="w-4 h-4 text-gray-500" />
-                      <span>{myTodayShift.task.zone?.name || 'לא מוגדר'}</span>
-                    </div>
-                    <span className={`px-2 py-1 rounded ${myTodayShift.arrivedAt ? 'bg-green-200 text-green-700' : 'bg-yellow-200 text-yellow-700'}`}>
-                      {myTodayShift.task.name}
-                    </span>
-                  </div>
+          {myActiveShifts && myActiveShifts.length > 0 && (
+            <div className="mb-6 space-y-4">
+              {/* Shift Selector (if multiple) */}
+              {myActiveShifts.length > 1 && (
+                <div className="flex overflow-x-auto gap-2 pb-2 hide-scrollbar">
+                  {myActiveShifts.map((shift, index) => (
+                    <button
+                      key={shift.id}
+                      onClick={() => setActiveShiftIndex(index)}
+                      className={cn(
+                        'flex items-center gap-2 px-4 py-2 rounded-xl border-2 transition-all whitespace-nowrap font-medium',
+                        activeShiftIndex === index
+                          ? 'border-military-700 bg-military-50 text-military-800'
+                          : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                      )}
+                    >
+                      <Shield className={cn('w-4 h-4', activeShiftIndex === index ? 'text-military-600' : 'text-gray-400')} />
+                      <span>{shift.task.name} ({shift.shiftTemplate.displayName})</span>
+                      {shift.arrivedAt && <CheckCircle className="w-3.5 h-3.5 text-green-600" />}
+                    </button>
+                  ))}
+                </div>
+              )}
 
-                  {/* Shift Officer Info */}
-                  {myTodayShift.shiftOfficer && (
+              {myTodayShift && (
+                <Card className={cn(
+                  'border-2 transition-all duration-300',
+                  myTodayShift.arrivedAt ? 'border-green-400 shadow-green-50' : 'border-yellow-400 shadow-yellow-50'
+                )}>
+                  <CardHeader className={cn(
+                    'flex items-center gap-2',
+                    myTodayShift.arrivedAt ? 'bg-green-50' : 'bg-yellow-50'
+                  )}>
+                    <Calendar className={cn('w-5 h-5', myTodayShift.arrivedAt ? 'text-green-600' : 'text-yellow-600')} />
+                    <span className={cn('font-bold', myTodayShift.arrivedAt ? 'text-green-700' : 'text-yellow-700')}>
+                      {myActiveShifts.length > 1 ? `המשמרת שלי: ${myTodayShift.task.name}` : 'המשמרת שלי היום'}
+                    </span>
+                    {myTodayShift.arrivedAt ? (
+                      <Badge variant="success" className="mr-auto">הגעה אושרה</Badge>
+                    ) : (
+                      <Badge variant="warning" className="mr-auto">ממתין לאישור הגעה</Badge>
+                    )}
+                  </CardHeader>
+                  <CardContent>
+                    <div className={cn('rounded-lg p-4', myTodayShift.arrivedAt ? 'bg-green-50' : 'bg-yellow-50')}>
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className={cn('font-bold text-lg', myTodayShift.arrivedAt ? 'text-green-700' : 'text-yellow-700')}>
+                          {myTodayShift.shiftTemplate.displayName}
+                        </h3>
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <Clock className="w-4 h-4" />
+                          {myTodayShift.shiftTemplate.startTime} - {myTodayShift.shiftTemplate.endTime}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4 text-sm mb-3">
+                        <div className="flex items-center gap-1">
+                          <MapPin className="w-4 h-4 text-gray-500" />
+                          <span>{myTodayShift.task.zone?.name || 'לא מוגדר'}</span>
+                        </div>
+                        <span className={cn(
+                          'px-2 py-1 rounded font-medium',
+                          myTodayShift.arrivedAt ? 'bg-green-200 text-green-700' : 'bg-yellow-200 text-yellow-700'
+                        )}>
+                          {myTodayShift.task.name}
+                        </span>
+                      </div>
+
+                      {/* Shift Officer Info */}
+                      {myTodayShift.shiftOfficer && (
                     <div className="flex items-center gap-2 text-sm mb-3 p-2 bg-white rounded-lg">
                       <UserCheck className="w-4 h-4 text-military-600" />
                       <span className="font-medium">קצין תורן:</span>
@@ -602,6 +636,8 @@ export default function ShiftsPage() {
                 </div>
               </CardContent>
             </Card>
+            )}
+            </div>
           )}
 
           {/* Shift Request Modal */}

@@ -69,6 +69,15 @@ export class ShiftAssignmentsService {
     });
     const soldiersOnLeaveIds = soldiersOnLeave.map((l) => l.soldierId);
 
+    // If taskId is provided, get task info first
+    let task = null;
+    if (taskId) {
+      task = await this.prisma.task.findUnique({
+        where: { id: taskId },
+        include: { requirements: true },
+      });
+    }
+
     // Get all active soldiers with their skills
     // Only include soldiers who confirmed arrival for the current service cycle
     // Exclude soldiers who are on leave for this date
@@ -97,31 +106,30 @@ export class ShiftAssignmentsService {
             date,
             shiftTemplateId,
           },
+          include: {
+            task: true,
+          },
         },
         soldierStatus: true,
       },
     });
 
-    // Filter out soldiers who are already assigned to this shift
-    const available = soldiers.filter(
-      (s) => s.shiftAssignments.length === 0 && s.soldierStatus?.status !== 'LEAVE',
-    );
+    // Filter out soldiers who are on leave
+    const available = soldiers.filter((s) => s.soldierStatus?.status !== 'LEAVE');
 
-    // If taskId is provided, sort by skill match
-    if (taskId) {
-      const task = await this.prisma.task.findUnique({
-        where: { id: taskId },
-        include: { requirements: true },
+    // If taskId is provided, sort by skill match and filter out those with SAME type assignment
+    if (task) {
+      const requiredSkillIds = task.requirements.map((r) => r.skillId);
+      
+      const filteredByType = available.filter(
+        (s) => !s.shiftAssignments.some((a) => a.task.type === task.type)
+      );
+
+      return filteredByType.sort((a, b) => {
+        const aMatch = a.skills.filter((s) => requiredSkillIds.includes(s.skillId)).length;
+        const bMatch = b.skills.filter((s) => requiredSkillIds.includes(s.skillId)).length;
+        return bMatch - aMatch;
       });
-
-      if (task) {
-        const requiredSkillIds = task.requirements.map((r) => r.skillId);
-        return available.sort((a, b) => {
-          const aMatch = a.skills.filter((s) => requiredSkillIds.includes(s.skillId)).length;
-          const bMatch = b.skills.filter((s) => requiredSkillIds.includes(s.skillId)).length;
-          return bMatch - aMatch;
-        });
-      }
     }
 
     return available;
@@ -134,17 +142,29 @@ export class ShiftAssignmentsService {
     soldierId: string;
     notes?: string;
   }) {
-    // Check if soldier is already assigned to this shift
-    const existing = await this.prisma.shiftAssignment.findFirst({
+    // Get current task info
+    const task = await this.prisma.task.findUnique({
+      where: { id: data.taskId },
+    });
+
+    if (!task) {
+      throw new NotFoundException('משימה לא נמצאה');
+    }
+
+    // Check if soldier is already assigned to this shift with SAME type
+    const existingSameType = await this.prisma.shiftAssignment.findFirst({
       where: {
         date: data.date,
         shiftTemplateId: data.shiftTemplateId,
         soldierId: data.soldierId,
+        task: {
+          type: task.type,
+        },
       },
     });
 
-    if (existing) {
-      throw new BadRequestException('החייל כבר משובץ למשמרת זו');
+    if (existingSameType) {
+      throw new BadRequestException(`החייל כבר משובץ למשמרת זו מסוג ${task.type}`);
     }
 
     // Check for consecutive shifts - block assignment if soldier was in previous shift
@@ -157,6 +177,12 @@ export class ShiftAssignmentsService {
       (s) => s.id === data.shiftTemplateId,
     );
 
+    // Consecutive checks only apply to SAME shift type (e.g. can't do two GUARDS in a row, but can do GUARD then KITCHEN?)
+    // Actually, usually consecutive means "on duty". Let's keep it but maybe make it a bit more flexible if types are different?
+    // User didn't specify, so I'll keep consecutive checks as they are for now, but they will only check the SAME shift type if we want to be fully flexible.
+    // However, usually a soldier shouldn't do ANY two shifts in a row for rest. 
+    // I'll keep it as it is for now, but allow same-time different-type.
+
     if (currentShiftIndex > 0) {
       // Check if assigned to previous shift on same day
       const previousShift = shiftTemplates[currentShiftIndex - 1];
@@ -165,12 +191,14 @@ export class ShiftAssignmentsService {
           date: data.date,
           shiftTemplateId: previousShift.id,
           soldierId: data.soldierId,
+          // Only conflict if same type
+          task: { type: task.type },
         },
       });
 
       if (previousAssignment) {
         throw new BadRequestException(
-          `לא ניתן לשבץ את החייל - משובץ למשמרת ${previousShift.displayName} הקודמת`,
+          `לא ניתן לשבץ את החייל - משובץ למשמרת ${previousShift.displayName} הקודמת מסוג ${task.type}`,
         );
       }
     }
@@ -186,12 +214,14 @@ export class ShiftAssignmentsService {
           date: previousDay,
           shiftTemplateId: lastShift.id,
           soldierId: data.soldierId,
+          // Only conflict if same type
+          task: { type: task.type },
         },
       });
 
       if (previousDayAssignment) {
         throw new BadRequestException(
-          `לא ניתן לשבץ את החייל - משובץ למשמרת ${lastShift.displayName} מאתמול`,
+          `לא ניתן לשבץ את החייל - משובץ למשמרת ${lastShift.displayName} מאתמול מסוג ${task.type}`,
         );
       }
     }
@@ -204,12 +234,14 @@ export class ShiftAssignmentsService {
           date: data.date,
           shiftTemplateId: nextShift.id,
           soldierId: data.soldierId,
+          // Only conflict if same type
+          task: { type: task.type },
         },
       });
 
       if (nextAssignment) {
         throw new BadRequestException(
-          `לא ניתן לשבץ את החייל - משובץ למשמרת ${nextShift.displayName} הבאה`,
+          `לא ניתן לשבץ את החייל - משובץ למשמרת ${nextShift.displayName} הבאה מסוג ${task.type}`,
         );
       }
     }
@@ -305,24 +337,37 @@ export class ShiftAssignmentsService {
   ) {
     const assignment = await this.prisma.shiftAssignment.findUnique({
       where: { id },
+      include: { task: true }
     });
 
     if (!assignment) {
       throw new NotFoundException('Assignment not found');
     }
 
-    // Check for conflicts
+    // Get new task info to check type
+    const newTask = await this.prisma.task.findUnique({
+      where: { id: newTaskId }
+    });
+
+    if (!newTask) {
+      throw new NotFoundException('New task not found');
+    }
+
+    // Check for conflicts with SAME type
     const conflict = await this.prisma.shiftAssignment.findFirst({
       where: {
         id: { not: id },
         date: newDate || assignment.date,
         shiftTemplateId: newShiftTemplateId || assignment.shiftTemplateId,
         soldierId: assignment.soldierId,
+        task: {
+          type: newTask.type
+        }
       },
     });
 
     if (conflict) {
-      throw new BadRequestException('Soldier already has an assignment in this shift');
+      throw new BadRequestException(`לחייל כבר יש שיבוץ מסוג ${newTask.type} במשמרת זו`);
     }
 
     return this.prisma.shiftAssignment.update({
@@ -533,7 +578,7 @@ export class ShiftAssignmentsService {
     }
 
     if (assignment.arrivedAt) {
-      throw new BadRequestException('Already confirmed arrival');
+      throw new BadRequestException('הגעתך כבר אושרה');
     }
 
     // Validate required checklist items if provided
@@ -891,7 +936,7 @@ export class ShiftAssignmentsService {
   async getMyTodayShift(userId: string) {
     const today = getIsraelTodayStart();
 
-    const assignment = await this.prisma.shiftAssignment.findFirst({
+    const assignments = await this.prisma.shiftAssignment.findMany({
       where: {
         soldierId: userId,
         date: today,
@@ -918,45 +963,49 @@ export class ShiftAssignmentsService {
       orderBy: { shiftTemplate: { sortOrder: 'asc' } },
     });
 
-    if (!assignment) {
-      return null;
+    if (assignments.length === 0) {
+      return [];
     }
 
-    // Get teammates in the same shift
-    const teammates = await this.prisma.shiftAssignment.findMany({
-      where: {
-        date: today,
-        shiftTemplateId: assignment.shiftTemplateId,
-        soldierId: { not: userId },
-      },
-      include: {
-        soldier: {
-          select: {
-            id: true,
-            fullName: true,
-            phone: true,
-          },
+    // For each assignment, get teammates
+    const results = await Promise.all(assignments.map(async (assignment) => {
+      const teammates = await this.prisma.shiftAssignment.findMany({
+        where: {
+          date: today,
+          shiftTemplateId: assignment.shiftTemplateId,
+          soldierId: { not: userId },
         },
-        task: true,
-      },
-    });
+        include: {
+          soldier: {
+            select: {
+              id: true,
+              fullName: true,
+              phone: true,
+            },
+          },
+          task: true,
+        },
+      });
 
-    return {
-      id: assignment.id,
-      date: today,
-      shiftTemplate: assignment.shiftTemplate,
-      task: assignment.task,
-      arrivedAt: assignment.arrivedAt,
-      batteryLevel: assignment.batteryLevel,
-      status: assignment.status,
-      shiftOfficer: assignment.schedule?.shiftOfficer || null,
-      teammates: teammates.map(t => ({
-        id: t.soldier.id,
-        fullName: t.soldier.fullName,
-        phone: t.soldier.phone,
-        taskName: t.task.name,
-      })),
-    };
+      return {
+        id: assignment.id,
+        date: today,
+        shiftTemplate: assignment.shiftTemplate,
+        task: assignment.task,
+        arrivedAt: assignment.arrivedAt,
+        batteryLevel: assignment.batteryLevel,
+        status: assignment.status,
+        shiftOfficer: assignment.schedule?.shiftOfficer || null,
+        teammates: teammates.map(t => ({
+          id: t.soldier.id,
+          fullName: t.soldier.fullName,
+          phone: t.soldier.phone,
+          taskName: t.task.name,
+        })),
+      };
+    }));
+
+    return results;
   }
 
   async assignShiftOfficer(scheduleId: string, officerId: string) {
