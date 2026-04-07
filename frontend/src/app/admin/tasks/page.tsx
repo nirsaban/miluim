@@ -19,6 +19,16 @@ interface RequirementInput {
   quantity: number;
 }
 
+interface ChecklistItemInput {
+  id?: string;
+  label: string;
+  description?: string;
+  externalLink?: string;
+  isRequired: boolean;
+  sortOrder: number;
+  isActive?: boolean;
+}
+
 export default function AdminTasksPage() {
   const searchParams = useSearchParams();
   const initialZoneId = searchParams.get('zone') || '';
@@ -28,8 +38,10 @@ export default function AdminTasksPage() {
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingRequirementsId, setEditingRequirementsId] = useState<string | null>(null);
+  const [editingChecklistId, setEditingChecklistId] = useState<string | null>(null);
   const [formData, setFormData] = useState({ name: '', description: '', zoneId: '', requiredPeopleCount: 1 });
   const [requirements, setRequirements] = useState<RequirementInput[]>([]);
+  const [checklistItems, setChecklistItems] = useState<ChecklistItemInput[]>([]);
 
   useEffect(() => {
     if (initialZoneId) {
@@ -66,7 +78,14 @@ export default function AdminTasksPage() {
     : tasks;
 
   const createMutation = useMutation({
-    mutationFn: async (data: { name: string; description?: string; zoneId: string; requiredPeopleCount?: number; requirements?: RequirementInput[] }) => {
+    mutationFn: async (data: { 
+      name: string; 
+      description?: string; 
+      zoneId: string; 
+      requiredPeopleCount?: number; 
+      requirements?: RequirementInput[];
+      checklistItems?: ChecklistItemInput[];
+    }) => {
       const response = await api.post('/tasks', data);
       return response.data;
     },
@@ -77,6 +96,7 @@ export default function AdminTasksPage() {
       setIsAdding(false);
       setFormData({ name: '', description: '', zoneId: '', requiredPeopleCount: 1 });
       setRequirements([]);
+      setChecklistItems([]);
     },
     onError: () => {
       toast.error('שגיאה בהוספת משימה');
@@ -84,7 +104,7 @@ export default function AdminTasksPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: Partial<Task> }) => {
+    mutationFn: async ({ id, data }: { id: string; data: Partial<Task> & { checklistItems?: ChecklistItemInput[] } }) => {
       const response = await api.patch(`/tasks/${id}`, data);
       return response.data;
     },
@@ -92,6 +112,7 @@ export default function AdminTasksPage() {
       queryClient.invalidateQueries({ queryKey: ['tasks-admin'] });
       toast.success('משימה עודכנה בהצלחה');
       setEditingId(null);
+      setEditingChecklistId(null);
     },
     onError: () => {
       toast.error('שגיאה בעדכון משימה');
@@ -125,6 +146,7 @@ export default function AdminTasksPage() {
       zoneId: formData.zoneId,
       requiredPeopleCount: formData.requiredPeopleCount || 1,
       requirements: requirements.filter((r) => r.skillId && r.quantity > 0),
+      checklistItems: checklistItems.filter(item => item.label),
     });
   };
 
@@ -139,6 +161,15 @@ export default function AdminTasksPage() {
         name: formData.name,
         description: formData.description || undefined,
         requiredPeopleCount: formData.requiredPeopleCount,
+      },
+    });
+  };
+
+  const handleUpdateChecklist = (id: string) => {
+    updateMutation.mutate({
+      id,
+      data: {
+        checklistItems: checklistItems.filter(item => item.label),
       },
     });
   };
@@ -170,6 +201,21 @@ export default function AdminTasksPage() {
     );
   };
 
+  const startEditingChecklist = (task: Task) => {
+    setEditingChecklistId(task.id);
+    setChecklistItems(
+      (task as any).checklistItems?.map((item: any) => ({
+        id: item.id,
+        label: item.label,
+        description: item.description || '',
+        externalLink: item.externalLink || '',
+        isRequired: item.isRequired,
+        sortOrder: item.sortOrder,
+        isActive: item.isActive,
+      })) || []
+    );
+  };
+
   const toggleActive = (task: Task) => {
     updateMutation.mutate({
       id: task.id,
@@ -189,6 +235,27 @@ export default function AdminTasksPage() {
     const updated = [...requirements];
     updated[index] = { ...updated[index], [field]: value };
     setRequirements(updated);
+  };
+
+  const addChecklistItem = () => {
+    setChecklistItems([...checklistItems, { label: '', description: '', isRequired: true, sortOrder: checklistItems.length }]);
+  };
+
+  const removeChecklistItem = (index: number) => {
+    const item = checklistItems[index];
+    if (item.id) {
+      const updated = [...checklistItems];
+      updated[index] = { ...item, isActive: false };
+      setChecklistItems(updated);
+    } else {
+      setChecklistItems(checklistItems.filter((_, i) => i !== index));
+    }
+  };
+
+  const updateChecklistItem = (index: number, field: keyof ChecklistItemInput, value: any) => {
+    const updated = [...checklistItems];
+    updated[index] = { ...updated[index], [field]: value };
+    setChecklistItems(updated);
   };
 
   const getSkillName = (skillId: string) => {
@@ -232,7 +299,7 @@ export default function AdminTasksPage() {
           ) : (
             <div className="space-y-3">
               {isAdding && (
-                <div className="p-4 bg-military-50 rounded-lg space-y-3">
+                <div className="p-4 bg-military-50 rounded-lg space-y-4">
                   <div className="flex items-center gap-2">
                     <Select
                       value={formData.zoneId}
@@ -267,40 +334,84 @@ export default function AdminTasksPage() {
                     </div>
                   </div>
 
-                  <div className="border-t pt-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium">דרישות כוח אדם:</span>
-                      <Button size="sm" variant="secondary" onClick={addRequirement}>
-                        <Plus className="w-3 h-3 ml-1" />
-                        הוסף דרישה
-                      </Button>
-                    </div>
-                    {requirements.map((req, index) => (
-                      <div key={index} className="flex items-center gap-2 mb-2">
-                        <Select
-                          value={req.skillId}
-                          onChange={(e) => updateRequirement(index, 'skillId', e.target.value)}
-                          options={[
-                            { value: '', label: 'בחר כישור' },
-                            ...(skills?.map((skill) => ({ value: skill.id, label: skill.displayName })) || []),
-                          ]}
-                          className="flex-1"
-                        />
-                        <Input
-                          type="number"
-                          min="1"
-                          value={req.quantity}
-                          onChange={(e) => updateRequirement(index, 'quantity', parseInt(e.target.value) || 1)}
-                          className="w-20"
-                        />
-                        <button
-                          onClick={() => removeRequirement(index)}
-                          className="p-1 text-red-500 hover:text-red-700"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="border rounded-md p-3 bg-white">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-bold">דרישות כוח אדם</span>
+                        <Button size="xs" variant="secondary" onClick={addRequirement}>
+                          <Plus className="w-3 h-3 ml-1" />
+                          הוסף
+                        </Button>
                       </div>
-                    ))}
+                      <div className="space-y-2">
+                        {requirements.map((req, index) => (
+                          <div key={index} className="flex items-center gap-2">
+                            <Select
+                              value={req.skillId}
+                              onChange={(e) => updateRequirement(index, 'skillId', e.target.value)}
+                              options={[
+                                { value: '', label: 'בחר כישור' },
+                                ...(skills?.map((skill) => ({ value: skill.id, label: skill.displayName })) || []),
+                              ]}
+                              className="flex-1 h-8 text-sm"
+                            />
+                            <Input
+                              type="number"
+                              min="1"
+                              value={req.quantity}
+                              onChange={(e) => updateRequirement(index, 'quantity', parseInt(e.target.value) || 1)}
+                              className="w-16 h-8 text-sm"
+                            />
+                            <button onClick={() => removeRequirement(index)} className="text-red-500"><X className="w-4 h-4" /></button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="border rounded-md p-3 bg-white">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-bold">צ׳קליסט תחילת משמרת</span>
+                        <Button size="xs" variant="secondary" onClick={addChecklistItem}>
+                          <Plus className="w-3 h-3 ml-1" />
+                          הוסף
+                        </Button>
+                      </div>
+                      <div className="space-y-2">
+                        {checklistItems.map((item, index) => (
+                          <div key={index} className="flex flex-col gap-1 p-2 border rounded bg-gray-50">
+                            <div className="flex items-center gap-2">
+                              <Input
+                                placeholder="שם הסעיף"
+                                value={item.label}
+                                onChange={(e) => updateChecklistItem(index, 'label', e.target.value)}
+                                className="flex-1 h-8 text-sm"
+                              />
+                              <label className="flex items-center gap-1 whitespace-nowrap text-xs">
+                                <input
+                                  type="checkbox"
+                                  checked={item.isRequired}
+                                  onChange={(e) => updateChecklistItem(index, 'isRequired', e.target.checked)}
+                                />
+                                חובה
+                              </label>
+                              <button onClick={() => removeChecklistItem(index)} className="text-red-500"><X className="w-4 h-4" /></button>
+                            </div>
+                            <Input
+                              placeholder="תיאור / עזרה"
+                              value={item.description}
+                              onChange={(e) => updateChecklistItem(index, 'description', e.target.value)}
+                              className="h-7 text-xs"
+                            />
+                            <Input
+                              placeholder="קישור חיצוני (אופציונלי)"
+                              value={item.externalLink}
+                              onChange={(e) => updateChecklistItem(index, 'externalLink', e.target.value)}
+                              className="h-7 text-xs"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
 
                   <div className="flex justify-end gap-2">
@@ -311,6 +422,7 @@ export default function AdminTasksPage() {
                         setIsAdding(false);
                         setFormData({ name: '', description: '', zoneId: '', requiredPeopleCount: 1 });
                         setRequirements([]);
+                        setChecklistItems([]);
                       }}
                     >
                       ביטול
@@ -429,6 +541,70 @@ export default function AdminTasksPage() {
                         </Button>
                       </div>
                     </div>
+                  ) : editingChecklistId === task.id ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">{task.name} - עריכת צ׳קליסט</span>
+                        <Button size="sm" variant="secondary" onClick={addChecklistItem}>
+                          <Plus className="w-3 h-3 ml-1" />
+                          הוסף
+                        </Button>
+                      </div>
+                      <div className="space-y-2">
+                        {checklistItems.filter(item => item.isActive !== false).map((item, index) => (
+                          <div key={index} className="flex flex-col gap-1 p-2 border rounded bg-gray-50">
+                            <div className="flex items-center gap-2">
+                              <Input
+                                placeholder="שם הסעיף"
+                                value={item.label}
+                                onChange={(e) => updateChecklistItem(index, 'label', e.target.value)}
+                                className="flex-1 h-8 text-sm"
+                              />
+                              <label className="flex items-center gap-1 whitespace-nowrap text-xs">
+                                <input
+                                  type="checkbox"
+                                  checked={item.isRequired}
+                                  onChange={(e) => updateChecklistItem(index, 'isRequired', e.target.checked)}
+                                />
+                                חובה
+                              </label>
+                              <button onClick={() => removeChecklistItem(index)} className="text-red-500"><X className="w-4 h-4" /></button>
+                            </div>
+                            <Input
+                              placeholder="תיאור / עזרה"
+                              value={item.description}
+                              onChange={(e) => updateChecklistItem(index, 'description', e.target.value)}
+                              className="h-7 text-xs"
+                            />
+                            <Input
+                              placeholder="קישור חיצוני (אופציונלי)"
+                              value={item.externalLink}
+                              onChange={(e) => updateChecklistItem(index, 'externalLink', e.target.value)}
+                              className="h-7 text-xs"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => {
+                            setEditingChecklistId(null);
+                            setChecklistItems([]);
+                          }}
+                        >
+                          ביטול
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => handleUpdateChecklist(task.id)}
+                          isLoading={updateMutation.isPending}
+                        >
+                          שמור צ׳קליסט
+                        </Button>
+                      </div>
+                    </div>
                   ) : (
                     <div className="flex items-center gap-3">
                       <div className="flex-1">
@@ -444,18 +620,25 @@ export default function AdminTasksPage() {
                         {task.description && (
                           <p className="text-sm text-gray-500 mt-0.5">{task.description}</p>
                         )}
-                        {task.requirements && task.requirements.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-2">
-                            {task.requirements.map((req) => (
-                              <span
-                                key={req.id}
-                                className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded"
-                              >
-                                {req.quantity}× {req.skill?.displayName || getSkillName(req.skillId)}
-                              </span>
-                            ))}
-                          </div>
-                        )}
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {task.requirements && task.requirements.length > 0 && (
+                            <div className="flex flex-wrap gap-1">
+                              {task.requirements.map((req) => (
+                                <span
+                                  key={req.id}
+                                  className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded"
+                                >
+                                  {req.quantity}× {req.skill?.displayName || getSkillName(req.skillId)}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          {(task as any).checklistItems && (task as any).checklistItems.length > 0 && (
+                            <span className="text-xs bg-purple-100 text-purple-800 px-2 py-0.5 rounded">
+                              {(task as any).checklistItems.length} סעיפי צ׳קליסט
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <span
                         className={`px-2 py-1 text-xs rounded ${
@@ -466,6 +649,13 @@ export default function AdminTasksPage() {
                       >
                         {task.isActive ? 'פעיל' : 'לא פעיל'}
                       </span>
+                      <button
+                        onClick={() => startEditingChecklist(task)}
+                        className="p-1 text-gray-500 hover:text-purple-600"
+                        title="ערוך צ׳קליסט"
+                      >
+                        <Check className="w-4 h-4" />
+                      </button>
                       <button
                         onClick={() => startEditingRequirements(task)}
                         className="p-1 text-gray-500 hover:text-military-600"

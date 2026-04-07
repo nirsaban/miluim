@@ -504,9 +504,24 @@ export class ShiftAssignmentsService {
     };
   }
 
-  async confirmArrival(assignmentId: string, userId: string) {
+  async confirmArrival(
+    assignmentId: string, 
+    userId: string, 
+    checklistData?: { 
+      items: { checklistItemId: string; checked: boolean; note?: string }[] 
+    }
+  ) {
     const assignment = await this.prisma.shiftAssignment.findUnique({
       where: { id: assignmentId },
+      include: {
+        task: {
+          include: {
+            checklistItems: {
+              where: { isActive: true, isRequired: true }
+            }
+          }
+        }
+      }
     });
 
     if (!assignment) {
@@ -519,6 +534,38 @@ export class ShiftAssignmentsService {
 
     if (assignment.arrivedAt) {
       throw new BadRequestException('Already confirmed arrival');
+    }
+
+    // Validate required checklist items if provided
+    if (assignment.task.checklistItems.length > 0) {
+      if (!checklistData) {
+        throw new BadRequestException('נא למלא את הצ׳קליסט לפני אישור הגעה');
+      }
+
+      const requiredIds = assignment.task.checklistItems.map(i => i.id);
+      const submittedIds = checklistData.items.filter(i => i.checked).map(i => i.checklistItemId);
+      
+      const missingRequired = requiredIds.filter(id => !submittedIds.includes(id));
+      if (missingRequired.length > 0) {
+        throw new BadRequestException('יש למלא את כל סעיפי החובה בצ׳קליסט');
+      }
+
+      // Save checklist submission
+      await this.prisma.shiftChecklistSubmission.create({
+        data: {
+          shiftAssignmentId: assignmentId,
+          userId,
+          taskId: assignment.taskId,
+          completed: true,
+          items: {
+            create: checklistData.items.map(item => ({
+              checklistItemId: item.checklistItemId,
+              checked: item.checked,
+              note: item.note
+            }))
+          }
+        }
+      });
     }
 
     return this.prisma.shiftAssignment.update({
@@ -538,6 +585,38 @@ export class ShiftAssignmentsService {
         },
       },
     });
+  }
+
+  async getAssignmentChecklist(assignmentId: string) {
+    const assignment = await this.prisma.shiftAssignment.findUnique({
+      where: { id: assignmentId },
+      include: {
+        task: {
+          include: {
+            checklistItems: {
+              where: { isActive: true },
+              orderBy: { sortOrder: 'asc' }
+            }
+          }
+        },
+        checklistSubmission: {
+          include: {
+            items: true
+          }
+        }
+      }
+    });
+
+    if (!assignment) {
+      throw new NotFoundException('Assignment not found');
+    }
+
+    return {
+      taskId: assignment.taskId,
+      taskName: assignment.task.name,
+      checklistItems: assignment.task.checklistItems,
+      submission: assignment.checklistSubmission
+    };
   }
 
   async updateActiveStatus(
@@ -1341,7 +1420,12 @@ export class ShiftAssignmentsService {
       include: {
         shiftTemplate: true,
         task: {
-          include: { zone: true },
+          include: { 
+            zone: true,
+            checklistItems: {
+              where: { isActive: true }
+            }
+          },
         },
         soldier: {
           select: {
@@ -1352,6 +1436,16 @@ export class ShiftAssignmentsService {
             role: true,
           },
         },
+        checklistSubmission: {
+          include: {
+            items: {
+              include: {
+                checklistItem: true
+              }
+            }
+          }
+        },
+        reports: true,
       },
       orderBy: [{ task: { name: 'asc' } }, { soldier: { fullName: 'asc' } }],
     });
@@ -1386,6 +1480,9 @@ export class ShiftAssignmentsService {
         missingItems: assignment.missingItems,
         status: assignment.status,
         isCommander,
+        checklistSubmission: assignment.checklistSubmission,
+        reportsCount: assignment.reports.length,
+        reports: assignment.reports,
       });
 
       if (isCommander) {

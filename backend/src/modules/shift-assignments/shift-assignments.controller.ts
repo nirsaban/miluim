@@ -52,10 +52,22 @@ export class ShiftAssignmentsController {
     return this.shiftAssignmentsService.getShiftOfficerDuty(user.id);
   }
 
-  @Post('active/:id/arrive')
-  confirmArrival(@Param('id') id: string, @CurrentUser() user: any) {
-    return this.shiftAssignmentsService.confirmArrival(id, user.id);
+  @Post(':id/confirm-arrival')
+  confirmArrival(
+    @Param('id') id: string, 
+    @CurrentUser() user: any,
+    @Body() checklistData?: { 
+      items: { checklistItemId: string; checked: boolean; note?: string }[] 
+    }
+  ) {
+    return this.shiftAssignmentsService.confirmArrival(id, user.id, checklistData);
   }
+
+  @Get(':id/checklist')
+  getAssignmentChecklist(@Param('id') id: string) {
+    return this.shiftAssignmentsService.getAssignmentChecklist(id);
+  }
+
 
   @Patch('active/:id/status')
   updateActiveStatus(

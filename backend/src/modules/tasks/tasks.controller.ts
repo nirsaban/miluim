@@ -57,6 +57,13 @@ export class TasksController {
       description?: string;
       requiredPeopleCount?: number;
       requirements?: TaskRequirementInput[];
+      checklistItems?: {
+        label: string;
+        description?: string;
+        externalLink?: string;
+        isRequired?: boolean;
+        sortOrder?: number;
+      }[];
     },
   ) {
     return this.tasksService.create(data);
@@ -67,7 +74,22 @@ export class TasksController {
   @Roles('ADMIN')
   update(
     @Param('id') id: string,
-    @Body() data: { name?: string; description?: string; isActive?: boolean; zoneId?: string; requiredPeopleCount?: number },
+    @Body() data: { 
+      name?: string; 
+      description?: string; 
+      isActive?: boolean; 
+      zoneId?: string; 
+      requiredPeopleCount?: number;
+      checklistItems?: {
+        id?: string;
+        label: string;
+        description?: string;
+        externalLink?: string;
+        isRequired?: boolean;
+        sortOrder?: number;
+        isActive?: boolean;
+      }[];
+    },
   ) {
     return this.tasksService.update(id, data);
   }

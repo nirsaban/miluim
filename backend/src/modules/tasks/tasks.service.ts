@@ -14,8 +14,12 @@ export class TasksService {
     requirements: {
       include: { skill: true },
     },
+    checklistItems: {
+      where: { isActive: true },
+      orderBy: { sortOrder: 'asc' },
+    },
     zone: true,
-  };
+  } as const;
 
   async findAll() {
     return this.prisma.task.findMany({
@@ -35,7 +39,15 @@ export class TasksService {
 
   async findAllAdmin() {
     return this.prisma.task.findMany({
-      include: this.includeRequirements,
+      include: {
+        requirements: {
+          include: { skill: true },
+        },
+        checklistItems: {
+          orderBy: { sortOrder: 'asc' },
+        },
+        zone: true,
+      },
       orderBy: [{ zone: { name: 'asc' } }, { name: 'asc' }],
     });
   }
@@ -43,7 +55,15 @@ export class TasksService {
   async findOne(id: string) {
     const task = await this.prisma.task.findUnique({
       where: { id },
-      include: this.includeRequirements,
+      include: {
+        requirements: {
+          include: { skill: true },
+        },
+        checklistItems: {
+          orderBy: { sortOrder: 'asc' },
+        },
+        zone: true,
+      },
     });
 
     if (!task) {
@@ -59,6 +79,13 @@ export class TasksService {
     description?: string;
     requiredPeopleCount?: number;
     requirements?: TaskRequirementInput[];
+    checklistItems?: {
+      label: string;
+      description?: string;
+      externalLink?: string;
+      isRequired?: boolean;
+      sortOrder?: number;
+    }[];
   }) {
     // Verify zone exists
     const zone = await this.prisma.zone.findUnique({
@@ -69,7 +96,7 @@ export class TasksService {
       throw new BadRequestException('אזור לא נמצא');
     }
 
-    // Create task with requirements
+    // Create task with requirements and checklist items
     return this.prisma.task.create({
       data: {
         zoneId: data.zoneId,
@@ -84,12 +111,38 @@ export class TasksService {
               })),
             }
           : undefined,
+        checklistItems: data.checklistItems?.length
+          ? {
+              create: data.checklistItems.map((item) => ({
+                label: item.label,
+                description: item.description,
+                externalLink: item.externalLink,
+                isRequired: item.isRequired ?? true,
+                sortOrder: item.sortOrder ?? 0,
+              })),
+            }
+          : undefined,
       },
       include: this.includeRequirements,
     });
   }
 
-  async update(id: string, data: { name?: string; description?: string; isActive?: boolean; zoneId?: string; requiredPeopleCount?: number }) {
+  async update(id: string, data: { 
+    name?: string; 
+    description?: string; 
+    isActive?: boolean; 
+    zoneId?: string; 
+    requiredPeopleCount?: number;
+    checklistItems?: {
+      id?: string;
+      label: string;
+      description?: string;
+      externalLink?: string;
+      isRequired?: boolean;
+      sortOrder?: number;
+      isActive?: boolean;
+    }[];
+  }) {
     const task = await this.prisma.task.findUnique({ where: { id } });
 
     if (!task) {
@@ -103,6 +156,40 @@ export class TasksService {
       if (!zone) {
         throw new BadRequestException('אזור לא נמצא');
       }
+    }
+
+    // Handle checklist items update if provided
+    if (data.checklistItems) {
+      // This is a simplified approach: update existing, create new, keep rest
+      // A more robust approach would delete removed items, but here we use isActive flag
+      await Promise.all(
+        data.checklistItems.map((item) => {
+          if (item.id) {
+            return this.prisma.taskChecklistItem.update({
+              where: { id: item.id },
+              data: {
+                label: item.label,
+                description: item.description,
+                externalLink: item.externalLink,
+                isRequired: item.isRequired,
+                sortOrder: item.sortOrder,
+                isActive: item.isActive,
+              },
+            });
+          } else {
+            return this.prisma.taskChecklistItem.create({
+              data: {
+                taskId: id,
+                label: item.label,
+                description: item.description,
+                externalLink: item.externalLink,
+                isRequired: item.isRequired ?? true,
+                sortOrder: item.sortOrder ?? 0,
+              },
+            });
+          }
+        }),
+      );
     }
 
     return this.prisma.task.update({

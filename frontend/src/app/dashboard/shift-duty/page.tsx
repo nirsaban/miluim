@@ -26,6 +26,9 @@ import {
   HelpCircle,
   X,
   Shield,
+  ClipboardList,
+  FileText,
+  ExternalLink,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { UserLayout } from '@/components/layout/UserLayout';
@@ -66,6 +69,7 @@ interface CurrentShiftOverview {
         id: string;
         name: string;
         zone?: { id: string; name: string };
+        checklistItems?: any[];
       };
       soldiers: Array<{
         id: string;
@@ -81,6 +85,9 @@ interface CurrentShiftOverview {
         missingItems: string | null;
         status: string;
         isCommander: boolean;
+        checklistSubmission?: any;
+        reportsCount: number;
+        reports?: any[];
       }>;
       commanderCount: number;
     }>;
@@ -124,6 +131,8 @@ export default function ShiftDutyPage() {
   const queryClient = useQueryClient();
   const [expandedTasks, setExpandedTasks] = useState<string[]>([]);
   const [showCommandersModal, setShowCommandersModal] = useState(false);
+  const [selectedChecklist, setSelectedChecklist] = useState<{ soldier: string, submission: any } | null>(null);
+  const [selectedReports, setSelectedReports] = useState<{ soldier: string, reports: any[] } | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // Get current shift overview (current shift only, not full day)
@@ -478,6 +487,57 @@ export default function ShiftDutyPage() {
                         </div>
 
                         <div className="flex items-center gap-2">
+                          {/* Checklist Status */}
+                          {soldierData.arrivedAt && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (soldierData.checklistSubmission) {
+                                  setSelectedChecklist({ soldier: soldierData.soldier.fullName, submission: soldierData.checklistSubmission });
+                                } else {
+                                  toast.error('לא הוגש צ׳קליסט');
+                                }
+                              }}
+                              className={cn(
+                                'p-2 rounded-lg transition-colors',
+                                soldierData.checklistSubmission 
+                                  ? 'text-purple-600 bg-purple-50 hover:bg-purple-100' 
+                                  : 'text-gray-300 bg-gray-50'
+                              )}
+                              title={soldierData.checklistSubmission ? 'צפה בצ׳קליסט' : 'לא מולא צ׳קליסט'}
+                            >
+                              <ClipboardList className="w-4 h-4" />
+                            </button>
+                          )}
+
+                          {/* Reports Status */}
+                          {soldierData.arrivedAt && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (soldierData.reportsCount > 0) {
+                                  setSelectedReports({ soldier: soldierData.soldier.fullName, reports: soldierData.reports || [] });
+                                } else {
+                                  toast.error('לא הוגשו דיווחים');
+                                }
+                              }}
+                              className={cn(
+                                'p-2 rounded-lg transition-colors relative',
+                                soldierData.reportsCount > 0 
+                                  ? 'text-blue-600 bg-blue-50 hover:bg-blue-100' 
+                                  : 'text-gray-300 bg-gray-50'
+                              )}
+                              title={`${soldierData.reportsCount} דיווחים`}
+                            >
+                              <FileText className="w-4 h-4" />
+                              {soldierData.reportsCount > 0 && (
+                                <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center">
+                                  {soldierData.reportsCount}
+                                </span>
+                              )}
+                            </button>
+                          )}
+
                           {/* Battery level indicator */}
                           {soldierData.arrivedAt && (
                             <div
@@ -603,6 +663,84 @@ export default function ShiftDutyPage() {
               <Shield className="w-12 h-12 mx-auto mb-4 text-gray-300" />
               <p>אין מפקדים משובצים במשמרת הנוכחית</p>
             </div>
+          )}
+        </div>
+      </Modal>
+
+      {/* Checklist View Modal */}
+      <Modal
+        isOpen={!!selectedChecklist}
+        onClose={() => setSelectedChecklist(null)}
+        title={`צ׳קליסט - ${selectedChecklist?.soldier}`}
+        size="md"
+      >
+        <div className="space-y-3">
+          {selectedChecklist?.submission?.items?.map((item: any) => (
+            <div key={item.id} className="p-3 border rounded-xl bg-gray-50">
+              <div className="flex items-center justify-between mb-1 gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-gray-800">{item.checklistItem?.label}</span>
+                  {item.checklistItem?.externalLink && (
+                    <a 
+                      href={item.checklistItem.externalLink} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-military-600 hover:text-military-700"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
+                </div>
+                {item.checked ? (
+                  <Badge variant="success">בוצע</Badge>
+                ) : (
+                  <Badge variant="outline">לא בוצע</Badge>
+                )}
+              </div>
+              {item.note && <p className="text-sm text-gray-600 mt-1">הערה: {item.note}</p>}
+            </div>
+          ))}
+          {(!selectedChecklist?.submission?.items || selectedChecklist.submission.items.length === 0) && (
+            <p className="text-center text-gray-500 py-4">לא נמצאו נתוני צ׳קליסט</p>
+          )}
+        </div>
+      </Modal>
+
+      {/* Reports View Modal */}
+      <Modal
+        isOpen={!!selectedReports}
+        onClose={() => setSelectedReports(null)}
+        title={`דיווחים - ${selectedReports?.soldier}`}
+        size="lg"
+      >
+        <div className="space-y-4 max-h-[70vh] overflow-y-auto px-1">
+          {selectedReports?.reports?.map((report: any) => (
+            <div key={report.id} className="p-4 border rounded-xl bg-white shadow-sm">
+              <div className="flex items-center justify-between mb-3 border-b pb-2">
+                <span className="font-bold text-lg text-military-700">{report.reportTitle}</span>
+                <span className="text-sm text-gray-500">
+                  {formatDate(report.reportDate, 'dd/MM/yyyy')} {report.reportTime && `• ${report.reportTime}`}
+                </span>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-2 text-sm mb-3">
+                {report.forceComposition && <div><span className="font-medium">סד״כ:</span> {report.forceComposition}</div>}
+                {report.vehicleNumber && <div><span className="font-medium">רכב:</span> {report.vehicleNumber}</div>}
+                {report.eventNumber && <div><span className="font-medium">מספר אירוע:</span> {report.eventNumber}</div>}
+              </div>
+
+              <div className="bg-gray-50 p-3 rounded-lg text-sm whitespace-pre-wrap mb-3">
+                {report.content}
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-sm italic text-gray-600">
+                {report.meansUsed && <div><span className="font-medium">אמצעים:</span> {report.meansUsed}</div>}
+                {report.closingResult && <div><span className="font-medium">סיום:</span> {report.closingResult}</div>}
+              </div>
+            </div>
+          ))}
+          {(!selectedReports?.reports || selectedReports.reports.length === 0) && (
+            <p className="text-center text-gray-500 py-4">לא נמצאו דיווחים</p>
           )}
         </div>
       </Modal>

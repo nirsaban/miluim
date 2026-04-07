@@ -21,6 +21,9 @@ import {
   UtensilsCrossed,
   Wrench,
   HelpCircle,
+  ClipboardList,
+  FileText,
+  ExternalLink,
 } from 'lucide-react';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
@@ -30,6 +33,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
+import { Input } from '@/components/ui/Input';
 import { useAuth } from '@/hooks/useAuth';
 import api from '@/lib/api';
 import { formatDate, formatWhatsAppLink, cn } from '@/lib/utils';
@@ -41,6 +45,20 @@ const SHIFT_REQUEST_CATEGORIES = [
   { id: 'report', label: 'דיווח', icon: MessageSquare, color: 'text-green-600' },
   { id: 'other', label: 'אחר', icon: HelpCircle, color: 'text-gray-600' },
 ];
+
+interface ChecklistItem {
+  id: string;
+  label: string;
+  description?: string;
+  externalLink?: string;
+  isRequired: boolean;
+}
+
+interface ChecklistSubmissionItem {
+  checklistItemId: string;
+  checked: boolean;
+  note?: string;
+}
 
 interface ShiftAssignment {
   id: string;
@@ -130,6 +148,25 @@ export default function ShiftsPage() {
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [requestMessage, setRequestMessage] = useState('');
+  
+  // Checklist State
+  const [showChecklistModal, setShowChecklistModal] = useState(false);
+  const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
+  const [checklistAnswers, setChecklistAnswers] = useState<Record<string, { checked: boolean, note: string }>>({});
+
+  // Report State
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportForm, setReportForm] = useState({
+    reportTitle: 'סיכום אירוע',
+    reportTime: '',
+    forceComposition: '',
+    vehicleNumber: '',
+    content: '',
+    meansUsed: '',
+    closingResult: '',
+    eventNumber: '',
+  });
+
   const queryClient = useQueryClient();
 
   const today = new Date();
@@ -178,19 +215,109 @@ export default function ShiftsPage() {
 
   // Confirm arrival mutation
   const confirmArrivalMutation = useMutation({
-    mutationFn: async (assignmentId: string) => {
-      const response = await api.post(`/shift-assignments/active/${assignmentId}/arrive`);
+    mutationFn: async (data: { assignmentId: string, checklist?: { items: ChecklistSubmissionItem[] } }) => {
+      const response = await api.post(`/shift-assignments/${data.assignmentId}/confirm-arrival`, data.checklist);
       return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['my-active-shift'] });
       queryClient.invalidateQueries({ queryKey: ['my-shifts'] });
       toast.success('הגעה אושרה בהצלחה!');
+      setShowChecklistModal(false);
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || 'שגיאה באישור הגעה');
     },
   });
+
+  const handleArrivalClick = async () => {
+    if (!myTodayShift) return;
+
+    try {
+      // Fetch checklist for this assignment
+      const response = await api.get(`/shift-assignments/${myTodayShift.id}/checklist`);
+      const data = response.data;
+
+      if (data.checklistItems && data.checklistItems.length > 0) {
+        setChecklistItems(data.checklistItems);
+        // Initialize answers
+        const initialAnswers: Record<string, { checked: boolean, note: string }> = {};
+        data.checklistItems.forEach((item: ChecklistItem) => {
+          initialAnswers[item.id] = { checked: false, note: '' };
+        });
+        setChecklistAnswers(initialAnswers);
+        setShowChecklistModal(true);
+      } else {
+        // No checklist, just confirm arrival
+        confirmArrivalMutation.mutate({ assignmentId: myTodayShift.id });
+      }
+    } catch (error) {
+      toast.error('שגיאה בטעינת צ׳קליסט');
+      // Fallback: try confirming without checklist
+      confirmArrivalMutation.mutate({ assignmentId: myTodayShift.id });
+    }
+  };
+
+  const handleConfirmArrivalWithChecklist = () => {
+    if (!myTodayShift) return;
+
+    // Validate required items
+    const missingRequired = checklistItems
+      .filter(item => item.isRequired)
+      .filter(item => !checklistAnswers[item.id]?.checked);
+
+    if (missingRequired.length > 0) {
+      toast.error(`יש למלא את כל סעיפי החובה: ${missingRequired.map(i => i.label).join(', ')}`);
+      return;
+    }
+
+    const items: ChecklistSubmissionItem[] = Object.entries(checklistAnswers).map(([id, ans]) => ({
+      checklistItemId: id,
+      checked: ans.checked,
+      note: ans.note || undefined
+    }));
+
+    confirmArrivalMutation.mutate({
+      assignmentId: myTodayShift.id,
+      checklist: { items }
+    });
+  };
+
+  // Create report mutation
+  const createReportMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await api.post('/shift-reports', {
+        ...data,
+        shiftAssignmentId: myTodayShift?.id,
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      toast.success('הדו״ח נשמר בהצלחה');
+      setShowReportModal(false);
+      setReportForm({
+        reportTitle: 'סיכום אירוע',
+        reportTime: '',
+        forceComposition: '',
+        vehicleNumber: '',
+        content: '',
+        meansUsed: '',
+        closingResult: '',
+        eventNumber: '',
+      });
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'שגיאה בשמירת הדו״ח');
+    },
+  });
+
+  const handleReportSubmit = () => {
+    if (!reportForm.content.trim()) {
+      toast.error('נא למלא את תוכן הדו״ח');
+      return;
+    }
+    createReportMutation.mutate(reportForm);
+  };
 
   // Update status mutation
   const updateStatusMutation = useMutation({
@@ -218,8 +345,8 @@ export default function ShiftsPage() {
           category: data.category,
           message: data.message,
           shiftId: data.shiftId,
-          shiftName: myTodayShift?.shiftTemplate.displayName,
-          taskName: myTodayShift?.task.name,
+          shiftName: myTodayShift?.shiftTemplate?.displayName,
+          taskName: myTodayShift?.task?.name,
           submittedAt: new Date().toISOString(),
         },
       });
@@ -361,12 +488,26 @@ export default function ShiftsPage() {
                         <span className="font-medium text-yellow-700">אנא אשר את הגעתך למשמרת</span>
                       </div>
                       <Button
-                        onClick={() => confirmArrivalMutation.mutate(myTodayShift.id)}
+                        onClick={handleArrivalClick}
                         isLoading={confirmArrivalMutation.isPending}
                         className="w-full"
                       >
                         <CheckCircle className="w-4 h-4 ml-2" />
                         אישור הגעה
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Shift Report Button - Show only if arrived */}
+                  {myTodayShift.arrivedAt && (
+                    <div className="mb-4">
+                      <Button
+                        onClick={() => setShowReportModal(true)}
+                        variant="secondary"
+                        className="w-full bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
+                      >
+                        <FileText className="w-4 h-4 ml-2" />
+                        הוסף דיווח אירוע / סיכום
                       </Button>
                     </div>
                   )}
@@ -672,6 +813,191 @@ export default function ShiftsPage() {
           </Card>
         </>
       )}
+
+      {/* Checklist Modal */}
+      <Modal
+        isOpen={showChecklistModal}
+        onClose={() => setShowChecklistModal(false)}
+        title="צ׳קליסט תחילת משמרת"
+        size="md"
+      >
+        <div className="space-y-4">
+          <div className="bg-blue-50 p-3 rounded-lg flex items-start gap-2 mb-4">
+            <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5" />
+            <div className="text-sm text-blue-800">
+              יש למלא את הצ׳קליסט המקצועי לפני תחילת המשמרת ב-<b>{myTodayShift?.task?.name}</b>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {checklistItems.map((item) => (
+              <div key={item.id} className="p-3 border rounded-xl hover:bg-gray-50 transition-colors">
+                <div className="flex items-start gap-3">
+                  <div className="mt-1">
+                    <input
+                      type="checkbox"
+                      id={`check-${item.id}`}
+                      checked={checklistAnswers[item.id]?.checked || false}
+                      onChange={(e) => setChecklistAnswers({
+                        ...checklistAnswers,
+                        [item.id]: { ...checklistAnswers[item.id], checked: e.target.checked }
+                      })}
+                      className="w-5 h-5 rounded border-gray-300 text-military-600 focus:ring-military-500"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <label htmlFor={`check-${item.id}`} className="font-bold text-gray-800 flex items-center gap-1">
+                        {item.label}
+                        {item.isRequired && <span className="text-red-500 text-xs">(חובה)</span>}
+                      </label>
+                      {item.externalLink && (
+                        <a 
+                          href={item.externalLink} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-military-600 hover:text-military-700 flex items-center gap-1 text-xs font-medium bg-military-50 px-2 py-1 rounded"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          קישור למסמך
+                        </a>
+                      )}
+                    </div>
+                    {item.description && <p className="text-xs text-gray-500">{item.description}</p>}
+                    
+                    <Input
+                      placeholder="הערה (אופציונלי)"
+                      value={checklistAnswers[item.id]?.note || ''}
+                      onChange={(e) => setChecklistAnswers({
+                        ...checklistAnswers,
+                        [item.id]: { ...checklistAnswers[item.id], note: e.target.value }
+                      })}
+                      className="mt-2 h-8 text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <Button
+              onClick={handleConfirmArrivalWithChecklist}
+              isLoading={confirmArrivalMutation.isPending}
+              className="flex-1"
+            >
+              <CheckCircle className="w-4 h-4 ml-2" />
+              אישור הגעה והתחלת משמרת
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => setShowChecklistModal(false)}
+            >
+              ביטול
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Shift Report Modal */}
+      <Modal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        title="דיווח אירוע / סיכום פעילות"
+        size="lg"
+      >
+        <div className="space-y-4 max-h-[70vh] overflow-y-auto px-1">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">כותרת הדו״ח</label>
+              <Input
+                value={reportForm.reportTitle}
+                onChange={(e) => setReportForm({...reportForm, reportTitle: e.target.value})}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">מספר אירוע (אם יש)</label>
+              <Input
+                value={reportForm.eventNumber}
+                onChange={(e) => setReportForm({...reportForm, eventNumber: e.target.value})}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">שעה</label>
+              <Input
+                type="time"
+                value={reportForm.reportTime}
+                onChange={(e) => setReportForm({...reportForm, reportTime: e.target.value})}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">סד״כ</label>
+              <Input
+                placeholder="למשל: 3 שוטרים"
+                value={reportForm.forceComposition}
+                onChange={(e) => setReportForm({...reportForm, forceComposition: e.target.value})}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">מספר רכב</label>
+              <Input
+                value={reportForm.vehicleNumber}
+                onChange={(e) => setReportForm({...reportForm, vehicleNumber: e.target.value})}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">תוכן האירוע / הדיווח</label>
+            <textarea
+              value={reportForm.content}
+              onChange={(e) => setReportForm({...reportForm, content: e.target.value})}
+              rows={6}
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-military-500 resize-none"
+              placeholder="פרט מה קרה..."
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">שימוש באמצעים</label>
+              <Input
+                placeholder="למשל: גז פלפל, ללא שימוש"
+                value={reportForm.meansUsed}
+                onChange={(e) => setReportForm({...reportForm, meansUsed: e.target.value})}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">סיום / תוצאה</label>
+              <Input
+                placeholder="למשל: ללא חריגים, עצור אחד"
+                value={reportForm.closingResult}
+                onChange={(e) => setReportForm({...reportForm, closingResult: e.target.value})}
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-3 pt-4 sticky bottom-0 bg-white">
+            <Button
+              onClick={handleReportSubmit}
+              isLoading={createReportMutation.isPending}
+              className="flex-1"
+            >
+              <Send className="w-4 h-4 ml-2" />
+              שמור ושלח דו״ח
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => setShowReportModal(false)}
+            >
+              ביטול
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </UserLayout>
   );
 }

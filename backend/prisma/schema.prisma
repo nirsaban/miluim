@@ -211,6 +211,10 @@ model User {
   createdEmergencies        EmergencyEvent[]             @relation("EmergencyCreator")
   emergencyAcknowledgements EmergencyAcknowledgement[]   @relation("EmergencyAcknowledgements")
 
+  // Shift Management relations
+  shiftChecklistSubmissions ShiftChecklistSubmission[]
+  shiftReports             ShiftReport[]
+
   @@map("users")
 }
 
@@ -500,6 +504,7 @@ model Task {
 
   requirements     TaskRequirement[]  // Optional skill suggestions
   shiftAssignments ShiftAssignment[]
+  checklistItems   TaskChecklistItem[]
 
   @@map("tasks")
 }
@@ -591,6 +596,9 @@ model ShiftAssignment {
 
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt
+
+  checklistSubmission ShiftChecklistSubmission?
+  reports             ShiftReport[]
 
   @@unique([date, shiftTemplateId, taskId, soldierId])
   @@map("shift_assignments")
@@ -824,3 +832,86 @@ model EmergencyAcknowledgement {
   @@unique([emergencyEventId, userId])
   @@map("emergency_acknowledgements")
 }
+
+// ============================================================
+// SHIFT CHECKLISTS & REPORTS
+// ============================================================
+
+model TaskChecklistItem {
+  id          String   @id @default(uuid())
+  taskId      String
+  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  label       String   // e.g., "Check vehicle condition"
+  description String?  // Optional helper text
+  externalLink String? // Optional link to a guide or form
+  sortOrder   Int      @default(0)
+  isRequired  Boolean  @default(true)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  submissionItems ShiftChecklistSubmissionItem[]
+
+  @@map("task_checklist_items")
+}
+
+model ShiftChecklistSubmission {
+  id                String   @id @default(uuid())
+  shiftAssignmentId String   @unique
+  shiftAssignment   ShiftAssignment @relation(fields: [shiftAssignmentId], references: [id], onDelete: Cascade)
+  userId            String
+  user              User            @relation(fields: [userId], references: [id])
+  taskId            String
+  submittedAt       DateTime @default(now())
+  completed         Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  items ShiftChecklistSubmissionItem[]
+
+  @@map("shift_checklist_submissions")
+}
+
+model ShiftChecklistSubmissionItem {
+  id           String   @id @default(uuid())
+  submissionId String
+  submission   ShiftChecklistSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  checklistItemId String
+  checklistItem   TaskChecklistItem @relation(fields: [checklistItemId], references: [id], onDelete: Cascade)
+  checked      Boolean  @default(false)
+  note         String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([submissionId, checklistItemId])
+  @@map("shift_checklist_submission_items")
+}
+
+model ShiftReport {
+  id                String   @id @default(uuid())
+  shiftAssignmentId String
+  shiftAssignment   ShiftAssignment @relation(fields: [shiftAssignmentId], references: [id], onDelete: Cascade)
+  userId            String
+  user              User            @relation(fields: [userId], references: [id])
+  taskId            String
+  zoneId            String?
+  shiftTemplateId   String?
+  
+  reportTitle       String   @default("סיכום אירוע")
+  reportDate        DateTime @default(now())
+  reportTime        String?  // HH:MM
+  forceComposition  String?  // סד"כ
+  vehicleNumber     String?
+  content           String   @db.Text
+  meansUsed         String?  // שימוש באמצעים
+  closingResult     String?  // סיום / תוצאה
+  eventNumber       String?
+  
+  formattedSummary  String?  @db.Text
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("shift_reports")
+}
+
