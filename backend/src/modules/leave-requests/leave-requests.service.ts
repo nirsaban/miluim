@@ -3,6 +3,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { LeaveType, LeaveStatus, ReserveServiceCycleStatus, ServiceAttendanceStatus, UserRole, MilitaryRole } from '@prisma/client';
 import { isDutyOfficer, isAdminMilitaryRole } from '../../common/constants/permissions';
 import { PushService } from '../push/push.service';
+import { CompanyScopeService, CompanyScopedUser } from '../../common/services/company-scope.service';
 
 @Injectable()
 export class LeaveRequestsService {
@@ -11,6 +12,7 @@ export class LeaveRequestsService {
   constructor(
     private prisma: PrismaService,
     private pushService: PushService,
+    private companyScopeService: CompanyScopeService,
   ) {}
 
   private readonly includeRelations = {
@@ -36,15 +38,32 @@ export class LeaveRequestsService {
   private async getDepartmentSoldierIds(
     userId: string,
     userRole: UserRole,
-    militaryRole?: MilitaryRole
+    militaryRole?: MilitaryRole,
+    user?: CompanyScopedUser,
   ): Promise<string[] | null> {
-    // ADMIN role sees all - return null to skip filtering
+    const companyFilter = user ? this.companyScopeService.getCompanyFilter(user) : {};
+
+    // ADMIN role sees all (within company) - return null to skip department filtering
     if (userRole === 'ADMIN') {
+      if (companyFilter.companyId) {
+        const companySoldiers = await this.prisma.user.findMany({
+          where: { isActive: true, ...companyFilter },
+          select: { id: true },
+        });
+        return companySoldiers.map(s => s.id);
+      }
       return null;
     }
 
-    // Admin-level military roles (PLATOON_COMMANDER, SERGEANT_MAJOR, OPERATIONS_SGT) see all
+    // Admin-level military roles (PLATOON_COMMANDER, SERGEANT_MAJOR, OPERATIONS_SGT) see all (within company)
     if (militaryRole && isAdminMilitaryRole(militaryRole)) {
+      if (companyFilter.companyId) {
+        const companySoldiers = await this.prisma.user.findMany({
+          where: { isActive: true, ...companyFilter },
+          select: { id: true },
+        });
+        return companySoldiers.map(s => s.id);
+      }
       return null;
     }
 
@@ -60,7 +79,7 @@ export class LeaveRequestsService {
       }
 
       const departmentSoldiers = await this.prisma.user.findMany({
-        where: { departmentId: officer.departmentId, isActive: true },
+        where: { departmentId: officer.departmentId, isActive: true, ...companyFilter },
         select: { id: true },
       });
 
@@ -79,7 +98,7 @@ export class LeaveRequestsService {
       }
 
       const departmentSoldiers = await this.prisma.user.findMany({
-        where: { departmentId: officer.departmentId, isActive: true },
+        where: { departmentId: officer.departmentId, isActive: true, ...companyFilter },
         select: { id: true },
       });
 
@@ -268,8 +287,8 @@ export class LeaveRequestsService {
     }
   }
 
-  async findPending(userId: string, userRole: UserRole, militaryRole?: MilitaryRole) {
-    const soldierIds = await this.getDepartmentSoldierIds(userId, userRole, militaryRole);
+  async findPending(userId: string, userRole: UserRole, militaryRole?: MilitaryRole, user?: CompanyScopedUser) {
+    const soldierIds = await this.getDepartmentSoldierIds(userId, userRole, militaryRole, user);
 
     return this.prisma.leaveRequest.findMany({
       where: {
@@ -281,8 +300,8 @@ export class LeaveRequestsService {
     });
   }
 
-  async findActive(userId: string, userRole: UserRole, militaryRole?: MilitaryRole) {
-    const soldierIds = await this.getDepartmentSoldierIds(userId, userRole, militaryRole);
+  async findActive(userId: string, userRole: UserRole, militaryRole?: MilitaryRole, user?: CompanyScopedUser) {
+    const soldierIds = await this.getDepartmentSoldierIds(userId, userRole, militaryRole, user);
 
     return this.prisma.leaveRequest.findMany({
       where: {
@@ -294,8 +313,8 @@ export class LeaveRequestsService {
     });
   }
 
-  async findOverdue(userId: string, userRole: UserRole, militaryRole?: MilitaryRole) {
-    const soldierIds = await this.getDepartmentSoldierIds(userId, userRole, militaryRole);
+  async findOverdue(userId: string, userRole: UserRole, militaryRole?: MilitaryRole, user?: CompanyScopedUser) {
+    const soldierIds = await this.getDepartmentSoldierIds(userId, userRole, militaryRole, user);
     const now = new Date();
 
     return this.prisma.leaveRequest.findMany({
@@ -309,11 +328,11 @@ export class LeaveRequestsService {
     });
   }
 
-  async getDashboard(userId: string, userRole: UserRole, militaryRole?: MilitaryRole) {
+  async getDashboard(userId: string, userRole: UserRole, militaryRole?: MilitaryRole, user?: CompanyScopedUser) {
     const now = new Date();
 
     // Get department soldier IDs for OFFICER/DUTY_OFFICER filtering
-    const departmentSoldierIds = await this.getDepartmentSoldierIds(userId, userRole, militaryRole);
+    const departmentSoldierIds = await this.getDepartmentSoldierIds(userId, userRole, militaryRole, user);
 
     // Get current active cycle and arrived soldiers
     const cycle = await this.getCurrentActiveCycle();
@@ -702,8 +721,9 @@ export class LeaveRequestsService {
     userId: string,
     userRole: UserRole,
     militaryRole?: MilitaryRole,
+    user?: CompanyScopedUser,
   ) {
-    const soldierIds = await this.getDepartmentSoldierIds(userId, userRole, militaryRole);
+    const soldierIds = await this.getDepartmentSoldierIds(userId, userRole, militaryRole, user);
 
     return this.prisma.leaveRequest.findMany({
       where: {

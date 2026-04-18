@@ -8,14 +8,21 @@ import {
   ReserveServiceCycleStatus,
   ServiceAttendanceStatus,
 } from '@prisma/client';
+import { CompanyScopeService, CompanyScopedUser } from '../../common/services/company-scope.service';
 
 @Injectable()
 export class ServiceCyclesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private companyScopeService: CompanyScopeService,
+  ) {}
 
   // Get all service cycles
-  async findAll() {
+  async findAll(user?: CompanyScopedUser) {
     return this.prisma.reserveServiceCycle.findMany({
+      where: {
+        ...(user ? this.companyScopeService.getCompanyFilter(user) : {}),
+      },
       include: {
         createdBy: {
           select: { id: true, fullName: true },
@@ -32,9 +39,9 @@ export class ServiceCyclesService {
   }
 
   // Get current active service cycle
-  async findCurrentActive() {
+  async findCurrentActive(user?: CompanyScopedUser) {
     const cycle = await this.prisma.reserveServiceCycle.findFirst({
-      where: { status: ReserveServiceCycleStatus.ACTIVE },
+      where: { status: ReserveServiceCycleStatus.ACTIVE, ...(user ? this.companyScopeService.getCompanyFilter(user) : {}) },
       include: {
         createdBy: {
           select: { id: true, fullName: true },
@@ -85,8 +92,11 @@ export class ServiceCyclesService {
       startDate: Date;
       endDate?: Date;
       location?: string;
+      locationLat?: number;
+      locationLng?: number;
       status?: ReserveServiceCycleStatus;
     },
+    user?: CompanyScopedUser,
   ) {
     // Check if another active cycle exists when trying to create an ACTIVE one
     if (data.status === ReserveServiceCycleStatus.ACTIVE) {
@@ -105,6 +115,7 @@ export class ServiceCyclesService {
       data: {
         ...data,
         createdById: userId,
+        ...(user?.companyId ? { companyId: user.companyId } : {}),
       },
       include: {
         createdBy: {
@@ -123,6 +134,8 @@ export class ServiceCyclesService {
       startDate?: Date;
       endDate?: Date;
       location?: string;
+      locationLat?: number;
+      locationLng?: number;
       status?: ReserveServiceCycleStatus;
     },
   ) {
@@ -161,8 +174,8 @@ export class ServiceCyclesService {
   }
 
   // Get dashboard summary for current active cycle
-  async getCurrentCycleSummary() {
-    const currentCycle = await this.findCurrentActive();
+  async getCurrentCycleSummary(user?: CompanyScopedUser) {
+    const currentCycle = await this.findCurrentActive(user);
 
     if (!currentCycle) {
       return null;

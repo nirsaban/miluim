@@ -2,26 +2,30 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth, useIsFullAdmin } from '@/hooks/useAuth';
+import { useAuth, useIsFullAdmin, useIsBattalionAdmin } from '@/hooks/useAuth';
 import { Spinner } from '@/components/ui/Spinner';
 
 export default function DashboardPage() {
   const { user, isHydrated } = useAuth();
   const isFullAdmin = useIsFullAdmin();
+  const isBattalionAdmin = useIsBattalionAdmin();
   const router = useRouter();
 
   // Redirect users based on role:
+  // - BATTALION_ADMIN → /battalion
   // - ADMIN users (full admin) → /admin/status
   // - Other users → /dashboard/home
   useEffect(() => {
     if (isHydrated && user) {
-      if (isFullAdmin) {
+      if (isBattalionAdmin) {
+        router.replace('/battalion');
+      } else if (isFullAdmin) {
         router.replace('/admin/status');
       } else {
         router.replace('/dashboard/home');
       }
     }
-  }, [isHydrated, user, isFullAdmin, router]);
+  }, [isHydrated, user, isFullAdmin, isBattalionAdmin, router]);
 
   // Show loading while redirecting
   return (

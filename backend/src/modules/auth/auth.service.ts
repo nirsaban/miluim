@@ -181,6 +181,8 @@ export class AuthService {
       role: user.role,
       militaryRole: user.militaryRole,
       departmentId: user.departmentId,
+      companyId: user.companyId,
+      battalionId: user.battalionId,
     };
 
     const token = this.jwtService.sign(payload);
@@ -199,6 +201,8 @@ export class AuthService {
         role: user.role,
         militaryRole: user.militaryRole,
         department: user.department,
+        companyId: user.companyId,
+        battalionId: user.battalionId,
         hasPasskey: user.webAuthnCredentials.length > 0,
       },
     };
@@ -215,6 +219,8 @@ export class AuthService {
         role: true,
         militaryRole: true,
         departmentId: true,
+        companyId: true,
+        battalionId: true,
         phone: true,
         isActive: true,
         isRegistered: true,

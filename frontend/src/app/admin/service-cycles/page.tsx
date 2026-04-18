@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Plus,
@@ -38,7 +38,63 @@ export default function AdminServiceCyclesPage() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [location, setLocation] = useState('');
+  const [locationLat, setLocationLat] = useState<number | null>(null);
+  const [locationLng, setLocationLng] = useState<number | null>(null);
   const [status, setStatus] = useState<ReserveServiceCycleStatus>('PLANNED');
+
+  // City autocomplete state
+  const [cityQuery, setCityQuery] = useState('');
+  const [citySuggestions, setCitySuggestions] = useState<{ name: string; englishName: string }[]>([]);
+  const [showCitySuggestions, setShowCitySuggestions] = useState(false);
+  const [isGeocodingCity, setIsGeocodingCity] = useState(false);
+  const cityInputRef = useRef<HTMLDivElement>(null);
+
+  // Debounced city search
+  useEffect(() => {
+    if (cityQuery.length < 1) {
+      setCitySuggestions([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const res = await api.get(`/geo/cities?q=${encodeURIComponent(cityQuery)}`);
+        setCitySuggestions(res.data);
+        setShowCitySuggestions(true);
+      } catch {
+        setCitySuggestions([]);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [cityQuery]);
+
+  // Close suggestions on click outside
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (cityInputRef.current && !cityInputRef.current.contains(e.target as Node)) {
+        setShowCitySuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  const selectCity = async (cityName: string) => {
+    setLocation(cityName);
+    setCityQuery(cityName);
+    setShowCitySuggestions(false);
+    setIsGeocodingCity(true);
+    try {
+      const res = await api.get(`/geo/geocode?city=${encodeURIComponent(cityName)}`);
+      if (res.data && res.data.lat) {
+        setLocationLat(res.data.lat);
+        setLocationLng(res.data.lng);
+      }
+    } catch {
+      // Geocoding failed — location saved without coordinates
+    } finally {
+      setIsGeocodingCity(false);
+    }
+  };
 
   const { data: cycles, isLoading } = useQuery<ReserveServiceCycle[]>({
     queryKey: ['service-cycles'],
@@ -111,6 +167,9 @@ export default function AdminServiceCyclesPage() {
     setStartDate('');
     setEndDate('');
     setLocation('');
+    setLocationLat(null);
+    setLocationLng(null);
+    setCityQuery('');
     setStatus('PLANNED');
     setShowForm(false);
     setEditingCycle(null);
@@ -123,6 +182,9 @@ export default function AdminServiceCyclesPage() {
     setStartDate(cycle.startDate.split('T')[0]);
     setEndDate(cycle.endDate?.split('T')[0] || '');
     setLocation(cycle.location || '');
+    setCityQuery(cycle.location || '');
+    setLocationLat(cycle.locationLat ?? null);
+    setLocationLng(cycle.locationLng ?? null);
     setStatus(cycle.status);
     setShowForm(true);
   };
@@ -130,12 +192,14 @@ export default function AdminServiceCyclesPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    const data = {
+    const data: any = {
       name,
       description: description || undefined,
       startDate,
       endDate: endDate || undefined,
       location: location || undefined,
+      locationLat: locationLat ?? undefined,
+      locationLng: locationLng ?? undefined,
       status,
     };
 
@@ -189,12 +253,43 @@ export default function AdminServiceCyclesPage() {
                   placeholder="מילטק – אילת – מרץ 2026"
                   required
                 />
-                <Input
-                  label="מיקום"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  placeholder="אילת"
-                />
+                <div ref={cityInputRef} className="relative">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">מיקום</label>
+                  <input
+                    type="text"
+                    value={cityQuery}
+                    onChange={(e) => {
+                      setCityQuery(e.target.value);
+                      setLocation(e.target.value);
+                      setLocationLat(null);
+                      setLocationLng(null);
+                    }}
+                    onFocus={() => cityQuery.length >= 1 && citySuggestions.length > 0 && setShowCitySuggestions(true)}
+                    placeholder="הקלד שם עיר..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-military-500"
+                  />
+                  {isGeocodingCity && (
+                    <span className="absolute left-3 top-9 text-xs text-gray-400">מאתר מיקום...</span>
+                  )}
+                  {locationLat && (
+                    <span className="absolute left-3 top-9 text-xs text-green-600">✓ מיקום נמצא</span>
+                  )}
+                  {showCitySuggestions && citySuggestions.length > 0 && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                      {citySuggestions.map((city, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          className="w-full px-3 py-2 text-right text-sm hover:bg-gray-100 flex justify-between items-center"
+                          onClick={() => selectCity(city.name)}
+                        >
+                          <span className="font-medium">{city.name}</span>
+                          <span className="text-xs text-gray-400">{city.englishName}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <Input
                   label="תאריך התחלה"
                   type="date"

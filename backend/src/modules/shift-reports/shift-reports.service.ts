@@ -3,10 +3,14 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { Document, Packer, Paragraph, TextRun, AlignmentType, HeadingLevel } from 'docx';
 import { format } from 'date-fns';
 import { he } from 'date-fns/locale';
+import { CompanyScopeService, CompanyScopedUser } from '../../common/services/company-scope.service';
 
 @Injectable()
 export class ShiftReportsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private companyScopeService: CompanyScopeService,
+  ) {}
 
   async create(userId: string, data: {
     shiftAssignmentId: string;
@@ -62,8 +66,13 @@ export class ShiftReportsService {
     taskId?: string;
     zoneId?: string;
     eventNumber?: string;
-  }) {
-    const where: any = {};
+  }, user?: CompanyScopedUser) {
+    const companyFilter = user ? this.companyScopeService.getCompanyFilter(user) : {};
+    const where: any = {
+      ...(companyFilter.companyId && {
+        shiftAssignment: { soldier: { companyId: companyFilter.companyId } },
+      }),
+    };
 
     if (filters.startDate || filters.endDate) {
       where.reportDate = {};

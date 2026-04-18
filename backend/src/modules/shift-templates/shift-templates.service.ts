@@ -1,13 +1,17 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { CompanyScopeService, CompanyScopedUser } from '../../common/services/company-scope.service';
 
 @Injectable()
 export class ShiftTemplatesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private companyScopeService: CompanyScopeService,
+  ) {}
 
-  async findAll() {
+  async findAll(user?: CompanyScopedUser) {
     return this.prisma.shiftTemplate.findMany({
-      where: { isActive: true },
+      where: { isActive: true, ...(user ? this.companyScopeService.getCompanyFilter(user) : {}) },
       orderBy: { sortOrder: 'asc' },
     });
   }
@@ -37,9 +41,12 @@ export class ShiftTemplatesService {
     endTime: string;
     color?: string;
     sortOrder?: number;
-  }) {
+  }, user?: CompanyScopedUser) {
     return this.prisma.shiftTemplate.create({
-      data,
+      data: {
+        ...data,
+        ...(user?.companyId ? { companyId: user.companyId } : {}),
+      },
     });
   }
 

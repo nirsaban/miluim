@@ -4,6 +4,8 @@ import { Prisma } from '@prisma/client';
 
 // Map of Prisma model names to their table names
 const MODEL_TABLE_MAP: Record<string, string> = {
+  battalion: 'battalions',
+  company: 'companies',
   department: 'departments',
   permission: 'permissions',
   rolePermission: 'role_permissions',
@@ -38,6 +40,12 @@ const MODEL_TABLE_MAP: Record<string, string> = {
   serviceVehicle: 'service_vehicles',
   socialActivity: 'social_activities',
   socialActivityParticipant: 'social_activity_participants',
+  emergencyEvent: 'emergency_events',
+  emergencyAcknowledgement: 'emergency_acknowledgements',
+  taskChecklistItem: 'task_checklist_items',
+  shiftChecklistSubmission: 'shift_checklist_submissions',
+  shiftChecklistSubmissionItem: 'shift_checklist_submission_items',
+  shiftReport: 'shift_reports',
 };
 
 // Reverse map for table name to model name lookup

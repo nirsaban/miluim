@@ -1,13 +1,17 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { CompanyScopeService, CompanyScopedUser } from '../../common/services/company-scope.service';
 
 @Injectable()
 export class SkillsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private companyScopeService: CompanyScopeService,
+  ) {}
 
-  async findAll() {
+  async findAll(user?: CompanyScopedUser) {
     return this.prisma.skill.findMany({
-      where: { isActive: true },
+      where: { isActive: true, ...(user ? this.companyScopeService.getCompanyFilter(user) : {}) },
       orderBy: { displayName: 'asc' },
     });
   }
@@ -40,8 +44,8 @@ export class SkillsService {
     return skill;
   }
 
-  async create(data: { name: string; displayName: string }) {
-    const existing = await this.prisma.skill.findUnique({
+  async create(data: { name: string; displayName: string }, user?: CompanyScopedUser) {
+    const existing = await this.prisma.skill.findFirst({
       where: { name: data.name },
     });
 
@@ -53,6 +57,7 @@ export class SkillsService {
       data: {
         name: data.name.toUpperCase(),
         displayName: data.displayName,
+        ...(user?.companyId ? { companyId: user.companyId } : {}),
       },
     });
   }
@@ -65,7 +70,7 @@ export class SkillsService {
     }
 
     if (data.name && data.name !== skill.name) {
-      const existing = await this.prisma.skill.findUnique({
+      const existing = await this.prisma.skill.findFirst({
         where: { name: data.name },
       });
       if (existing) {

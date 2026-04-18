@@ -1,13 +1,17 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { CompanyScopeService, CompanyScopedUser } from '../../common/services/company-scope.service';
 
 @Injectable()
 export class LeaveCategoriesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private companyScopeService: CompanyScopeService,
+  ) {}
 
-  async findAll() {
+  async findAll(user?: CompanyScopedUser) {
     return this.prisma.leaveCategory.findMany({
-      where: { isActive: true },
+      where: { isActive: true, ...(user ? this.companyScopeService.getCompanyFilter(user) : {}) },
       orderBy: { displayName: 'asc' },
     });
   }
@@ -30,8 +34,8 @@ export class LeaveCategoriesService {
     return category;
   }
 
-  async create(data: { name: string; displayName: string; icon?: string }) {
-    const existing = await this.prisma.leaveCategory.findUnique({
+  async create(data: { name: string; displayName: string; icon?: string }, user?: CompanyScopedUser) {
+    const existing = await this.prisma.leaveCategory.findFirst({
       where: { name: data.name },
     });
 
@@ -40,7 +44,10 @@ export class LeaveCategoriesService {
     }
 
     return this.prisma.leaveCategory.create({
-      data,
+      data: {
+        ...data,
+        ...(user?.companyId ? { companyId: user.companyId } : {}),
+      },
     });
   }
 

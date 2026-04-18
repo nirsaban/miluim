@@ -306,6 +306,8 @@ export class WebAuthnService {
         role: user.role,
         militaryRole: user.militaryRole,
         departmentId: user.departmentId,
+        companyId: user.companyId,
+        battalionId: user.battalionId,
       };
 
       const token = this.jwtService.sign(payload);
@@ -324,6 +326,8 @@ export class WebAuthnService {
           role: user.role,
           militaryRole: user.militaryRole,
           department: user.department,
+          companyId: user.companyId,
+          battalionId: user.battalionId,
           hasPasskey: true,
         },
       };

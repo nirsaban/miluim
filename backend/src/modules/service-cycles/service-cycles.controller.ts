@@ -61,6 +61,8 @@ export class ServiceCyclesController {
       startDate: string;
       endDate?: string;
       location?: string;
+      locationLat?: number;
+      locationLng?: number;
       status?: ReserveServiceCycleStatus;
     },
   ) {
@@ -84,6 +86,8 @@ export class ServiceCyclesController {
       startDate?: string;
       endDate?: string;
       location?: string;
+      locationLat?: number;
+      locationLng?: number;
       status?: ReserveServiceCycleStatus;
     },
   ) {

@@ -1,14 +1,19 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { CompanyScopeService, CompanyScopedUser } from '../../common/services/company-scope.service';
 
 @Injectable()
 export class OperationalLinksService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private companyScopeService: CompanyScopeService,
+  ) {}
 
-  async findAll() {
+  async findAll(user?: CompanyScopedUser) {
     return this.prisma.operationalLink.findMany({
       where: {
         isActive: true,
+        ...(user ? this.companyScopeService.getCompanyFilter(user) : {}),
       },
       include: {
         createdBy: {
@@ -49,13 +54,14 @@ export class OperationalLinksService {
     description?: string;
     url: string;
     createdById: string;
-  }) {
+  }, user?: CompanyScopedUser) {
     return this.prisma.operationalLink.create({
       data: {
         title: data.title,
         description: data.description,
         url: data.url,
         createdById: data.createdById,
+        ...(user?.companyId ? { companyId: user.companyId } : {}),
       },
       include: {
         createdBy: {

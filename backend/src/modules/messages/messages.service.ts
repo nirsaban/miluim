@@ -3,12 +3,14 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { MessageType, MessagePriority, MessageTargetAudience, UserRole, MilitaryRole } from '@prisma/client';
 import { PushService } from '../push/push.service';
 import { isDutyOfficer, isAdminMilitaryRole } from '../../common/constants/permissions';
+import { CompanyScopeService, CompanyScopedUser } from '../../common/services/company-scope.service';
 
 @Injectable()
 export class MessagesService {
   constructor(
     private prisma: PrismaService,
     private pushService: PushService,
+    private companyScopeService: CompanyScopeService,
   ) {}
 
   // Helper to determine which targetAudiences a user can see based on their role
@@ -42,11 +44,12 @@ export class MessagesService {
     }
   }
 
-  async findAll(type?: MessageType) {
+  async findAll(type?: MessageType, user?: CompanyScopedUser) {
     return this.prisma.message.findMany({
       where: {
         isActive: true,
         ...(type && { type }),
+        ...(user ? this.companyScopeService.getCompanyFilter(user) : {}),
       },
       orderBy: [
         { priority: 'desc' },
@@ -91,6 +94,7 @@ export class MessagesService {
       departmentId?: string; // Optional: for department-scoped messages
     },
     creatorId?: string,
+    scopedUser?: CompanyScopedUser,
   ) {
     // Determine department scoping
     let departmentId: string | null = data.departmentId || null;
@@ -121,6 +125,7 @@ export class MessagesService {
         requiresConfirmation: data.requiresConfirmation || false,
         createdById: creatorId,
         departmentId: departmentId,
+        ...(scopedUser?.companyId ? { companyId: scopedUser.companyId } : {}),
       },
     });
 
@@ -214,13 +219,14 @@ export class MessagesService {
   /**
    * Find messages for a specific department (including global messages)
    */
-  async findForDepartment(departmentId: string, userId: string, userRole: UserRole) {
+  async findForDepartment(departmentId: string, userId: string, userRole: UserRole, scopedUser?: CompanyScopedUser) {
     const visibleAudiences = this.getVisibleAudiences(userRole);
 
     const messages = await this.prisma.message.findMany({
       where: {
         isActive: true,
         targetAudience: { in: visibleAudiences },
+        ...(scopedUser ? this.companyScopeService.getCompanyFilter(scopedUser) : {}),
         OR: [
           { departmentId: null }, // Global messages
           { departmentId: departmentId }, // Department-specific messages
@@ -454,7 +460,7 @@ export class MessagesService {
     return !!confirmation;
   }
 
-  async findAllWithConfirmationStatus(userId: string, userRole: UserRole, type?: MessageType) {
+  async findAllWithConfirmationStatus(userId: string, userRole: UserRole, type?: MessageType, scopedUser?: CompanyScopedUser) {
     // Get audiences this user can see based on their role
     const visibleAudiences = this.getVisibleAudiences(userRole);
 
@@ -463,6 +469,7 @@ export class MessagesService {
         isActive: true,
         targetAudience: { in: visibleAudiences },
         ...(type && { type }),
+        ...(scopedUser ? this.companyScopeService.getCompanyFilter(scopedUser) : {}),
       },
       include: {
         confirmations: {

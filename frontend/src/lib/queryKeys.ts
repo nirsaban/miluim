@@ -71,6 +71,15 @@ export const queryKeys = {
   // Workloads
   workloads: ['workloads'] as const,
   adminWorkloads: ['admin-workloads'] as const,
+
+  // Battalion
+  battalions: ['battalions'] as const,
+  companies: ['companies'] as const,
+  battalionOverview: ['battalion-overview'] as const,
+  battalionAttendance: ['battalion-attendance'] as const,
+  battalionManpower: ['battalion-manpower'] as const,
+  battalionLeaves: ['battalion-leaves'] as const,
+  battalionActiveServices: ['battalion-active-services'] as const,
 };
 
 /**

@@ -2,17 +2,26 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../../prisma/prisma.service';
 import { ShiftAssignmentStatus, FormType } from '@prisma/client';
 import { getIsraelTodayStart, getCurrentIsraelTime } from '../../common/utils/timezone';
+import { CompanyScopeService, CompanyScopedUser } from '../../common/services/company-scope.service';
 
 @Injectable()
 export class ShiftAssignmentsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private companyScopeService: CompanyScopeService,
+  ) {}
 
-  async findByDateRange(startDate: Date, endDate: Date, zoneId?: string) {
+  async findByDateRange(startDate: Date, endDate: Date, zoneId?: string, user?: CompanyScopedUser) {
+    const companyFilter = user ? this.companyScopeService.getCompanyFilter(user) : {};
+
     const where: any = {
       date: {
         gte: startDate,
         lte: endDate,
       },
+      ...(companyFilter.companyId && {
+        soldier: { companyId: companyFilter.companyId },
+      }),
     };
 
     if (zoneId) {
@@ -52,7 +61,7 @@ export class ShiftAssignmentsService {
     return this.findByDateRange(date, date, zoneId);
   }
 
-  async getAvailableSoldiers(date: Date, shiftTemplateId: string, taskId?: string) {
+  async getAvailableSoldiers(date: Date, shiftTemplateId: string, taskId?: string, user?: CompanyScopedUser) {
     // Find the current active service cycle
     const currentCycle = await this.prisma.reserveServiceCycle.findFirst({
       where: { status: 'ACTIVE' },
@@ -78,6 +87,8 @@ export class ShiftAssignmentsService {
       });
     }
 
+    const companyFilter = user ? this.companyScopeService.getCompanyFilter(user) : {};
+
     // Get all active soldiers with their skills
     // Only include soldiers who confirmed arrival for the current service cycle
     // Exclude soldiers who are on leave for this date
@@ -85,6 +96,7 @@ export class ShiftAssignmentsService {
       where: {
         isActive: true,
         role: { not: 'ADMIN' },
+        ...companyFilter,
         // Exclude soldiers with active leave on this date
         id: { notIn: soldiersOnLeaveIds.length > 0 ? soldiersOnLeaveIds : ['no-exclude'] },
         // Only include soldiers who have ARRIVED status in the current service cycle
@@ -1189,7 +1201,7 @@ export class ShiftAssignmentsService {
     startDate?: Date;
     endDate?: Date;
     departmentId?: string;
-  }) {
+  }, user?: CompanyScopedUser) {
     const where: any = {
       status: { in: [ShiftAssignmentStatus.COMPLETED, ShiftAssignmentStatus.CONFIRMED] },
     };
@@ -1204,9 +1216,16 @@ export class ShiftAssignmentsService {
       }
     }
 
+    const companyFilter = user ? this.companyScopeService.getCompanyFilter(user) : {};
+
     // Get all assignments with soldier and shift template info
     const assignments = await this.prisma.shiftAssignment.findMany({
-      where,
+      where: {
+        ...where,
+        ...(companyFilter.companyId && {
+          soldier: { companyId: companyFilter.companyId },
+        }),
+      },
       include: {
         soldier: {
           select: {

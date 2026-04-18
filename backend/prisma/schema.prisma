@@ -26,6 +26,7 @@ enum UserRole {
   OFFICER           // Manages their department + leave requests from department
   LOGISTICS         // Manages operational links, shifts, zones
   ADMIN             // Full system control
+  BATTALION_ADMIN   // Cross-company super admin - manages all companies in battalion
   SYSTEM_TECHNICAL  // Developer access - hidden from UI, full DB access
 }
 
@@ -104,18 +105,71 @@ enum RecommendationCategory {
   OTHER
 }
 
+// Battalion Model - top-level organizational unit
+model Battalion {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  description String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  companies   Company[]
+  admins      User[]    @relation("BattalionAdmins")
+
+  @@map("battalions")
+}
+
+// Company Model - organizational unit under battalion
+model Company {
+  id           String    @id @default(uuid())
+  battalionId  String
+  battalion    Battalion @relation(fields: [battalionId], references: [id])
+  name         String
+  code         String
+  description  String?
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // Relations
+  users               User[]
+  departments         Department[]
+  zones               Zone[]
+  shiftTemplates      ShiftTemplate[]
+  shiftSchedules      ShiftSchedule[]
+  skills              Skill[]
+  leaveCategories     LeaveCategory[]
+  operationalLinks    OperationalLink[]
+  reserveServiceCycles ReserveServiceCycle[]
+  messages            Message[]
+  emergencyEvents     EmergencyEvent[]
+  socialActivities    SocialActivity[]
+  shiftPosts          ShiftPost[]
+
+  @@unique([battalionId, code])
+  @@index([battalionId])
+  @@map("companies")
+}
+
 // Department Model
 model Department {
   id        String   @id @default(uuid())
-  name      String   @unique // e.g., "platoon_1"
-  code      String   @unique // e.g., "1"
+  name      String   // e.g., "platoon_1"
+  code      String   // e.g., "1"
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id])
+
   users    User[]
   messages Message[]
 
+  @@unique([companyId, name])
+  @@unique([companyId, code])
+  @@index([companyId])
   @@map("departments")
 }
 
@@ -160,6 +214,12 @@ model User {
   // Legacy role field - kept for backward compatibility
   role           UserRole      @default(SOLDIER)
 
+  // Multi-company support
+  companyId      String?
+  company        Company?      @relation(fields: [companyId], references: [id])
+  battalionId    String?
+  battalion      Battalion?    @relation("BattalionAdmins", fields: [battalionId], references: [id])
+
   // Additional fields
   armyNumber     String        @unique
   idNumber       String        @unique
@@ -202,6 +262,8 @@ model User {
 
   // WebAuthn/Passkey credentials
   webAuthnCredentials     WebAuthnCredential[]
+
+  @@index([companyId])
 
   // Social Activities relations
   createdSocialActivities   SocialActivity[]             @relation("SocialActivityCreator")
@@ -285,11 +347,16 @@ model Message {
   departmentId         String?
   department           Department?           @relation(fields: [departmentId], references: [id])
 
+  // Multi-company support (null = battalion-wide message)
+  companyId            String?
+  company              Company?              @relation(fields: [companyId], references: [id])
+
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
 
   confirmations MessageConfirmation[]
 
+  @@index([companyId])
   @@map("messages")
 }
 
@@ -316,6 +383,10 @@ model ShiftPost {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
+  companyId   String?
+  company     Company?  @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
   @@map("shift_posts")
 }
 
@@ -414,19 +485,28 @@ model OperationalLink {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  companyId   String?
+  company     Company? @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
   @@map("operational_links")
 }
 
 model LeaveCategory {
   id          String   @id @default(uuid())
-  name        String   @unique
+  name        String
   displayName String
   icon        String?
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
 
+  companyId   String?
+  company     Company? @relation(fields: [companyId], references: [id])
+
   leaveRequests LeaveRequest[]
 
+  @@unique([companyId, name])
+  @@index([companyId])
   @@map("leave_categories")
 }
 
@@ -453,15 +533,20 @@ model LeaveRequest {
 
 model Skill {
   id          String   @id @default(uuid())
-  name        String   @unique
+  name        String
   displayName String
   description String?
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
 
+  companyId   String?
+  company     Company? @relation(fields: [companyId], references: [id])
+
   soldiers         SoldierSkill[]
   taskRequirements TaskRequirement[]
 
+  @@unique([companyId, name])
+  @@index([companyId])
   @@map("skills")
 }
 
@@ -479,15 +564,20 @@ model SoldierSkill {
 
 model Zone {
   id          String   @id @default(uuid())
-  name        String   @unique
+  name        String
   description String?
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  companyId   String?
+  company     Company? @relation(fields: [companyId], references: [id])
+
   tasks          Task[]
   shiftSchedules ShiftSchedule[]
 
+  @@unique([companyId, name])
+  @@index([companyId])
   @@map("zones")
 }
 
@@ -538,7 +628,7 @@ enum ShiftScheduleStatus {
 
 model ShiftTemplate {
   id          String   @id @default(uuid())
-  name        String   @unique
+  name        String
   displayName String
   startTime   String   // HH:MM format
   endTime     String   // HH:MM format
@@ -548,8 +638,13 @@ model ShiftTemplate {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  companyId   String?
+  company     Company? @relation(fields: [companyId], references: [id])
+
   assignments ShiftAssignment[]
 
+  @@unique([companyId, name])
+  @@index([companyId])
   @@map("shift_templates")
 }
 
@@ -567,12 +662,16 @@ model ShiftSchedule {
   shiftOfficerId String?
   shiftOfficer   User?               @relation("ShiftOfficer", fields: [shiftOfficerId], references: [id])
 
+  companyId     String?
+  company       Company?            @relation(fields: [companyId], references: [id])
+
   createdAt     DateTime            @default(now())
   updatedAt     DateTime            @updatedAt
 
   assignments ShiftAssignment[]
 
-  @@unique([date, zoneId])
+  @@unique([companyId, date, zoneId])
+  @@index([companyId])
   @@map("shift_schedules")
 }
 
@@ -641,10 +740,15 @@ model ReserveServiceCycle {
   startDate   DateTime                   @db.Date // תאריך התחלה
   endDate     DateTime?                  @db.Date // תאריך סיום
   location    String?                    // מיקום
+  locationLat Float?                     // קו רוחב
+  locationLng Float?                     // קו אורך
   status      ReserveServiceCycleStatus  @default(PLANNED)
 
   createdById String
   createdBy   User                       @relation("ServiceCycleCreator", fields: [createdById], references: [id])
+
+  companyId   String?
+  company     Company?                   @relation(fields: [companyId], references: [id])
 
   createdAt   DateTime                   @default(now())
   updatedAt   DateTime                   @updatedAt
@@ -655,6 +759,7 @@ model ReserveServiceCycle {
   vehicles           ServiceVehicle[]
   emergencyEvents    EmergencyEvent[]
 
+  @@index([companyId])
   @@map("reserve_service_cycles")
 }
 
@@ -756,6 +861,9 @@ model SocialActivity {
   createdById String
   createdBy   User                 @relation("SocialActivityCreator", fields: [createdById], references: [id])
 
+  companyId   String?
+  company     Company?             @relation(fields: [companyId], references: [id])
+
   // Timestamps
   createdAt   DateTime             @default(now())
   updatedAt   DateTime             @updatedAt
@@ -763,6 +871,7 @@ model SocialActivity {
   // Relations
   participants SocialActivityParticipant[]
 
+  @@index([companyId])
   @@map("social_activities")
 }
 
@@ -810,6 +919,9 @@ model EmergencyEvent {
   expiresAt       DateTime             // startedAt + 30 דקות
   status          EmergencyEventStatus @default(ACTIVE)
 
+  companyId       String?
+  company         Company?             @relation(fields: [companyId], references: [id])
+
   // Snapshot of target users at creation time (users who need to report)
   targetUserIds   String[]             // רשימת מזהי משתמשים שצריכים לדווח
 
@@ -818,6 +930,7 @@ model EmergencyEvent {
 
   acknowledgements EmergencyAcknowledgement[]
 
+  @@index([companyId])
   @@map("emergency_events")
 }
 

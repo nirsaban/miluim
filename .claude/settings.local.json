@@ -42,7 +42,22 @@
       "Bash(qlmanage:*)",
       "Bash(do sips -z $size $size logo.svg.png --out icon-$sizex$size.png)",
       "Bash(open http://localhost:3000/auth/login)",
-      "Bash(do sips -z $size $size new.png --out icon-$sizex$size.png)"
+      "Bash(do sips -z $size $size new.png --out icon-$sizex$size.png)",
+      "Bash(npx prisma:*)",
+      "Bash(docker-compose -f docker-compose.dev.yml up -d)",
+      "Bash(docker rm *)",
+      "Bash(npx ts-node *)",
+      "Bash(npm run *)",
+      "Bash(curl -s http://localhost:3001/api/)",
+      "Bash(curl -s -X POST http://localhost:3001/api/auth/login -H 'Content-Type: application/json' -d '{\"personalId\":\"1000000\",\"password\":\"Yogev2024!\"}')",
+      "Bash(python3 -m json.tool)",
+      "Bash(curl -s http://localhost:3001/api/battalions -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJmMzRhMDJiZi01ODJhLTQ4MDEtOGRhNy1jNzg0OWVmOTM3MzciLCJwZXJzb25hbElkIjoiMTAwMDAwMCIsImVtYWlsIjoic2FtYWxAeW9nZXYuaWRmIiwicm9sZSI6IkFETUlOIiwibWlsaXRhcnlSb2xlIjoiU0VSR0VBTlRfTUFKT1IiLCJkZXBhcnRtZW50SWQiOiIxNzE1ODBlYi03MDZhLTRiOWYtYmY4Ni1mYWE3MTM3MTAzMWYiLCJjb21wYW55SWQiOiJkZWZhdWx0LWNvbXBhbnkiLCJiYXR0YWxpb25JZCI6bnVsbCwiaWF0IjoxNzc2NTQxMjU2LCJleHAiOjE3NzY1ODQ0NTZ9.tKd-DcZeQwIBSdv0Ebn5G46hzLUNPodoAEfufEN9v4E')",
+      "Bash(curl -s http://localhost:3001/api/companies -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJmMzRhMDJiZi01ODJhLTQ4MDEtOGRhNy1jNzg0OWVmOTM3MzciLCJwZXJzb25hbElkIjoiMTAwMDAwMCIsImVtYWlsIjoic2FtYWxAeW9nZXYuaWRmIiwicm9sZSI6IkFETUlOIiwibWlsaXRhcnlSb2xlIjoiU0VSR0VBTlRfTUFKT1IiLCJkZXBhcnRtZW50SWQiOiIxNzE1ODBlYi03MDZhLTRiOWYtYmY4Ni1mYWE3MTM3MTAzMWYiLCJjb21wYW55SWQiOiJkZWZhdWx0LWNvbXBhbnkiLCJiYXR0YWxpb25JZCI6bnVsbCwiaWF0IjoxNzc2NTQxMjU2LCJleHAiOjE3NzY1ODQ0NTZ9.tKd-DcZeQwIBSdv0Ebn5G46hzLUNPodoAEfufEN9v4E')",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000)",
+      "Bash(curl *)",
+      "WebSearch",
+      "WebFetch(domain:data.gov.il)",
+      "WebFetch(domain:raw.githubusercontent.com)"
     ]
   }
 }

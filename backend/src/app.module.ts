@@ -35,6 +35,11 @@ import { TestSetupModule } from './modules/test-setup/test-setup.module';
 import { SystemModule } from './modules/system/system.module';
 import { SocialActivitiesModule } from './modules/social-activities/social-activities.module';
 import { EmergencyModule } from './modules/emergency/emergency.module';
+import { BattalionModule } from './modules/battalion/battalion.module';
+import { CompanyModule } from './modules/company/company.module';
+import { BattalionDashboardModule } from './modules/battalion-dashboard/battalion-dashboard.module';
+import { CompanyScopeModule } from './common/services/company-scope.module';
+import { GeoModule } from './modules/geo/geo.module';
 
 @Module({
   imports: [
@@ -82,6 +87,11 @@ import { EmergencyModule } from './modules/emergency/emergency.module';
     SystemModule,
     SocialActivitiesModule,
     EmergencyModule,
+    CompanyScopeModule,
+    BattalionModule,
+    CompanyModule,
+    BattalionDashboardModule,
+    GeoModule,
   ],
 })
 export class AppModule {}

@@ -13,6 +13,7 @@ import {
   LeaveStatus,
 } from '@prisma/client';
 import { PushService } from '../push/push.service';
+import { CompanyScopeService, CompanyScopedUser } from '../../common/services/company-scope.service';
 
 const DEFAULT_EMERGENCY_DURATION_MINUTES = 30;
 const MIN_EMERGENCY_DURATION_MINUTES = 5;
@@ -25,6 +26,7 @@ export class EmergencyService {
   constructor(
     private prisma: PrismaService,
     private pushService: PushService,
+    private companyScopeService: CompanyScopeService,
   ) {}
 
   /**
@@ -41,7 +43,7 @@ export class EmergencyService {
    * - ALL users who arrived to the current service cycle (ARRIVED or LATE)
    * - Includes users on leave - everyone must report they're safe
    */
-  private async getTargetUserIds(): Promise<string[]> {
+  private async getTargetUserIds(user?: CompanyScopedUser): Promise<string[]> {
     const cycle = await this.getCurrentActiveCycle();
 
     if (!cycle) {
@@ -49,14 +51,21 @@ export class EmergencyService {
       return [];
     }
 
+    const companyFilter = user ? this.companyScopeService.getCompanyFilter(user) : {};
+
     // Get ALL users who arrived to the current cycle (including those on leave)
-    const arrivedAttendances = await this.prisma.serviceAttendance.findMany({
-      where: {
-        serviceCycleId: cycle.id,
-        attendanceStatus: {
-          in: [ServiceAttendanceStatus.ARRIVED, ServiceAttendanceStatus.LATE],
-        },
+    const serviceWhere: any = {
+      serviceCycleId: cycle.id,
+      attendanceStatus: {
+        in: [ServiceAttendanceStatus.ARRIVED, ServiceAttendanceStatus.LATE],
       },
+      ...(companyFilter.companyId && {
+        user: { companyId: companyFilter.companyId },
+      }),
+    };
+
+    const arrivedAttendances = await this.prisma.serviceAttendance.findMany({
+      where: serviceWhere,
       select: { userId: true },
     });
 
@@ -87,6 +96,7 @@ export class EmergencyService {
     adminId: string,
     title?: string,
     durationMinutes?: number,
+    user?: CompanyScopedUser,
   ): Promise<any> {
     // Validate and set duration
     let duration = durationMinutes || DEFAULT_EMERGENCY_DURATION_MINUTES;
@@ -99,9 +109,12 @@ export class EmergencyService {
     // Auto-expire any past events first
     await this.autoExpireEvents();
 
+    const companyFilter = user ? this.companyScopeService.getCompanyFilter(user) : {};
+
     // Check if there's already an active emergency
+    const existingActiveWhere: any = { status: EmergencyEventStatus.ACTIVE, ...companyFilter };
     const existingActive = await this.prisma.emergencyEvent.findFirst({
-      where: { status: EmergencyEventStatus.ACTIVE },
+      where: existingActiveWhere,
     });
 
     if (existingActive) {
@@ -114,7 +127,7 @@ export class EmergencyService {
     const cycle = await this.getCurrentActiveCycle();
 
     // Get target users (snapshot at creation time)
-    const targetUserIds = await this.getTargetUserIds();
+    const targetUserIds = await this.getTargetUserIds(user);
 
     if (targetUserIds.length === 0) {
       throw new BadRequestException(
@@ -127,16 +140,18 @@ export class EmergencyService {
     const expiresAt = new Date(startedAt.getTime() + duration * 60 * 1000);
 
     // Create the emergency event
+    const createData: any = {
+      title: title || 'בדיקת מצב חירום',
+      serviceCycleId: cycle?.id,
+      createdById: adminId,
+      startedAt,
+      expiresAt,
+      status: EmergencyEventStatus.ACTIVE,
+      targetUserIds,
+      ...(user?.companyId && { companyId: user.companyId }),
+    };
     const emergency = await this.prisma.emergencyEvent.create({
-      data: {
-        title: title || 'בדיקת מצב חירום',
-        serviceCycleId: cycle?.id,
-        createdById: adminId,
-        startedAt,
-        expiresAt,
-        status: EmergencyEventStatus.ACTIVE,
-        targetUserIds,
-      },
+      data: createData,
       include: {
         createdBy: {
           select: { id: true, fullName: true },
@@ -192,12 +207,15 @@ export class EmergencyService {
   /**
    * Get the current active emergency event with stats
    */
-  async getActiveEmergency(): Promise<any | null> {
+  async getActiveEmergency(user?: CompanyScopedUser): Promise<any | null> {
     // Auto-expire any past events first
     await this.autoExpireEvents();
 
+    const companyFilter = user ? this.companyScopeService.getCompanyFilter(user) : {};
+
+    const activeWhere: any = { status: EmergencyEventStatus.ACTIVE, ...companyFilter };
     const emergency = await this.prisma.emergencyEvent.findFirst({
-      where: { status: EmergencyEventStatus.ACTIVE },
+      where: activeWhere,
       include: {
         createdBy: {
           select: { id: true, fullName: true },
@@ -468,8 +486,13 @@ export class EmergencyService {
   /**
    * Get historical emergency events (for admin view)
    */
-  async getEmergencyHistory(limit = 10): Promise<any[]> {
+  async getEmergencyHistory(limit = 10, user?: CompanyScopedUser): Promise<any[]> {
+    const companyFilter = user ? this.companyScopeService.getCompanyFilter(user) : {};
+
+    const emergencyWhere: any = { ...companyFilter };
+
     const events = await this.prisma.emergencyEvent.findMany({
+      where: emergencyWhere,
       include: {
         createdBy: {
           select: { id: true, fullName: true },

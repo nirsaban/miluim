@@ -176,12 +176,19 @@ export const useAuth = () => {
 
 import { isAdminMilitaryRole, isDutyOfficer as checkIsDutyOfficer, MilitaryRole } from '@/types';
 
-// Can access admin panel (ADMIN, OFFICER, LOGISTICS, SYSTEM_TECHNICAL - NOT COMMANDER)
+// Check if user is BATTALION_ADMIN
+export const useIsBattalionAdmin = () => {
+  const user = useAuthStore((state) => state.user);
+  return user?.role === 'BATTALION_ADMIN';
+};
+
+// Can access admin panel (ADMIN, OFFICER, LOGISTICS, SYSTEM_TECHNICAL, BATTALION_ADMIN - NOT COMMANDER)
 export const useIsAdmin = () => {
   const user = useAuthStore((state) => state.user);
   // Check UserRole OR admin-level MilitaryRole
   if (user?.role === 'ADMIN') return true;
   if (user?.role === 'SYSTEM_TECHNICAL') return true;
+  if (user?.role === 'BATTALION_ADMIN') return true;
   if (user?.role === 'OFFICER') return true;
   if (user?.role === 'LOGISTICS') return true;
   // Admin-level military roles (PLATOON_COMMANDER, SERGEANT_MAJOR, OPERATIONS_SGT)
@@ -195,6 +202,7 @@ export const useIsFullAdmin = () => {
   const user = useAuthStore((state) => state.user);
   if (user?.role === 'ADMIN') return true;
   if (user?.role === 'SYSTEM_TECHNICAL') return true;
+  if (user?.role === 'BATTALION_ADMIN') return true;
   if (user?.militaryRole && isAdminMilitaryRole(user.militaryRole)) return true;
   return false;
 };

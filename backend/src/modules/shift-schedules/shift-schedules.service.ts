@@ -2,20 +2,25 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../../prisma/prisma.service';
 import { PushService } from '../push/push.service';
 import { ShiftScheduleStatus } from '@prisma/client';
+import { CompanyScopeService, CompanyScopedUser } from '../../common/services/company-scope.service';
 
 @Injectable()
 export class ShiftSchedulesService {
   constructor(
     private prisma: PrismaService,
     private pushService: PushService,
+    private companyScopeService: CompanyScopeService,
   ) {}
 
-  async findOrCreate(date: Date, zoneId?: string) {
+  async findOrCreate(date: Date, zoneId?: string, user?: CompanyScopedUser) {
+    const companyFilter = user ? this.companyScopeService.getCompanyFilter(user) : {};
+
     // Try to find existing schedule
     let schedule = await this.prisma.shiftSchedule.findFirst({
       where: {
         date,
         zoneId: zoneId || null,
+        ...companyFilter,
       },
       include: {
         zone: true,
@@ -47,6 +52,7 @@ export class ShiftSchedulesService {
           date,
           zoneId: zoneId || null,
           status: 'DRAFT',
+          ...(user?.companyId && { companyId: user.companyId }),
         },
         include: {
           zone: true,
@@ -75,7 +81,9 @@ export class ShiftSchedulesService {
     return schedule;
   }
 
-  async findByDateRange(startDate: Date, endDate: Date, zoneId?: string) {
+  async findByDateRange(startDate: Date, endDate: Date, zoneId?: string, user?: CompanyScopedUser) {
+    const companyFilter = user ? this.companyScopeService.getCompanyFilter(user) : {};
+
     return this.prisma.shiftSchedule.findMany({
       where: {
         date: {
@@ -83,6 +91,7 @@ export class ShiftSchedulesService {
           lte: endDate,
         },
         ...(zoneId ? { zoneId } : {}),
+        ...companyFilter,
       },
       include: {
         zone: true,
@@ -144,12 +153,15 @@ export class ShiftSchedulesService {
     };
   }
 
-  async publish(date: Date, zoneId: string | undefined, userId: string, shiftTemplateId?: string) {
+  async publish(date: Date, zoneId: string | undefined, userId: string, shiftTemplateId?: string, user?: CompanyScopedUser) {
+    const companyFilter = user ? this.companyScopeService.getCompanyFilter(user) : {};
+
     // Find or create the schedule
     let schedule = await this.prisma.shiftSchedule.findFirst({
       where: {
         date,
         zoneId: zoneId || null,
+        ...companyFilter,
       },
     });
 
@@ -160,6 +172,7 @@ export class ShiftSchedulesService {
           date,
           zoneId: zoneId || null,
           status: 'DRAFT',
+          ...(user?.companyId && { companyId: user.companyId }),
         },
       });
     }
@@ -268,11 +281,14 @@ export class ShiftSchedulesService {
     };
   }
 
-  async unpublish(date: Date, zoneId?: string) {
+  async unpublish(date: Date, zoneId?: string, user?: CompanyScopedUser) {
+    const companyFilter = user ? this.companyScopeService.getCompanyFilter(user) : {};
+
     const schedule = await this.prisma.shiftSchedule.findFirst({
       where: {
         date,
         zoneId: zoneId || null,
+        ...companyFilter,
       },
     });
 

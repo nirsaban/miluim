@@ -87,6 +87,7 @@ export const LOGISTICS_ALLOWED_ADMIN_CONTENT_ITEMS = [
 
 // Role hierarchy level for comparison (higher = more permissions)
 export const ROLE_HIERARCHY_LEVEL: Record<UserRole, number> = {
+  BATTALION_ADMIN: 200,
   SYSTEM_TECHNICAL: 100,
   ADMIN: 100,
   LOGISTICS: 50,
@@ -126,6 +127,12 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'הגדרות מערכת',
     'ייבוא נתונים',
   ],
+  BATTALION_ADMIN: [
+    'גישה חוצת פלוגות',
+    'יצירת פלוגות ומנהלים',
+    'סקירת נוכחות ויציאות',
+    'סקירת כח אדם',
+  ],
   SYSTEM_TECHNICAL: [
     'גישה מלאה למערכת',
     'ניהול בסיס נתונים',
@@ -135,7 +142,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
 
 // Helper to check if user can access a specific permission level
 export function canAccessRole(userRole: UserRole, requiredRole: UserRole): boolean {
-  if (userRole === 'ADMIN' || userRole === 'SYSTEM_TECHNICAL') return true;
+  if (userRole === 'ADMIN' || userRole === 'SYSTEM_TECHNICAL' || userRole === 'BATTALION_ADMIN') return true;
   return ROLE_HIERARCHY_LEVEL[userRole] >= ROLE_HIERARCHY_LEVEL[requiredRole];
 }
 
@@ -154,6 +161,37 @@ export interface Department {
   updatedAt?: string;
 }
 
+export interface Battalion {
+  id: string;
+  name: string;
+  description?: string;
+  isActive: boolean;
+  companies?: Company[];
+  _count?: {
+    companies: number;
+    admins: number;
+  };
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Company {
+  id: string;
+  battalionId: string;
+  battalion?: { id: string; name: string };
+  name: string;
+  code: string;
+  description?: string;
+  isActive: boolean;
+  departments?: Department[];
+  _count?: {
+    users: number;
+    departments: number;
+  };
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface User {
   id: string;
   personalId?: string;
@@ -164,6 +202,9 @@ export interface User {
   militaryRole?: MilitaryRole;
   department?: Department;
   departmentId?: string;
+  companyId?: string;
+  company?: Company;
+  battalionId?: string;
   armyNumber: string;
   idNumber?: string;
   dailyJob?: string;
@@ -176,7 +217,7 @@ export interface User {
   createdAt: string;
 }
 
-export type UserRole = 'SOLDIER' | 'COMMANDER' | 'OFFICER' | 'LOGISTICS' | 'ADMIN' | 'SYSTEM_TECHNICAL';
+export type UserRole = 'SOLDIER' | 'COMMANDER' | 'OFFICER' | 'LOGISTICS' | 'ADMIN' | 'BATTALION_ADMIN' | 'SYSTEM_TECHNICAL';
 
 // User role labels - SYSTEM_TECHNICAL intentionally excluded to hide from UI
 export const USER_ROLE_LABELS: Record<Exclude<UserRole, 'SYSTEM_TECHNICAL'>, string> = {
@@ -185,10 +226,11 @@ export const USER_ROLE_LABELS: Record<Exclude<UserRole, 'SYSTEM_TECHNICAL'>, str
   OFFICER: 'קצין',
   LOGISTICS: 'לוגיסטיקה',
   ADMIN: 'מנהל',
+  BATTALION_ADMIN: 'מנהל גדוד',
 };
 
-// Visible roles for UI dropdowns (excludes SYSTEM_TECHNICAL)
-export const VISIBLE_USER_ROLES: Exclude<UserRole, 'SYSTEM_TECHNICAL'>[] = [
+// Visible roles for UI dropdowns (excludes SYSTEM_TECHNICAL and BATTALION_ADMIN)
+export const VISIBLE_USER_ROLES: Exclude<UserRole, 'SYSTEM_TECHNICAL' | 'BATTALION_ADMIN'>[] = [
   'SOLDIER', 'COMMANDER', 'OFFICER', 'LOGISTICS', 'ADMIN'
 ];
 
@@ -412,6 +454,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   OFFICER: 'קצין',
   LOGISTICS: 'לוגיסטיקה',
   ADMIN: 'מנהל מערכת',
+  BATTALION_ADMIN: 'מנהל גדוד',
   SYSTEM_TECHNICAL: 'מערכת טכני',
 };
 
@@ -657,6 +700,8 @@ export interface ReserveServiceCycle {
   startDate: string;
   endDate?: string;
   location?: string;
+  locationLat?: number;
+  locationLng?: number;
   status: ReserveServiceCycleStatus;
   createdById: string;
   createdBy?: {

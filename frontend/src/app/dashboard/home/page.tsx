@@ -12,7 +12,7 @@ import { UserLayout } from '@/components/layout/UserLayout';
 import { Card, CardHeader, CardContent } from '@/components/ui/Card';
 import { Spinner } from '@/components/ui/Spinner';
 import { Button } from '@/components/ui/Button';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth, useIsBattalionAdmin } from '@/hooks/useAuth';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import api from '@/lib/api';
 import { MILITARY_ROLE_LABELS, MilitaryRole, MessageTargetAudience, ShiftType, SHIFT_TYPE_LABELS, ReserveServiceCycle, ServiceAttendance, MessageType, MESSAGE_TYPE_LABELS } from '@/types';
@@ -267,7 +267,15 @@ function useCarousel(itemCount: number, autoSlideInterval = 5000) {
 export default function HomePage() {
   const router = useRouter();
   const { user, isAuthenticated, isHydrated } = useAuth();
+  const isBattalionAdmin = useIsBattalionAdmin();
   const queryClient = useQueryClient();
+
+  // BATTALION_ADMIN should never see the regular home — redirect to battalion dashboard
+  useEffect(() => {
+    if (isHydrated && isBattalionAdmin) {
+      router.replace('/battalion');
+    }
+  }, [isHydrated, isBattalionAdmin, router]);
 
   // PWA install prompt
   const { showPrompt: showPWAPrompt, closePrompt: closePWAPrompt } = usePWAInstall();

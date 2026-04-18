@@ -4,17 +4,21 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { LogOut, User, Settings, Menu, X, Users, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
-import { useAuth, useIsFullAdmin, useIsSystemTech } from '@/hooks/useAuth';
+import { useAuth, useIsFullAdmin, useIsSystemTech, useIsBattalionAdmin } from '@/hooks/useAuth';
 
 export function Header() {
   const router = useRouter();
   const { user, logout } = useAuth();
   const isFullAdmin = useIsFullAdmin();
   const isSystemTech = useIsSystemTech();
+  const isBattalionAdmin = useIsBattalionAdmin();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Show admin link for ADMIN, LOGISTICS, and admin-level military roles (not OFFICER)
-  const showAdminLink = isFullAdmin || user?.role === 'LOGISTICS';
+  // Show battalion link for BATTALION_ADMIN and SYSTEM_TECHNICAL
+  const showBattalionLink = isBattalionAdmin || isSystemTech;
+
+  // Show admin link for ADMIN, LOGISTICS, and admin-level military roles (not OFFICER, not BATTALION_ADMIN)
+  const showAdminLink = (isFullAdmin && !isBattalionAdmin) || user?.role === 'LOGISTICS';
 
   // Show department link for OFFICER role
   const showDepartmentLink = user?.role === 'OFFICER';
@@ -28,7 +32,7 @@ export function Header() {
     <header className="bg-military-700 text-white shadow-lg sticky top-0 z-50">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-14 sm:h-16">
-          <Link href="/dashboard/home" className="flex items-center">
+          <Link href={isBattalionAdmin ? '/battalion' : '/dashboard/home'} className="flex items-center">
             <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full overflow-hidden bg-white">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -41,7 +45,7 @@ export function Header() {
 
           <nav className="hidden md:flex items-center gap-6">
             <Link
-              href="/dashboard/home"
+              href={isBattalionAdmin ? '/battalion' : '/dashboard/home'}
               className="hover:text-military-200 transition-colors"
             >
               ראשי
@@ -53,6 +57,15 @@ export function Header() {
               >
                 <Users className="w-4 h-4" />
                 המחלקה שלי
+              </Link>
+            )}
+            {showBattalionLink && (
+              <Link
+                href="/battalion"
+                className="hover:text-military-200 transition-colors flex items-center gap-1"
+              >
+                <Settings className="w-4 h-4" />
+                ניהול גדוד
               </Link>
             )}
             {showAdminLink && (
@@ -123,7 +136,7 @@ export function Header() {
           <div className="md:hidden py-4 border-t border-military-600">
             <nav className="flex flex-col gap-2">
               <Link
-                href="/dashboard/home"
+                href={isBattalionAdmin ? '/battalion' : '/dashboard/home'}
                 className="px-4 py-2 hover:bg-military-600 rounded-lg transition-colors"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
@@ -137,6 +150,16 @@ export function Header() {
                 >
                   <Users className="w-4 h-4" />
                   המחלקה שלי
+                </Link>
+              )}
+              {showBattalionLink && (
+                <Link
+                  href="/battalion"
+                  className="px-4 py-2 hover:bg-military-600 rounded-lg transition-colors flex items-center gap-2"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <Settings className="w-4 h-4" />
+                  ניהול גדוד
                 </Link>
               )}
               {showAdminLink && (

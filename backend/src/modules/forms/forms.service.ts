@@ -3,6 +3,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { FormType, FormStatus } from '@prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
 import { EmailService } from '../../email/email.service';
+import { CompanyScopeService, CompanyScopedUser } from '../../common/services/company-scope.service';
 
 const FORM_TYPE_LABELS: Record<FormType, string> = {
   SHORT_LEAVE: 'בקשת יציאה קצרה',
@@ -20,11 +21,15 @@ export class FormsService {
     @Inject(forwardRef(() => NotificationsService))
     private notificationsService: NotificationsService,
     private emailService: EmailService,
+    private companyScopeService: CompanyScopeService,
   ) {}
 
-  async findAll(status?: FormStatus) {
+  async findAll(status?: FormStatus, user?: CompanyScopedUser) {
     return this.prisma.formSubmission.findMany({
-      where: status ? { status } : undefined,
+      where: {
+        ...(status ? { status } : {}),
+        ...(user ? this.companyScopeService.getCompanyFilter(user) : {}),
+      },
       include: {
         user: {
           select: {

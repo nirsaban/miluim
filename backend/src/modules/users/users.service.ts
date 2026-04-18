@@ -3,14 +3,21 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { UserRole, MilitaryRole } from '@prisma/client';
 import { CreatePreapprovedUserDto } from './dto';
 import { getIsraelTodayStart, getIsraelTomorrowStart, isIsraelToday, isAfterIsraelToday, getCurrentIsraelTime, getDateString, getTodayIsraelString } from '../../common/utils/timezone';
+import { CompanyScopeService, CompanyScopedUser } from '../../common/services/company-scope.service';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private companyScopeService: CompanyScopeService,
+  ) {}
 
-  async findAll() {
+  async findAll(user?: CompanyScopedUser) {
     return this.prisma.user.findMany({
-      where: { isActive: true },
+      where: {
+        isActive: true,
+        ...(user ? this.companyScopeService.getCompanyFilter(user) : {}),
+      },
       select: {
         id: true,
         fullName: true,
@@ -60,10 +67,11 @@ export class UsersService {
     return user;
   }
 
-  async findContacts() {
+  async findContacts(user?: CompanyScopedUser) {
     return this.prisma.user.findMany({
       where: {
         isActive: true,
+        ...(user ? this.companyScopeService.getCompanyFilter(user) : {}),
       },
       select: {
         id: true,
@@ -110,9 +118,12 @@ export class UsersService {
     return user;
   }
 
-  async findAllSoldiersWithSkills() {
+  async findAllSoldiersWithSkills(user?: CompanyScopedUser) {
     return this.prisma.user.findMany({
-      where: { isActive: true },
+      where: {
+        isActive: true,
+        ...(user ? this.companyScopeService.getCompanyFilter(user) : {}),
+      },
       select: {
         id: true,
         fullName: true,
@@ -269,9 +280,12 @@ export class UsersService {
 
   // Pre-approved users management
 
-  async findAllPreapprovedUsers() {
+  async findAllPreapprovedUsers(user?: CompanyScopedUser) {
     return this.prisma.user.findMany({
-      where: { isActive: true },
+      where: {
+        isActive: true,
+        ...(user ? this.companyScopeService.getCompanyFilter(user) : {}),
+      },
       select: {
         id: true,
         personalId: true,
@@ -294,7 +308,7 @@ export class UsersService {
     });
   }
 
-  async createPreapprovedUser(dto: CreatePreapprovedUserDto) {
+  async createPreapprovedUser(dto: CreatePreapprovedUserDto, user?: CompanyScopedUser) {
     // Check if personalId already exists
     const existing = await this.prisma.user.findUnique({
       where: { personalId: dto.personalId },
@@ -317,7 +331,7 @@ export class UsersService {
     const legacyRole = this.mapMilitaryRoleToLegacyRole(dto.militaryRole);
 
     // Create pre-approved user
-    const user = await this.prisma.user.create({
+    const createdUser = await this.prisma.user.create({
       data: {
         personalId: dto.personalId,
         fullName: dto.fullName,
@@ -335,6 +349,8 @@ export class UsersService {
         // Legacy fields
         role: legacyRole,
         armyNumber: dto.personalId,
+        // Company scoping
+        ...(user?.companyId ? { companyId: user.companyId } : {}),
       },
       select: {
         id: true,
@@ -354,7 +370,7 @@ export class UsersService {
       },
     });
 
-    return user;
+    return createdUser;
   }
 
   async deletePreapprovedUser(id: string) {
@@ -676,7 +692,7 @@ export class UsersService {
 
   // Department view for OFFICER role
 
-  async getDepartmentSoldiers(userId: string) {
+  async getDepartmentSoldiers(userId: string, scopedUser?: CompanyScopedUser) {
     // Get the user's department
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -692,6 +708,7 @@ export class UsersService {
       where: {
         isActive: true,
         departmentId: user.departmentId,
+        ...(scopedUser ? this.companyScopeService.getCompanyFilter(scopedUser) : {}),
       },
       select: {
         id: true,
@@ -707,7 +724,7 @@ export class UsersService {
     });
   }
 
-  async getDepartmentAnalytics(userId: string) {
+  async getDepartmentAnalytics(userId: string, scopedUser?: CompanyScopedUser) {
     // Get the user's department
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -730,6 +747,7 @@ export class UsersService {
       where: {
         isActive: true,
         departmentId,
+        ...(scopedUser ? this.companyScopeService.getCompanyFilter(scopedUser) : {}),
       },
     });
 
@@ -820,7 +838,7 @@ export class UsersService {
     };
   }
 
-  async getDepartmentSoldiersWithStatus(userId: string) {
+  async getDepartmentSoldiersWithStatus(userId: string, scopedUser?: CompanyScopedUser) {
     // Get the user's department
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -843,6 +861,7 @@ export class UsersService {
       where: {
         isActive: true,
         departmentId,
+        ...(scopedUser ? this.companyScopeService.getCompanyFilter(scopedUser) : {}),
       },
       select: {
         id: true,
@@ -887,7 +906,7 @@ export class UsersService {
   /**
    * Get comprehensive department statistics for officer dashboard
    */
-  async getDepartmentComprehensiveStats(userId: string) {
+  async getDepartmentComprehensiveStats(userId: string, scopedUser?: CompanyScopedUser) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -904,7 +923,11 @@ export class UsersService {
 
     // Get all department users
     const departmentUsers = await this.prisma.user.findMany({
-      where: { isActive: true, departmentId },
+      where: {
+        isActive: true,
+        departmentId,
+        ...(scopedUser ? this.companyScopeService.getCompanyFilter(scopedUser) : {}),
+      },
       select: { id: true },
     });
     const userIds = departmentUsers.map(u => u.id);
@@ -1073,6 +1096,7 @@ export class UsersService {
       fromDate?: string;
       toDate?: string;
     } = {},
+    scopedUser?: CompanyScopedUser,
   ) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -1085,7 +1109,11 @@ export class UsersService {
 
     // Get department user IDs
     const departmentUsers = await this.prisma.user.findMany({
-      where: { isActive: true, departmentId: user.departmentId },
+      where: {
+        isActive: true,
+        departmentId: user.departmentId,
+        ...(scopedUser ? this.companyScopeService.getCompanyFilter(scopedUser) : {}),
+      },
       select: { id: true },
     });
     const userIds = departmentUsers.map(u => u.id);
@@ -1128,7 +1156,7 @@ export class UsersService {
   /**
    * Get department messages history (sent by officers in this department)
    */
-  async getDepartmentMessages(userId: string) {
+  async getDepartmentMessages(userId: string, scopedUser?: CompanyScopedUser) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { departmentId: true },
@@ -1142,6 +1170,7 @@ export class UsersService {
       where: {
         departmentId: user.departmentId,
         isActive: true,
+        ...(scopedUser ? this.companyScopeService.getCompanyFilter(scopedUser) : {}),
       },
       include: {
         createdBy: { select: { id: true, fullName: true } },

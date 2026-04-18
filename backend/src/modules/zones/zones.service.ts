@@ -1,13 +1,17 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { CompanyScopeService, CompanyScopedUser } from '../../common/services/company-scope.service';
 
 @Injectable()
 export class ZonesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private companyScopeService: CompanyScopeService,
+  ) {}
 
-  async findAll() {
+  async findAll(user?: CompanyScopedUser) {
     return this.prisma.zone.findMany({
-      where: { isActive: true },
+      where: { isActive: true, ...(user ? this.companyScopeService.getCompanyFilter(user) : {}) },
       orderBy: { name: 'asc' },
     });
   }
@@ -45,8 +49,8 @@ export class ZonesService {
     return zone;
   }
 
-  async create(data: { name: string; description?: string }) {
-    const existing = await this.prisma.zone.findUnique({
+  async create(data: { name: string; description?: string }, user?: CompanyScopedUser) {
+    const existing = await this.prisma.zone.findFirst({
       where: { name: data.name },
     });
 
@@ -58,6 +62,7 @@ export class ZonesService {
       data: {
         name: data.name,
         description: data.description,
+        ...(user?.companyId ? { companyId: user.companyId } : {}),
       },
     });
   }
@@ -70,7 +75,7 @@ export class ZonesService {
     }
 
     if (data.name && data.name !== zone.name) {
-      const existing = await this.prisma.zone.findUnique({
+      const existing = await this.prisma.zone.findFirst({
         where: { name: data.name },
       });
       if (existing) {

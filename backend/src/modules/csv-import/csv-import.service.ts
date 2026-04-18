@@ -85,7 +85,7 @@ export class CsvImportService {
       }
 
       // Check if department exists
-      const department = await this.prisma.department.findUnique({
+      const department = await this.prisma.department.findFirst({
         where: { code: row.departmentCode.trim() },
       });
 
@@ -117,7 +117,7 @@ export class CsvImportService {
     for (const row of rows) {
       try {
         // Find department
-        const department = await this.prisma.department.findUnique({
+        const department = await this.prisma.department.findFirst({
           where: { code: row.departmentCode },
         });
 

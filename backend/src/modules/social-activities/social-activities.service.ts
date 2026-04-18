@@ -2,12 +2,14 @@ import { Injectable, NotFoundException, ForbiddenException, BadRequestException 
 import { PrismaService } from '../../prisma/prisma.service';
 import { PushService } from '../push/push.service';
 import { SocialActivityStatus, ParticipantStatus } from '@prisma/client';
+import { CompanyScopeService, CompanyScopedUser } from '../../common/services/company-scope.service';
 
 @Injectable()
 export class SocialActivitiesService {
   constructor(
     private prisma: PrismaService,
     private pushService: PushService,
+    private companyScopeService: CompanyScopeService,
   ) {}
 
   /**
@@ -23,6 +25,7 @@ export class SocialActivitiesService {
       maxParticipants?: number;
     },
     creatorId: string,
+    user?: CompanyScopedUser,
   ) {
     const activity = await this.prisma.socialActivity.create({
       data: {
@@ -33,6 +36,7 @@ export class SocialActivitiesService {
         endTime: data.endTime,
         maxParticipants: data.maxParticipants,
         createdById: creatorId,
+        ...(user?.companyId && { companyId: user.companyId }),
       },
       include: {
         createdBy: {
@@ -56,11 +60,13 @@ export class SocialActivitiesService {
   /**
    * Get all active activities (DESC by startTime)
    */
-  async findAll() {
+  async findAll(user?: CompanyScopedUser) {
+    const companyFilter = user ? this.companyScopeService.getCompanyFilter(user) : {};
     return this.prisma.socialActivity.findMany({
       where: {
         status: { in: [SocialActivityStatus.OPEN, SocialActivityStatus.IN_PROGRESS] },
         startTime: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }, // Include activities from last 24h
+        ...companyFilter,
       },
       include: {
         createdBy: {

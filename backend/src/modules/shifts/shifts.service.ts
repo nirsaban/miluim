@@ -1,13 +1,20 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ShiftType } from '@prisma/client';
+import { CompanyScopeService, CompanyScopedUser } from '../../common/services/company-scope.service';
 
 @Injectable()
 export class ShiftsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private companyScopeService: CompanyScopeService,
+  ) {}
 
-  async findAll() {
+  async findAll(user?: CompanyScopedUser) {
     return this.prisma.shiftPost.findMany({
+      where: {
+        ...(user ? this.companyScopeService.getCompanyFilter(user) : {}),
+      },
       include: {
         createdBy: {
           select: {
@@ -61,7 +68,7 @@ export class ShiftsService {
     message?: string;
     imageUrl?: string;
     createdById: string;
-  }) {
+  }, user?: CompanyScopedUser) {
     return this.prisma.shiftPost.create({
       data: {
         date: data.date,
@@ -69,6 +76,7 @@ export class ShiftsService {
         message: data.message,
         imageUrl: data.imageUrl,
         createdById: data.createdById,
+        ...(user?.companyId ? { companyId: user.companyId } : {}),
       },
       include: {
         createdBy: {

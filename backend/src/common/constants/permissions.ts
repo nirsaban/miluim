@@ -72,6 +72,7 @@ export function isDutyOfficer(militaryRole: MilitaryRole): boolean {
  * Role hierarchy level for comparison (higher = more permissions)
  */
 export const ROLE_HIERARCHY_LEVEL: Record<UserRole, number> = {
+  BATTALION_ADMIN: 200,
   SYSTEM_TECHNICAL: 100,
   ADMIN: 100,
   LOGISTICS: 50,
@@ -84,7 +85,7 @@ export const ROLE_HIERARCHY_LEVEL: Record<UserRole, number> = {
  * Check if a user role meets the minimum required role
  */
 export function isAtLeastRole(userRole: UserRole, requiredRole: UserRole): boolean {
-  if (userRole === 'ADMIN' || userRole === 'SYSTEM_TECHNICAL') return true;
+  if (userRole === 'ADMIN' || userRole === 'SYSTEM_TECHNICAL' || userRole === 'BATTALION_ADMIN') return true;
   return ROLE_HIERARCHY_LEVEL[userRole] >= ROLE_HIERARCHY_LEVEL[requiredRole];
 }
 
