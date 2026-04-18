@@ -2,7 +2,6 @@
 
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
-import dynamic from 'next/dynamic';
 import { BattalionLayout } from '@/components/layout/BattalionLayout';
 import { Card } from '@/components/ui/Card';
 import { Spinner } from '@/components/ui/Spinner';
@@ -10,11 +9,7 @@ import api from '@/lib/api';
 import { queryKeys } from '@/lib/queryKeys';
 import { Building2, Users, Calendar, FileText, Map } from 'lucide-react';
 
-// Dynamic import to avoid SSR issues
-const IsraelMap = dynamic(
-  () => import('@/components/battalion/IsraelMap').then((m) => m.IsraelMap),
-  { ssr: false, loading: () => <div className="h-[400px] bg-gray-100 rounded-lg flex items-center justify-center"><span className="text-gray-400">טוען מפה...</span></div> },
-);
+import { IsraelMap } from '@/components/battalion/IsraelMap';
 
 export default function BattalionOverviewPage() {
   const { data: overview, isLoading } = useQuery({

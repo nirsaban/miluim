@@ -11,8 +11,11 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies
-RUN npm config set registry https://registry.npmjs.org/ && \
-    npm install --legacy-peer-deps
+RUN if [ -f package-lock.json ]; then \
+      npm ci; \
+    else \
+      npm install; \
+    fi
 
 # Copy source code
 COPY . .

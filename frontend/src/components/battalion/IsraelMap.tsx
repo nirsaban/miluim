@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
+import { useEffect, useRef } from 'react';
 
 interface MapPoint {
   id: string;
@@ -23,80 +22,73 @@ interface IsraelMapProps {
 }
 
 export function IsraelMap({ points }: IsraelMapProps) {
-  const [MapComponents, setMapComponents] = useState<any>(null);
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<any>(null);
 
   useEffect(() => {
-    // Dynamic import to avoid SSR issues with Leaflet
-    (async () => {
-      const L = await import('leaflet');
-      const RL = await import('react-leaflet');
+    if (!mapRef.current || mapInstanceRef.current) return;
 
-      // Fix default marker icons
-      delete (L.Icon.Default.prototype as any)._getIconUrl;
-      L.Icon.Default.mergeOptions({
-        iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
-        iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+    // Load Leaflet CSS
+    if (!document.querySelector('link[href*="leaflet"]')) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';
+      document.head.appendChild(link);
+    }
+
+    // Load Leaflet JS
+    const loadLeaflet = (): Promise<any> => {
+      if ((window as any).L) return Promise.resolve((window as any).L);
+
+      return new Promise((resolve) => {
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
+        script.onload = () => resolve((window as any).L);
+        document.head.appendChild(script);
+      });
+    };
+
+    loadLeaflet().then((L) => {
+      if (!mapRef.current || mapInstanceRef.current) return;
+
+      const map = L.map(mapRef.current).setView([31.5, 34.8], 7);
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap',
+      }).addTo(map);
+
+      points.forEach((point) => {
+        const marker = L.marker([point.locationLat, point.locationLng]).addTo(map);
+        marker.bindPopup(`
+          <div style="text-align:right; direction:rtl; min-width:160px;">
+            <div style="font-weight:bold; margin-bottom:4px;">${point.company.name}</div>
+            <div style="font-size:12px; color:#666; margin-bottom:4px;">${point.name}</div>
+            <div style="font-size:11px; color:#999; margin-bottom:6px;">
+              📍 ${point.location} &bull; ${point._count?.attendances || 0} חיילים
+            </div>
+            <a href="/battalion/companies/${point.company.id}"
+               style="font-size:12px; color:#2563eb; text-decoration:none; font-weight:500;">
+              צפה בפלוגה ←
+            </a>
+          </div>
+        `);
       });
 
-      setMapComponents({ L, ...RL });
-    })();
-  }, []);
+      mapInstanceRef.current = map;
+    });
 
-  if (!MapComponents) {
-    return (
-      <div className="h-[400px] bg-gray-100 rounded-lg flex items-center justify-center">
-        <span className="text-gray-400">טוען מפה...</span>
-      </div>
-    );
-  }
-
-  const { MapContainer, TileLayer, Marker, Popup } = MapComponents;
-
-  // Israel center
-  const center: [number, number] = [31.5, 34.8];
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
+  }, [points]);
 
   return (
-    <>
-      <link
-        rel="stylesheet"
-        href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"
-      />
-      <div className="h-[400px] rounded-lg overflow-hidden border border-gray-200">
-        <MapContainer
-          center={center}
-          zoom={7}
-          style={{ height: '100%', width: '100%' }}
-          scrollWheelZoom={true}
-        >
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
-          {points.map((point) => (
-            <Marker
-              key={point.id}
-              position={[point.locationLat, point.locationLng]}
-            >
-              <Popup>
-                <div className="text-right min-w-[180px]" dir="rtl">
-                  <div className="font-bold text-sm mb-1">{point.company.name}</div>
-                  <div className="text-xs text-gray-600 mb-1">{point.name}</div>
-                  <div className="text-xs text-gray-500 mb-2">
-                    📍 {point.location} &bull; {point._count?.attendances || 0} חיילים
-                  </div>
-                  <Link
-                    href={`/battalion/companies/${point.company.id}`}
-                    className="text-xs text-blue-600 hover:underline font-medium"
-                  >
-                    צפה בפלוגה &larr;
-                  </Link>
-                </div>
-              </Popup>
-            </Marker>
-          ))}
-        </MapContainer>
-      </div>
-    </>
+    <div
+      ref={mapRef}
+      className="h-[400px] rounded-lg overflow-hidden border border-gray-200"
+    />
   );
 }
