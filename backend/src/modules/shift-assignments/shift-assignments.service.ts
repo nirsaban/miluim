@@ -467,11 +467,13 @@ export class ShiftAssignmentsService {
   // ACTIVE SHIFT MANAGEMENT
   // ============================================================
 
-  async getTodayActiveShifts(zoneId?: string) {
+  async getTodayActiveShifts(zoneId?: string, user?: CompanyScopedUser) {
     const today = getIsraelTodayStart();
+    const companyFilter = user ? this.companyScopeService.getCompanyFilter(user) : {};
 
     const where: any = {
       date: today,
+      soldier: companyFilter.companyId ? { companyId: companyFilter.companyId } : undefined,
     };
 
     if (zoneId) {
@@ -484,6 +486,7 @@ export class ShiftAssignmentsService {
         date: today,
         zoneId: zoneId || null,
         status: 'PUBLISHED',
+        ...companyFilter,
       },
       include: {
         shiftOfficer: {

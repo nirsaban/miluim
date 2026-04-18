@@ -36,9 +36,10 @@ export class ShiftAssignmentsController {
   // ============================================================
 
   @Get('active/today')
-  getTodayActiveShifts(@Query('zoneId') zoneId?: string) {
+  getTodayActiveShifts(@CurrentUser() user: any, @Query('zoneId') zoneId?: string) {
     return this.shiftAssignmentsService.getTodayActiveShifts(
       zoneId && zoneId !== 'undefined' ? zoneId : undefined,
+      user,
     );
   }
 
