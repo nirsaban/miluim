@@ -27,8 +27,10 @@ export class ShiftsService {
     });
   }
 
-  async findLatest(limit: number = 5) {
+  async findLatest(limit: number = 5, user?: CompanyScopedUser) {
+    const companyFilter = user ? this.companyScopeService.getCompanyFilter(user) : {};
     return this.prisma.shiftPost.findMany({
+      where: { ...companyFilter },
       include: {
         createdBy: {
           select: {

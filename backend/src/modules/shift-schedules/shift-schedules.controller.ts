@@ -11,6 +11,7 @@ import { ShiftSchedulesService } from './shift-schedules.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { parseIsraelDate } from '../../common/utils/timezone';
 
 @Controller('shift-schedules')
@@ -20,46 +21,56 @@ export class ShiftSchedulesController {
 
   @Get()
   findByDateRange(
+    @CurrentUser() user: any,
     @Query('startDate') startDate: string,
     @Query('endDate') endDate: string,
     @Query('zoneId') zoneId?: string,
   ) {
-    // Parse date strings as Israel midnight for consistent date handling
     return this.shiftSchedulesService.findByDateRange(
       parseIsraelDate(startDate),
       parseIsraelDate(endDate),
       zoneId && zoneId !== 'undefined' ? zoneId : undefined,
+      user,
     );
   }
 
   @Get('status')
   getScheduleStatus(
+    @CurrentUser() user: any,
     @Query('date') date: string,
     @Query('zoneId') zoneId?: string,
   ) {
     return this.shiftSchedulesService.getScheduleStatus(
       parseIsraelDate(date),
       zoneId && zoneId !== 'undefined' ? zoneId : undefined,
+      user,
     );
   }
 
   @Get('by-date')
   getByDate(
+    @CurrentUser() user: any,
     @Query('date') date: string,
     @Query('zoneId') zoneId?: string,
   ) {
     return this.shiftSchedulesService.findByDate(
       parseIsraelDate(date),
       zoneId && zoneId !== 'undefined' ? zoneId : undefined,
+      user,
     );
   }
 
   @Get('current')
   findOrCreate(
+    @CurrentUser() user: any,
     @Query('date') date: string,
     @Query('zoneId') zoneId?: string,
   ) {
-    return this.shiftSchedulesService.findOrCreate(parseIsraelDate(date), zoneId && zoneId !== 'undefined' ? zoneId : undefined);
+    return this.shiftSchedulesService.findOrCreate(
+      parseIsraelDate(date),
+      zoneId && zoneId !== 'undefined' ? zoneId : undefined,
+      user,
+    );
   }
 
   @Post('publish')

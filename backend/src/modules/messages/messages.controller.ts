@@ -12,23 +12,23 @@ export class MessagesController {
   constructor(private readonly messagesService: MessagesService) {}
 
   @Get()
-  findAll(@Query('type') type?: MessageType) {
-    return this.messagesService.findAll(type);
+  findAll(@CurrentUser() user: any, @Query('type') type?: MessageType) {
+    return this.messagesService.findAll(type, user);
   }
 
   @Get('with-status')
   findAllWithStatus(@CurrentUser() user: any, @Query('type') type?: MessageType) {
-    return this.messagesService.findAllWithConfirmationStatus(user.id, user.role, type);
+    return this.messagesService.findAllWithConfirmationStatus(user.id, user.role, type, user);
   }
 
   @Get('food')
-  findFoodMessages() {
-    return this.messagesService.findByType(MessageType.FOOD_AND_OPERATIONS);
+  findFoodMessages(@CurrentUser() user: any) {
+    return this.messagesService.findByType(MessageType.FOOD_AND_OPERATIONS, user);
   }
 
   @Get('operational')
-  findOperationalMessages() {
-    return this.messagesService.findByType(MessageType.OPERATIONAL);
+  findOperationalMessages(@CurrentUser() user: any) {
+    return this.messagesService.findByType(MessageType.OPERATIONAL, user);
   }
 
   @Get(':id')

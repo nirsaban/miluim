@@ -70,11 +70,12 @@ export class MessagesService {
     return message;
   }
 
-  async findByType(type: MessageType) {
+  async findByType(type: MessageType, user?: CompanyScopedUser) {
     return this.prisma.message.findMany({
       where: {
         type,
         isActive: true,
+        ...(user ? this.companyScopeService.getCompanyFilter(user) : {}),
       },
       orderBy: [
         { priority: 'desc' },

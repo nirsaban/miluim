@@ -14,13 +14,13 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get()
-  findAll() {
-    return this.usersService.findAll();
+  findAll(@CurrentUser() user: any) {
+    return this.usersService.findAll(user);
   }
 
   @Get('contacts')
-  findContacts() {
-    return this.usersService.findContacts();
+  findContacts(@CurrentUser() user: any) {
+    return this.usersService.findContacts(user);
   }
 
   @Public()
@@ -62,8 +62,8 @@ export class UsersController {
   @Get('admin/soldiers')
   @UseGuards(RolesGuard)
   @Roles('ADMIN')
-  findAllSoldiersWithSkills() {
-    return this.usersService.findAllSoldiersWithSkills();
+  findAllSoldiersWithSkills(@CurrentUser() user: any) {
+    return this.usersService.findAllSoldiersWithSkills(user);
   }
 
   @Get(':id/skills')
@@ -118,8 +118,8 @@ export class UsersController {
   @Get('admin/preapproved')
   @UseGuards(RolesGuard)
   @Roles('ADMIN')
-  findAllPreapprovedUsers() {
-    return this.usersService.findAllPreapprovedUsers();
+  findAllPreapprovedUsers(@CurrentUser() user: any) {
+    return this.usersService.findAllPreapprovedUsers(user);
   }
 
   @Post('admin/preapproved')

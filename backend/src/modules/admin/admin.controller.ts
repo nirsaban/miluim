@@ -49,22 +49,21 @@ export class AdminController {
 
   @Get('dashboard')
   @Roles(UserRole.ADMIN, UserRole.OFFICER, UserRole.LOGISTICS)
-  getDashboardStats() {
-    return this.adminService.getDashboardStats();
+  getDashboardStats(@CurrentUser() user: any) {
+    return this.adminService.getDashboardStats(user);
   }
 
   // Messages - ADMIN only (not LOGISTICS or DUTY_OFFICER)
   @Get('messages')
   @Roles(UserRole.ADMIN)
-  getAllMessages() {
-    return this.messagesService.findAll();
+  getAllMessages(@CurrentUser() user: any) {
+    return this.messagesService.findAll(undefined, user);
   }
 
   @Post('messages')
   @Roles(UserRole.ADMIN)
   createMessage(
-    @CurrentUser() user: any,
-    @Body() body: {
+    @CurrentUser() user: any, @Body() body: {
       title: string;
       content: string;
       type?: MessageType;
@@ -73,7 +72,7 @@ export class AdminController {
       requiresConfirmation?: boolean;
     },
   ) {
-    return this.messagesService.create(body, user.id);
+    return this.messagesService.create(body, user.id, user);
   }
 
   @Patch('messages/:id')
@@ -102,8 +101,8 @@ export class AdminController {
   // Shifts - ADMIN and LOGISTICS
   @Get('shifts')
   @Roles(UserRole.ADMIN, UserRole.LOGISTICS)
-  getAllShifts() {
-    return this.shiftsService.findAll();
+  getAllShifts(@CurrentUser() user: any) {
+    return this.shiftsService.findAll(user);
   }
 
   @Post('shifts')
@@ -209,8 +208,8 @@ export class AdminController {
   // Soldier Status - ADMIN only
   @Get('status')
   @Roles(UserRole.ADMIN)
-  getSoldierStatuses() {
-    return this.adminService.getAllUsersWithStatus();
+  getSoldierStatuses(@CurrentUser() user: any) {
+    return this.adminService.getAllUsersWithStatus(user);
   }
 
   @Patch('status/:soldierId')

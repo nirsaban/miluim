@@ -106,11 +106,13 @@ export class ShiftSchedulesService {
     });
   }
 
-  async findByDate(date: Date, zoneId?: string) {
+  async findByDate(date: Date, zoneId?: string, user?: CompanyScopedUser) {
+    const companyFilter = user ? this.companyScopeService.getCompanyFilter(user) : {};
     return this.prisma.shiftSchedule.findFirst({
       where: {
         date,
         zoneId: zoneId || null,
+        ...companyFilter,
       },
       include: {
         zone: true,
@@ -121,11 +123,13 @@ export class ShiftSchedulesService {
     });
   }
 
-  async getScheduleStatus(date: Date, zoneId?: string) {
+  async getScheduleStatus(date: Date, zoneId?: string, user?: CompanyScopedUser) {
+    const companyFilter = user ? this.companyScopeService.getCompanyFilter(user) : {};
     const schedule = await this.prisma.shiftSchedule.findFirst({
       where: {
         date,
         zoneId: zoneId || null,
+        ...companyFilter,
       },
       include: {
         zone: true,

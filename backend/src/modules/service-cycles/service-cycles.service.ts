@@ -181,9 +181,10 @@ export class ServiceCyclesService {
       return null;
     }
 
-    // Get all active/registered users count
+    // Get all active/registered users count (scoped to company)
+    const companyFilter = user ? this.companyScopeService.getCompanyFilter(user) : {};
     const totalSoldiers = await this.prisma.user.count({
-      where: { isActive: true, isRegistered: true },
+      where: { isActive: true, isRegistered: true, ...companyFilter },
     });
 
     // Get attendance statistics
@@ -270,9 +271,10 @@ export class ServiceCyclesService {
   }
 
   // Initialize attendance records for all active users when cycle is activated
-  async initializeAttendanceRecords(cycleId: string) {
+  async initializeAttendanceRecords(cycleId: string, user?: CompanyScopedUser) {
+    const companyFilter = user ? this.companyScopeService.getCompanyFilter(user) : {};
     const activeUsers = await this.prisma.user.findMany({
-      where: { isActive: true, isRegistered: true },
+      where: { isActive: true, isRegistered: true, ...companyFilter },
       select: { id: true },
     });
 
