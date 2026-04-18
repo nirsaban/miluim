@@ -98,15 +98,15 @@ export class ServiceCyclesService {
     },
     user?: CompanyScopedUser,
   ) {
-    // Check if another active cycle exists when trying to create an ACTIVE one
-    if (data.status === ReserveServiceCycleStatus.ACTIVE) {
+    // Check if another active cycle exists in the SAME company
+    if (data.status === ReserveServiceCycleStatus.ACTIVE && user?.companyId) {
       const existingActive = await this.prisma.reserveServiceCycle.findFirst({
-        where: { status: ReserveServiceCycleStatus.ACTIVE },
+        where: { status: ReserveServiceCycleStatus.ACTIVE, companyId: user.companyId },
       });
 
       if (existingActive) {
         throw new BadRequestException(
-          'קיים כבר סבב מילואים פעיל. יש לסגור אותו לפני יצירת סבב חדש',
+          'קיים כבר סבב מילואים פעיל בפלוגה. יש לסגור אותו לפני יצירת סבב חדש',
         );
       }
     }
@@ -139,18 +139,20 @@ export class ServiceCyclesService {
       status?: ReserveServiceCycleStatus;
     },
   ) {
-    // Check for existing active cycle when trying to activate
+    // Check for existing active cycle in the same company when trying to activate
     if (data.status === ReserveServiceCycleStatus.ACTIVE) {
+      const cycle = await this.prisma.reserveServiceCycle.findUnique({ where: { id }, select: { companyId: true } });
       const existingActive = await this.prisma.reserveServiceCycle.findFirst({
         where: {
           status: ReserveServiceCycleStatus.ACTIVE,
           NOT: { id },
+          ...(cycle?.companyId ? { companyId: cycle.companyId } : {}),
         },
       });
 
       if (existingActive) {
         throw new BadRequestException(
-          'קיים כבר סבב מילואים פעיל. יש לסגור אותו לפני הפעלת סבב אחר',
+          'קיים כבר סבב מילואים פעיל בפלוגה. יש לסגור אותו לפני הפעלת סבב אחר',
         );
       }
     }
