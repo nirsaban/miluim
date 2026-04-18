@@ -11,7 +11,8 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies
-RUN npm install --legacy-peer-deps
+RUN npm config set registry https://registry.npmjs.org/ && \
+    npm install --legacy-peer-deps
 
 # Copy source code
 COPY . .
