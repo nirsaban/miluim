@@ -21,17 +21,27 @@ done
 
 echo "✅ Database is ready!"
 
-# Run Prisma migrations
-echo "🔄 Running database migrations..."
-if npx prisma migrate deploy; then
-  echo "✅ Migrations completed successfully"
+# Sync database schema
+echo "🔄 Syncing database schema..."
+if npx prisma db push --accept-data-loss; then
+  echo "✅ Schema sync completed successfully"
 else
-  echo "⚠️ Prisma migrate deploy had issues, attempting to continue..."
+  echo "⚠️ Schema sync had issues, attempting to continue..."
 fi
 
 # Generate Prisma client (ensures it matches the schema)
 echo "🔧 Generating Prisma client..."
 npx prisma generate
+
+# Run battalion/company backfill (idempotent — safe to run every startup)
+if [ -f prisma/battalion-backfill.js ]; then
+  echo "🏛️ Running battalion backfill..."
+  if node prisma/battalion-backfill.js; then
+    echo "✅ Battalion backfill completed"
+  else
+    echo "⚠️ Battalion backfill had issues (continuing anyway)"
+  fi
+fi
 
 # Seed database if requested
 if [ "$SEED_DATABASE" = "true" ]; then
