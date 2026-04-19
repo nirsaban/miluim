@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import api from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
+import { Fingerprint, ArrowLeft } from 'lucide-react';
 import {
   checkWebAuthnSupport,
   authenticateWithPasskey,
@@ -41,7 +42,6 @@ export default function LoginPage() {
 
   const personalId = watch('personalId');
 
-  // Check WebAuthn support and user preference on mount
   useEffect(() => {
     async function checkSupport() {
       try {
@@ -53,7 +53,6 @@ export default function LoginPage() {
     }
     checkSupport();
 
-    // Check if user previously preferred password login
     const pref = localStorage.getItem(LOGIN_METHOD_PREF_KEY);
     if (pref === 'password') {
       setShowPasswordForm(true);
@@ -61,8 +60,6 @@ export default function LoginPage() {
     setPrefChecked(true);
   }, []);
 
-  // Redirect if already authenticated
-  // Use replace to prevent back-button redirect loops
   useEffect(() => {
     if (isHydrated && isAuthenticated) {
       router.replace('/dashboard');
@@ -75,12 +72,9 @@ export default function LoginPage() {
       const response = await api.post('/auth/login', data);
 
       if (response.data.success) {
-        // Wait for token to be stored before redirecting
         await login(response.data.user, response.data.token);
         toast.success('התחברת בהצלחה!');
 
-        // Check if user needs to set up passkey
-        // Skip if user prefers password login (they explicitly chose to skip biometric)
         const prefersPassword = localStorage.getItem(LOGIN_METHOD_PREF_KEY) === 'password';
         if (!response.data.user.hasPasskey && webAuthnSupport?.isPlatformAuthenticatorAvailable && !prefersPassword) {
           router.push('/auth/passkey-setup');
@@ -104,11 +98,9 @@ export default function LoginPage() {
 
     setIsPasskeyLoading(true);
     try {
-      // Try discoverable credential flow (no username needed)
       const result = await authenticateWithPasskey();
 
       if (result.success) {
-        // Clear password preference on successful biometric login
         localStorage.removeItem(LOGIN_METHOD_PREF_KEY);
         await login(result.user, result.token);
         toast.success('התחברת בהצלחה!');
@@ -118,14 +110,12 @@ export default function LoginPage() {
       console.error('Passkey login error:', error);
       const message = error.response?.data?.message || error.message || 'שגיאה בהתחברות עם מפתח גישה';
       toast.error(message);
-      // Fall back to showing password form
       setShowPasswordForm(true);
     } finally {
       setIsPasskeyLoading(false);
     }
   };
 
-  // Show loading state while checking hydration and preferences
   if (!isHydrated || !prefChecked) {
     return (
       <AuthLayout>
@@ -136,14 +126,16 @@ export default function LoginPage() {
     );
   }
 
-  // If platform authenticator is available and not showing password form, show passkey-first UI
   const showPasskeyFirst = webAuthnSupport?.isPlatformAuthenticatorAvailable && !showPasswordForm;
 
   return (
     <AuthLayout>
-      <h2 className="text-2xl font-bold text-center text-military-700 mb-6">
+      <h2 className="text-2xl font-bold text-center text-military-700 mb-2">
         התחברות למערכת
       </h2>
+      <p className="text-sm text-gray-500 text-center mb-6">
+        הזן מספר אישי וסיסמה לאימות.
+      </p>
 
       {/* Passkey Login Option */}
       {showPasskeyFirst && (
@@ -155,20 +147,8 @@ export default function LoginPage() {
             isLoading={isPasskeyLoading}
             disabled={isPasskeyLoading}
           >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4"
-              />
-            </svg>
-            {isPasskeyLoading ? 'מאמת...' : 'התחבר עם זיהוי ביומטרי'}
+            <Fingerprint className="w-5 h-5" />
+            {isPasskeyLoading ? 'מאמת...' : 'זיהוי ביומטרי'}
           </Button>
 
           <div className="relative">
@@ -184,7 +164,6 @@ export default function LoginPage() {
             type="button"
             onClick={() => {
               setShowPasswordForm(true);
-              // Remember user's preference for password login
               localStorage.setItem(LOGIN_METHOD_PREF_KEY, 'password');
             }}
             className="w-full text-center text-military-700 hover:underline text-sm"
@@ -202,6 +181,7 @@ export default function LoginPage() {
               label="מספר אישי"
               placeholder="1234567"
               error={errors.personalId?.message}
+              className="font-mono tracking-wider"
               {...register('personalId', {
                 required: 'מספר אישי הוא שדה חובה',
               })}
@@ -218,7 +198,8 @@ export default function LoginPage() {
             />
 
             <Button type="submit" className="w-full" isLoading={isLoading}>
-              התחבר
+              המשך
+              <ArrowLeft className="w-4 h-4" />
             </Button>
           </form>
 
@@ -229,14 +210,11 @@ export default function LoginPage() {
                 type="button"
                 onClick={() => {
                   setShowPasswordForm(false);
-                  // Clear password preference when user wants to try biometric
                   localStorage.removeItem(LOGIN_METHOD_PREF_KEY);
                 }}
-                className="w-full text-center text-military-700 hover:underline text-sm flex items-center justify-center gap-1"
+                className="w-full text-center text-military-700 hover:underline text-sm flex items-center justify-center gap-2"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
+                <Fingerprint className="w-4 h-4" />
                 חזרה להתחברות עם זיהוי ביומטרי
               </button>
             </div>

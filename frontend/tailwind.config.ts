@@ -30,7 +30,11 @@ const config: Config = {
         },
       },
       fontFamily: {
-        sans: ['Rubik', 'Arial', 'sans-serif'],
+        sans: ['var(--font-heebo)', 'var(--font-inter)', 'system-ui', 'sans-serif'],
+        mono: ['var(--font-jetbrains)', 'ui-monospace', 'Menlo', 'monospace'],
+      },
+      fontSize: {
+        '2xs': ['10px', { lineHeight: '1.4' }],
       },
       boxShadow: {
         'card': '0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06)',
