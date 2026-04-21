@@ -98,6 +98,7 @@ services:
       - backend
     networks:
       - yogev-network
+      - amutot-network
     healthcheck:
       test: ["CMD", "nginx", "-t"]
       interval: 30s
@@ -107,6 +108,9 @@ services:
 networks:
   yogev-network:
     driver: bridge
+  amutot-network:
+    external: true
+    name: miltech-association-net
 
 volumes:
   postgres_data:
