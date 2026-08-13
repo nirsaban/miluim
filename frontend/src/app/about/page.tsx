@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { LeadForm } from './LeadForm';
 
 export const metadata: Metadata = {
   title: 'מילטק - העתיד של ניהול המילואים',
@@ -117,15 +118,12 @@ export default function AboutPage() {
       </section>
 
       <section className="border-t border-military-200 bg-military-700">
-        <div className="mx-auto max-w-2xl px-6 py-20 text-center">
+        <div className="mx-auto max-w-lg px-6 py-20 text-center">
           <h2 className="text-3xl font-bold text-white">מוכנים לעבור מגיליון אקסל למערכת אמיתית?</h2>
           <p className="mt-4 text-white/85">נראה לכם איך זה עובד על הפלוגה שלכם, בלי התחייבות.</p>
-          <a
-            href="mailto:hello@geniriflow.com"
-            className="mt-8 inline-flex items-center rounded-full bg-white px-7 py-3 text-sm font-bold text-military-800 transition-transform hover:scale-105"
-          >
-            דברו איתנו
-          </a>
+          <div className="mt-8">
+            <LeadForm />
+          </div>
         </div>
       </section>
 
